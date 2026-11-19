@@ -11,6 +11,8 @@ production security, Linux deployment, and DSM installation are not certified.
 - Multi-file NZB uploads to a private local library; byte-preserving original downloads
 - Inspect subjects, file names, metadata, Usenet groups, segments and sizes
 - Read historical NZB external-DTD declarations without remote DTD requests
+- Search a configured HTTPS Newznab indexer (including NZBPlanet) and import
+  selected NZBs; implemented and fixture-tested, live-provider testing pending
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
@@ -44,6 +46,7 @@ To run regression tests:
 
     D:\php8.5\php.exe tests/run.php
     powershell -File tests/smoke.ps1
+    powershell -File tests/indexer-http.ps1
 
 ## Linux installation
 
@@ -63,6 +66,26 @@ To run regression tests:
 Never store passwords or private data in Git or under public/. The default
 storage location is var/nzb relative to the repository and should be replaced
 with an explicitly private production path.
+
+## Optional Newznab indexer
+
+The indexer module is available at **Indexer Search**. It needs both of these
+server-side PHP-FPM environment variables:
+
+    NZB_INDEXER_URL=https://your-indexer.example/api
+    NZB_INDEXER_API_KEY=your-secret-api-key
+
+Use the complete HTTPS API endpoint, not the website homepage. NZBPlanet is
+Newznab-compatible, but a real account/API key is needed to test its live API.
+The key is never requested by or rendered in the browser. Configure it in the
+PHP runtime environment (for example a protected PHP-FPM pool or service
+configuration); avoid storing it in source files or PHP's public web root.
+
+The indexer uses standard Newznab t=search and t=get requests. It never follows
+arbitrary download URLs supplied by RSS results. Some providers with unusual
+GUID formats or download redirects may require a provider-specific adapter.
+The code has fixture and HTTP configuration tests, **not** a successful live
+search/import certification. See docs/INDEXERS.md.
 
 ## Layout
 
@@ -90,10 +113,11 @@ Synology's official developer guide for the requirements.
 
 ## Functions not yet ported
 
-The historical application also had NZBPlanet search and remote NZB fetching,
+The historical application also had torrent uploads, filesystem scans,
 Synology Download Station submission, PAR2 repair, archive unpacking and
 filesystem operations to rename/merge/move downloads. Those features are
-**not currently available** in the modern application. Old MySQL databases
+**not currently available** in the modern application. Indexer search and
+import are implemented but require live-provider verification. Old MySQL databases
 are not automatically imported. See docs/FEATURE-MATRIX.md for the
 complete parity checklist, docs/ARCHITECTURE.md for extension points, and
 AUDIT.md for the security risks in the archived PHP.

@@ -48,9 +48,9 @@ final class ModuleRegistry
         $registry->register(new ViewModule('library', 'NZB Library', 'Import, inspect and manage NZB documents', 'library', 'index.php'));
         $registry->register(new ViewModule('inspector', 'NZB Inspector', 'Select, examine and export individual file entries', 'inspector', 'index.php?view={id}'));
 
-        // Parity requirements from the 2013 application.
-        // These stay unlinked until their implementations pass regression tests.
-        $registry->register(new ViewModule('indexer', 'Indexer Search', 'Newznab-compatible search and NZB retrieval', null, ''));
+        // Restore historical functionality one module at a time.
+        // Unfinished modules remain unlinked until their behavior is tested.
+        $registry->register(new ViewModule('indexer', 'Indexer Search', 'Newznab-compatible search and NZB retrieval', 'indexer', 'index.php?module=indexer'));
         $registry->register(new ViewModule('download-client', 'Download Clients', 'Download Station and other optional adapters', null, ''));
         $registry->register(new ViewModule('repair', 'PAR2 Repair', 'Verify and repair downloaded files', null, ''));
         $registry->register(new ViewModule('unpack', 'Archive Extraction', 'Extract RAR, ZIP and tar archives', null, ''));

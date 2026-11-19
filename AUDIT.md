@@ -30,7 +30,9 @@ is a separately isolated core; **function parity has not been achieved**.
 - NZB XML parser removes simple historical external DTD declarations before
   parsing, rejects unsafe entity subsets, disables external entities and limits
   documents to 32 MiB and 10,000 entries
-- No shell execution, remote HTTP fetching, archive unpacking or repair workers
+- No shell execution, arbitrary remote URL fetching, archive unpacking or repair workers
+- Optional Newznab HTTPS client uses a configured endpoint, safe DNS/IP checks,
+  no redirects, bounded responses, and does not follow RSS download links
 
 ## Outstanding gaps
 
@@ -38,9 +40,10 @@ is a separately isolated core; **function parity has not been achieved**.
    more coverage, especially authentication, CSRF and multipart uploads.
 2. Linux nginx/Apache + PHP-FPM and TLS deployment must be tested.
 3. MySQL import must be read-only, with migration to an explicit schema.
-4. The complete old workflows must be ported as separately testable modules:
-   NZB indexer search, Download Station adapters, PAR2, archive extraction,
-   rename/move operations and safe background jobs.
+4. The remaining old workflows must be ported as separately testable modules:
+   Download Station adapters, PAR2, archive extraction, rename/move operations
+   and safe background jobs. Newznab search/import is implemented but requires
+   verification with real indexer credentials.
 5. The merged document currently retains header metadata from only its
    first input; define deterministic metadata merge rules.
 6. Improve persistence with transaction-safe metadata, pagination, file

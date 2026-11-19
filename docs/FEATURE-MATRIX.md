@@ -17,8 +17,8 @@ on PHP 8.5.
 | Rename NZB document | Library | **Working** | Renames library label; XML unchanged |
 | Delete NZB documents | Library | **Working** | Only managed private library files |
 | Saved file catalog / hashes / MySQL | Library migration | Not ported | New core stores NZB XML with JSON sidecars |
-| Search NZBPlanet index | Indexer | Not ported | Design Newznab provider interface |
-| Download NZB from indexer | Indexer | Not ported | API credentials and fixed trusted host |
+| Search NZBPlanet index | Indexer | **Implemented; live unverified** | Newznab t=search, RSS fixture tests; requires server credentials |
+| Download NZB from indexer | Indexer | **Implemented; live unverified** | Newznab t=get by trusted ID, imported into managed library |
 | Download Station submission | Download clients | Not ported | Requires DSM API adapter |
 | Filename filters / auto naming options | Settings / Import | Not ported | Modern validated rule definitions |
 | PAR2 scan, verify and repair | Repair | Not ported | Safe background jobs required |
@@ -43,4 +43,4 @@ on PHP 8.5.
 - DSM 7 package automation is introduced **after** feature-complete Linux
   release, using one common application source.
 
-Completed domain test cases: 32. Completed HTTP smoke checks: 9.
+Completed domain test cases: 65. Completed HTTP smoke checks: 15. Live indexer testing remains pending.

@@ -20,13 +20,16 @@
 | src/Modules/ModuleInterface.php | Contract for independently rendered modules |
 | src/Modules/ModuleRegistry.php | Explicit registration and feature availability |
 | src/Modules/ViewModule.php | Template-backed implementations of the interface |
-| src/Modules/LibraryActions.php | Current, isolated POST actions |
+| src/Modules/LibraryActions.php | Library and NZB file POST actions |
+| src/Modules/IndexerActions.php | Search and import requests, short-lived result references |
+| src/Indexers/NewznabClient.php | HTTPS-only Newznab search/get, XML parsing and network limits |
 | src/NzbDocument.php | NZB XML parsing, safe legacy DTD handling, metadata/segments, subset export and merge |
 | src/NzbStorage.php | Private library, opaque identifiers, metadata rename/delete |
 | src/WebSecurity.php | Authentication, headers, session and CSRF checks |
 | views/layout.php | Shared responsive shell and navigation |
 | views/library.php | NZB library module |
 | views/inspector.php | NZB inspector module |
+| views/indexer.php | Search results and importer for configured Newznab endpoint |
 | tests/ | Domain regression and HTTP smoke tests |
 | docs/ | Compatibility matrix and deployment design |
 | current/ | Historical source, never served/executed |
@@ -54,8 +57,9 @@ execution of uploaded modules is deliberately prohibited.
 
 ## Planned services
 
-- Indexers: Newznab-compatible API client, remote NZB acquisition via explicitly
-  configured, validated HTTPS origins; secrets excluded from logs/UI exports.
+- Indexers: Newznab-compatible t=search/t=get client and short-lived search
+  results implemented and fixture-tested. Live-provider certification, multiple
+  provider settings and provider-specific redirects are still outstanding.
 - Download clients: adapter interface for Synology Download Station and
   optional generic downloaders, independent of DSM package deployment.
 - File organization: allowlisted source/destination roots, preview/dry-run,

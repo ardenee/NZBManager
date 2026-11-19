@@ -9,6 +9,8 @@ require dirname(__DIR__) . '/Modules/ViewModule.php';
 require dirname(__DIR__) . '/Modules/ModuleRegistry.php';
 require dirname(__DIR__) . '/Modules/LibraryActions.php';
 require __DIR__ . '/ActionRouter.php';
+require dirname(__DIR__) . '/Indexers/NewznabClient.php';
+require dirname(__DIR__) . '/Modules/IndexerActions.php';
 
 
 use NZB\NzbDocument;
@@ -72,10 +74,9 @@ function message(string $text, string $type = 'success'): void
 }
 
 $viewId = isset($_GET['view']) && is_string($_GET['view']) ? $_GET['view'] : '';
-$actions = (new \NZB\Http\ActionRouter())->register(
-    ['upload', 'delete', 'rename', 'export', 'merge'],
-    [\NZB\Modules\LibraryActions::class, 'dispatch']
-);
+$actions = (new \NZB\Http\ActionRouter())
+    ->register(['upload', 'delete', 'rename', 'export', 'merge'], [\NZB\Modules\LibraryActions::class, 'dispatch'])
+    ->register(['indexer_search', 'indexer_import'], [\NZB\Modules\IndexerActions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);
 
 if (($_GET['download'] ?? '') !== '')
@@ -117,5 +118,17 @@ header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: private, no-store');
 
 $registry = \NZB\Modules\ModuleRegistry::standard();
-$activeModule = $registry->get($entry ? 'inspector' : 'library');
-$moduleContext = compact('entry', 'document', 'summary', 'library', 'flash', 'store');
+$indexerConfigured = false;
+$indexerError = null;
+try
+{
+    $indexerConfigured = \NZB\Indexers\NewznabClient::fromEnvironment() !== null;
+}
+catch (RuntimeException $error)
+{
+    $indexerError = $error->getMessage();
+}
+$indexerSearch = $indexerConfigured ? \NZB\Modules\IndexerActions::recentSearch() : null;
+$moduleName = (($_GET['module'] ?? null) === 'indexer') ? 'indexer' : ($entry ? 'inspector' : 'library');
+$activeModule = $registry->get($moduleName);
+$moduleContext = compact('entry', 'document', 'summary', 'library', 'flash', 'store', 'indexerConfigured', 'indexerError', 'indexerSearch');

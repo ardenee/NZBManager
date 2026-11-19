@@ -29,6 +29,11 @@ nav { display: grid; gap: 5px; }
 .upcoming-list { display: grid; gap: 3px; }
 .upcoming-module { padding: 8px 14px; color: #a3b0c5; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
 .upcoming-module small { border: 1px solid #38465f; color: #7e8ea9; padding: 1px 5px; border-radius: 4px; font-size: 9px; }
+.indexer-search-form { display: flex; gap: 10px; padding: 0 24px 24px; }
+.indexer-search-form input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #d9e1ec; border-radius: 7px; outline-color: #7b92e9; }
+.configuration-help { padding: 0 25px 25px; display: grid; gap: 16px; }
+.config-lines { display: grid; gap: 8px; }
+.config-lines code { display: block; padding: 10px 13px; color: #425a7b; background: #f7f9fd; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
 .rename-panel { margin-top: -9px; }
 .rename-panel .panel-heading { flex-wrap: wrap; }
 .rename-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -125,5 +130,7 @@ footer { color: #98a3b6; text-align: center; font-size: 11px; padding: 8px 0; }
   .panel-heading { padding: 17px; }
   .upload-form { padding: 0 17px 17px; }
   .search { width: 100%; }
+  .indexer-search-form { padding: 0 17px 17px; flex-wrap: wrap; }
+  .configuration-help { padding: 0 17px 17px; }
   .toolbar { padding: 0 17px 15px; }
 }
