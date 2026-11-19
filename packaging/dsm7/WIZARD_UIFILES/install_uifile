@@ -1,0 +1,21 @@
+[
+  {
+    "step_title": "NZB Manager administrator login",
+    "items": [
+      {
+        "type": "password",
+        "desc": "Choose a password for NZB Manager. The login username will be admin.",
+        "subitems": [
+          {
+            "key": "wizard_nzb_password",
+            "desc": "Administrator password (minimum 12 characters)",
+            "validator": {
+              "allowBlank": false,
+              "minLength": 12
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

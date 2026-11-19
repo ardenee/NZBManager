@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+# Persistent data stays under package var; DSM manages data removal.
+exit 0

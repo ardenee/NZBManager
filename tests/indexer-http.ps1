@@ -16,7 +16,7 @@ $server = Start-Process -FilePath $php -ArgumentList @('-S', '127.0.0.1:18923', 
 try
 {
     Start-Sleep -Milliseconds 1400
-    $auth = "dev:$secret"
+    $auth = "admin:$secret"
     $page = (& curl.exe -s -c $cookie -b $cookie -u $auth ($url + '?module=indexer')) -join [Environment]::NewLine
     if ($page -notmatch 'Search releases' -or $page -notmatch 'indexer_search') { throw 'Configured indexer UI missing' }
     Write-Output 'PASS Configured indexer search form renders'

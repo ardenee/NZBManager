@@ -111,4 +111,5 @@ expectFailure(static fn () => $router->register(['example'], static function ():
 require __DIR__ . '/indexer.php';
 require __DIR__ . '/providers.php';
 require __DIR__ . '/binsearch.php';
+require __DIR__ . '/download-station.php';
 echo 'All ' . $checks . ' assertions passed.' . PHP_EOL;

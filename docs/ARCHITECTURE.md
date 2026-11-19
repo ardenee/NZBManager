@@ -23,6 +23,9 @@
 | src/Modules/LibraryActions.php | Library and NZB file POST actions |
 | src/Modules/IndexerActions.php | Search and import requests, short-lived result references |
 | src/Modules/BinsearchActions.php | Binsearch search and secure selected-NZB generation |
+| src/Modules/DownloadStationActions.php | Optional task submission and detected-service visibility |
+| src/DownloadClients/DownloadStationClient.php | DSM task API discovery, scoped authentication, NZB upload and logout |
+| src/AppConfig.php | Runtime settings and protected DSM auth hash loading |
 | src/Indexers/NewznabClient.php | HTTPS-only Newznab search/get, XML parsing and network limits |
 | src/Indexers/ProviderCatalog.php | Shared Newznab provider presets, including special API paths |
 | src/Indexers/IndexerConnections.php | Multi-indexer server settings and public name-only listing |
@@ -69,10 +72,10 @@ execution of uploaded modules is deliberately prohibited.
 - Binsearch: HTML-based search and selected NZB generation have separate,
   fixed-origin code and have passed live testing; parser maintenance and
   pagination remain outstanding.
-- Download clients: separate adapters are planned for Synology Download
-  Station and other downloaders. The DSM module must remain disabled until
-  an installed and authorized Download Station API is verified; this is
-  independent of DSM package deployment.
+- Download clients: Synology Download Station adapter has API discovery,
+  scoped authentication and NZB upload, with fixture tests. The UI is hidden
+  unless the service can be discovered. Real NAS tests remain outstanding.
+  Generic downloaders are not yet implemented.
 - File organization: allowlisted source/destination roots, preview/dry-run,
   collision policy, audit records, symlink boundaries, explicit confirmations.
 - PAR2 and archive tools: background job queue, fixed executable allowlist,

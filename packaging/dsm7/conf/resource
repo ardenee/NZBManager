@@ -1,0 +1,49 @@
+{
+  "webservice": {
+    "services": [
+      {
+        "service": "nzbmanager",
+        "display_name": "NZB Manager",
+        "support_alias": true,
+        "support_server": true,
+        "type": "nginx_php",
+        "root": "nzbmanager/public",
+        "index": ["index.php"],
+        "php": {
+          "profile_name": "NZB Manager PHP",
+          "profile_desc": "PHP 8.2 profile for NZB Manager",
+          "backend": 10,
+          "open_basedir": "/var/services/web_packages/nzbmanager:/var/packages/nzbmanager/var:/tmp:/var/services/tmp",
+          "extensions": ["curl", "mbstring", "openssl"],
+          "php_settings": {
+            "session.save_path": "/var/packages/nzbmanager/var/sessions",
+            "session.upload_progress.enabled": "0",
+            "upload_max_filesize": "32M",
+            "post_max_size": "70M",
+            "display_errors": "0"
+          },
+          "user": "nzbmanager",
+          "group": "http"
+        }
+      }
+    ],
+    "portals": [
+      {
+        "service": "nzbmanager",
+        "name": "nzbmanager",
+        "display_name": "NZB Manager",
+        "type": "alias",
+        "alias": "nzbmanager"
+      }
+    ],
+    "pkg_dir_prepare": [
+      {
+        "source": "/var/packages/nzbmanager/target/webapp",
+        "target": "nzbmanager",
+        "mode": "0755",
+        "user": "nzbmanager",
+        "group": "http"
+      }
+    ]
+  }
+}

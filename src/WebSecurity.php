@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+
 namespace NZB;
 
 final class WebSecurity
@@ -12,16 +13,34 @@ final class WebSecurity
         header("Content-Security-Policy: default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 
         $password = getenv('NZB_ADMIN_PASSWORD') ?: '';
-        $hash = getenv('NZB_ADMIN_PASSWORD_HASH') ?: '';
+        $hash = AppConfig::passwordHash();
         if ($password === '' && $hash === '')
         {
             http_response_code(503);
             header('Content-Type: text/plain; charset=UTF-8');
-            exit('NZB is not configured. Set NZB_ADMIN_PASSWORD_HASH or NZB_ADMIN_PASSWORD.');
+            exit('NZB login is not configured. Set a password during installation.');
         }
 
-        $provided = $_SERVER['PHP_AUTH_PW'] ?? '';
-        $allowed = $hash !== '' ? password_verify($provided, $hash) : hash_equals($password, $provided);
+        $username = $_SERVER['PHP_AUTH_USER'] ?? null;
+        $provided = $_SERVER['PHP_AUTH_PW'] ?? null;
+        if (!is_string($username) || !is_string($provided))
+        {
+            $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+            if (is_string($header) && str_starts_with($header, 'Basic ') && strlen($header) < 4096)
+            {
+                $decoded = base64_decode(substr($header, 6), true);
+                if (is_string($decoded) && str_contains($decoded, ':'))
+                {
+                    $username = substr($decoded, 0, strpos($decoded, ':'));
+                    $provided = substr($decoded, strpos($decoded, ':') + 1);
+                }
+            }
+        }
+        $username = is_string($username) ? $username : '';
+        $provided = is_string($provided) ? $provided : '';
+        $expectedUser = getenv('NZB_ADMIN_USERNAME') ?: 'admin';
+        $allowed = hash_equals($expectedUser, $username) &&
+            ($hash !== '' ? password_verify($provided, $hash) : hash_equals($password, $provided));
         if (!$allowed)
         {
             header('WWW-Authenticate: Basic realm="NZB Manager", charset="UTF-8"');

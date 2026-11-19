@@ -42,7 +42,7 @@ final class ModuleRegistry
         return array_values(array_filter($this->modules, static fn (ModuleInterface $m): bool => !$m->isEnabled()));
     }
 
-    public static function standard(): self
+    public static function standard(bool $downloadStationAvailable = false): self
     {
         $registry = new self();
         $registry->register(new ViewModule('library', 'NZB Library', 'Import, inspect and manage NZB documents', 'library', 'index.php'));
@@ -52,7 +52,7 @@ final class ModuleRegistry
         // Unfinished modules remain unlinked until their behavior is tested.
         $registry->register(new ViewModule('indexer', 'Indexer Search', 'Newznab-compatible search and NZB retrieval', 'indexer', 'index.php?module=indexer'));
         $registry->register(new ViewModule('binsearch', 'Binsearch', 'Search and generate NZBs from Binsearch.info', 'binsearch', 'index.php?module=binsearch'));
-        $registry->register(new ViewModule('download-client', 'Download Clients', 'Download Station and other optional adapters', null, ''));
+        $registry->register(new ViewModule('download-client', 'Download Station', 'Optional Synology Download Station submission', $downloadStationAvailable ? 'download-station' : null, $downloadStationAvailable ? 'index.php?module=download-client' : ''));
         $registry->register(new ViewModule('repair', 'PAR2 Repair', 'Verify and repair downloaded files', null, ''));
         $registry->register(new ViewModule('unpack', 'Archive Extraction', 'Extract RAR, ZIP and tar archives', null, ''));
         $registry->register(new ViewModule('file-manager', 'File Organizer', 'Rename, move and merge downloaded files or folders', null, ''));

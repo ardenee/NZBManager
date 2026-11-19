@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+umask 077
+DATA_DIR="$(printenv SYNOPKG_PKGVAR 2>/dev/null || true)"
+if [ -z "$DATA_DIR" ]; then
+    DATA_DIR="/var/packages/nzbmanager/var"
+fi
+mkdir -p "$DATA_DIR/nzb" "$DATA_DIR/sessions"
+chmod 0700 "$DATA_DIR/nzb" "$DATA_DIR/sessions"
+if [ ! -s "$DATA_DIR/auth.hash" ]; then
+    echo "Missing existing NZB Manager login hash after upgrade." >&2
+    exit 1
+fi
+exit 0

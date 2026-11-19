@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+case "$1" in
+    start|stop|prestart|prestop|status)
+        # The DSM WebStation webservice resource owns PHP service lifecycle.
+        exit 0
+        ;;
+    *)
+        exit 1
+        ;;
+esac

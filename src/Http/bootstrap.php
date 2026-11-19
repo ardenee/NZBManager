@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/NzbDocument.php';
 require dirname(__DIR__) . '/NzbStorage.php';
+require dirname(__DIR__) . '/AppConfig.php';
 require dirname(__DIR__) . '/WebSecurity.php';
 require dirname(__DIR__) . '/Modules/ModuleInterface.php';
 require dirname(__DIR__) . '/Modules/ViewModule.php';
@@ -16,6 +17,8 @@ require dirname(__DIR__) . '/Indexers/FixedOriginHttp.php';
 require dirname(__DIR__) . '/Indexers/BinsearchClient.php';
 require dirname(__DIR__) . '/Modules/BinsearchActions.php';
 require dirname(__DIR__) . '/Modules/IndexerActions.php';
+require dirname(__DIR__) . '/DownloadClients/DownloadStationClient.php';
+require dirname(__DIR__) . '/Modules/DownloadStationActions.php';
 
 
 use NZB\NzbDocument;
@@ -23,7 +26,7 @@ use NZB\NzbStorage;
 use NZB\WebSecurity;
 
 WebSecurity::initialize();
-$folder = getenv('NZB_STORAGE_DIR') ?: dirname(__DIR__, 2) . '/var/nzb';
+$folder = \NZB\AppConfig::storageDir();
 try
 {
     $store = new NzbStorage($folder);
@@ -82,7 +85,8 @@ $viewId = isset($_GET['view']) && is_string($_GET['view']) ? $_GET['view'] : '';
 $actions = (new \NZB\Http\ActionRouter())
     ->register(['upload', 'delete', 'rename', 'export', 'merge'], [\NZB\Modules\LibraryActions::class, 'dispatch'])
     ->register(['indexer_search', 'indexer_import'], [\NZB\Modules\IndexerActions::class, 'dispatch'])
-    ->register(['binsearch_search', 'binsearch_generate'], [\NZB\Modules\BinsearchActions::class, 'dispatch']);
+    ->register(['binsearch_search', 'binsearch_generate'], [\NZB\Modules\BinsearchActions::class, 'dispatch'])
+    ->register(['downloadstation_submit'], [\NZB\Modules\DownloadStationActions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);
 
 if (($_GET['download'] ?? '') !== '')
@@ -123,7 +127,8 @@ unset($_SESSION['flash']);
 header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: private, no-store');
 
-$registry = \NZB\Modules\ModuleRegistry::standard();
+$downloadStationAvailable = \NZB\Modules\DownloadStationActions::available();
+$registry = \NZB\Modules\ModuleRegistry::standard($downloadStationAvailable);
 $indexerConfigured = false;
 $indexerError = null;
 $indexerProviders = [];
@@ -144,7 +149,12 @@ if ($indexerSearch !== null && !in_array($indexerSearch['source'] ?? 'default', 
     $indexerSearch = null;
 }
 $requestedModule = $_GET['module'] ?? '';
-$moduleName = in_array($requestedModule, ['indexer', 'binsearch'], true) ? $requestedModule : ($entry ? 'inspector' : 'library');
+$allowedModules = ['indexer', 'binsearch'];
+if ($downloadStationAvailable)
+{
+    $allowedModules[] = 'download-client';
+}
+$moduleName = in_array($requestedModule, $allowedModules, true) ? $requestedModule : ($entry ? 'inspector' : 'library');
 $binsearchSearch = \NZB\Modules\BinsearchActions::recentSearch();
 $activeModule = $registry->get($moduleName);
 $moduleContext = compact('entry', 'document', 'summary', 'library', 'flash', 'store', 'indexerConfigured', 'indexerError', 'indexerSearch', 'indexerProviders', 'indexerPresets', 'binsearchSearch');

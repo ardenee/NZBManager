@@ -20,7 +20,7 @@ on PHP 8.5.
 | Search multiple Newznab indexers | Indexer | **Implemented; live unverified** | Multi-provider profiles and selections, t=search; credentials stay on server |
 | Download NZB from indexer | Indexer | **Implemented; live unverified** | Newznab t=get by trusted ID, imported into managed library |
 | Binsearch.info search and NZB creation | Binsearch | **Working; live verified** | Search and selected NZB generation verified with public site, no key |
-| Download Station submission | Download clients | Not ported; disabled | Must detect installed DSM API, authenticate and test live before enabling |
+| Download Station submission | Download clients | **Implemented; live unverified** | Disabled without an installed DSM Task API; discovery, login, upload and logout tested with fixtures |
 | Filename filters / auto naming options | Settings / Import | Not ported | Modern validated rule definitions |
 | PAR2 scan, verify and repair | Repair | Not ported | Safe background jobs required |
 | RAR, ZIP, tar/tgz unpack | Extract | Not ported | Explicit safe destinations, async jobs |
@@ -31,7 +31,7 @@ on PHP 8.5.
 | Delete downloaded files/folders | File manager | Not ported | Confirmations and restricted roots required |
 | Original settings UI (paths, filters, options) | Settings | Not ported | All settings validated, secrets protected |
 | Legacy Synology Web Station UI integration | Platform adapter | Deferred | Not part of Linux runtime |
-| Synology DSM7 SPK build | CI/release workflow | **Deferred** | No build script or generated SPK in active tree |
+| Synology DSM 7.2+ SPK test build | Package builder | **Built; NAS install unverified** | Password-at-install wizard, Web Station resource and protected storage; test SPK only |
 
 ## Release requirements
 
@@ -44,4 +44,4 @@ on PHP 8.5.
 - DSM 7 package automation is introduced **after** feature-complete Linux
   release, using one common application source.
 
-Completed domain test cases: 103. Completed HTTP smoke checks: 20. Binsearch live verification passed; live Newznab provider testing remains pending. Live indexer testing remains pending.
+Completed domain test cases: 120. Completed HTTP smoke checks: 20. DSM installer script and archive validation pass on DEV. Binsearch live verification passed; live Newznab provider testing remains pending. Live indexer testing remains pending.

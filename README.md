@@ -42,8 +42,8 @@ Open PowerShell in the local checkout and configure a temporary development pass
     $env:NZB_ADMIN_PASSWORD = 'set-a-local-development-password'
     D:\php8.5\php.exe -S 127.0.0.1:8085 -t public
 
-Open http://127.0.0.1:8085/ in a browser. The username is not significant;
-the configured password is required. Use the built-in PHP server on localhost
+Open http://127.0.0.1:8085/ in a browser. The username is **admin**
+(or NZB_ADMIN_USERNAME if configured); the configured password is required. Use the built-in PHP server on localhost
 only, never as a public deployment.
 
 To run regression tests:
@@ -125,21 +125,32 @@ The HTML interface can change; see docs/BINSEARCH.md for limits and testing.
 | ARCHIVE-MANIFEST.json | Original package recovery manifest |
 | AUDIT.md | Detailed legacy findings and migration roadmap |
 
-## Future Synology deployment
+## Synology DSM 7.2+ test package
 
-**Do not build an SPK yet.** The previous provisional package builder has
-been removed from active source, along with its generated test package. After
-the complete Linux application's feature and security acceptance tests pass,
-a release-gated automated workflow will produce a DSM 7 SPK from the same
-code. No duplicate Synology fork is planned. See docs/DSM7-PACKAGING.md and
-Synology's official developer guide for the requirements.
+A test-only installer is generated from the same modern PHP application:
+
+    python packaging/dsm7/build.py
+    python tests/validate-spk.py
+
+Output: `dist/NZBManager-0.2.1-0001-noarch-test.spk`.
+Install Web Station and PHP 8.2 on DSM, then choose **Package Center > Manual
+Install** and select the SPK. During installation, choose an NZB Manager
+password (minimum 12 characters). Log in to the web app as `admin` with that
+password at the Web Station alias (normally `https://NAS/nzbmanager/`).
+Do not publish the portal on the internet; use an HTTPS certificate accepted
+by your browser. The password is hashed into package-private storage and is
+not included in the SPK. See docs/DSM7-PACKAGING.md for the installation
+checklist and caveats. The DSM installer has only been structurally and
+script-tested on DEV, **not installed on a live Synology NAS**. It remains a
+test prerelease; feature parity, DSM lifecycle and upgrade testing are pending.
 
 ## Functions not yet ported
 
 The historical application also had torrent uploads, filesystem scans,
-Synology Download Station submission, PAR2 repair, archive unpacking and
-filesystem operations to rename/merge/move downloads. Those features are
-**not currently available** in the modern application. Indexer search and
+PAR2 repair, archive unpacking and filesystem operations to rename/merge/move
+downloads. Those features are **not currently available** in the modern application.
+An optional Synology Download Station adapter is implemented and fixture-tested,
+but a real DSM task upload still needs NAS verification. Indexer search and
 import are implemented but require live-provider verification. Old MySQL databases
 are not automatically imported. See docs/FEATURE-MATRIX.md for the
 complete parity checklist, docs/ARCHITECTURE.md for extension points,

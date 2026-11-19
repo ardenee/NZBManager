@@ -26,7 +26,7 @@ try
     $anonymous = & curl.exe -s -o NUL -w '%{http_code}' $url
     if ($anonymous -ne '401') { throw "Unauthenticated request returned $anonymous" }
     Write-Output 'PASS Unauthenticated request returns 401'
-    $password = "dev:$secret"
+    $password = "admin:$secret"
     $page = (& curl.exe -s -c $cookie -b $cookie -u $password $url) -join "`n"
     if (!($page -match 'NZB Library')) { throw 'Authenticated library failed' }
     Write-Output 'PASS Authenticated dashboard'

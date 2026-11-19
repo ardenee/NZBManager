@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+umask 077
+DATA_DIR="$(printenv SYNOPKG_PKGVAR 2>/dev/null || true)"
+if [ -z "$DATA_DIR" ]; then
+    DATA_DIR="/var/packages/nzbmanager/var"
+fi
+mkdir -p "$DATA_DIR/nzb" "$DATA_DIR/sessions"
+chmod 0700 "$DATA_DIR/nzb" "$DATA_DIR/sessions"
+HASH_PATH="$DATA_DIR/auth.hash"
+PASSWORD="$(printenv wizard_nzb_password 2>/dev/null || true)"
+if [ -n "$PASSWORD" ]; then
+    if [ "$(printf '%s' "$PASSWORD" | wc -c | tr -d ' ')" -lt 12 ]; then
+        echo "Password must contain at least 12 characters." >&2
+        exit 1
+    fi
+    command -v openssl >/dev/null 2>&1 || { echo "OpenSSL is required." >&2; exit 1; }
+    HASH="$(printf '%s' "$PASSWORD" | openssl passwd -6 -stdin)"
+    case "$HASH" in
+        '$6$'*) ;;
+        *) echo "Password hashing failed." >&2; exit 1 ;;
+    esac
+    printf '%s\n' "$HASH" > "$HASH_PATH.new"
+    chmod 0600 "$HASH_PATH.new"
+    mv -f "$HASH_PATH.new" "$HASH_PATH"
+    unset HASH PASSWORD
+elif [ ! -s "$HASH_PATH" ]; then
+    echo "Please supply a password in the installation wizard." >&2
+    exit 1
+fi
+exit 0
