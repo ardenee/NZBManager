@@ -1,0 +1,26 @@
+# Adapt the server_name, PHP socket, and absolute paths before using.
+# Set NZB_ADMIN_PASSWORD_HASH in your PHP-FPM pool environment, not in public files.
+server {
+    listen 80;
+    server_name nzb.example.invalid;
+    root /srv/nzb/public;
+    index index.php;
+    client_max_body_size 128m;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        try_files $uri =404;
+        include fastcgi_params;
+        fastcgi_param HTTP_AUTHORIZATION $http_authorization;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_pass unix:/run/php/php8.5-fpm.sock;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+}
+# Put the service behind HTTPS before sending Basic authentication credentials.

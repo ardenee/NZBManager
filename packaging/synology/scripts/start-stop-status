@@ -1,0 +1,6 @@
+#!/bin/sh
+# Web Station serves this application, no daemon is started.
+case "$1" in
+    start|stop|status) exit 0 ;;
+    *) exit 1 ;;
+esac

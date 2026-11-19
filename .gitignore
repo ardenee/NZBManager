@@ -11,3 +11,7 @@ original-spk/
 .DS_Store
 Thumbs.db
 vendor-local/
+
+# Modern application runtime and generated packages
+/var/
+/dist/

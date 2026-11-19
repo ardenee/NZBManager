@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+# No DSM web service is registered in this staging SPK.
+exit 0
