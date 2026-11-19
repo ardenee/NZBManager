@@ -1,0 +1,10 @@
+[
+  {
+    "package": "nzb.spk",
+    "sha256": "b7a5aa23c82454059c39a83a97821be985dd78dc4ebb6451720c558433945a1e",
+    "size": 102400,
+    "spk_files": 9,
+    "source_files": 62,
+    "location": "current"
+  }
+]

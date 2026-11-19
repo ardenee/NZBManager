@@ -1,0 +1,106 @@
+table
+{ 
+	padding-left:1pt;
+    padding-top:1pt;
+    padding-right:1pt;
+    padding-bottom:1pt;
+    direction:LTR;
+    unicode-bidi:Normal;
+    text-align:left;
+    color:Black;
+	font-style:Normal;
+    font-family:Verdana;
+    font-size:8pt;
+	width:100%;
+	border-spacing: 1px;
+	vertical-align:top;
+}
+
+tr 
+{ 
+	background-color: #E9E9E9;
+}
+
+.title1 
+{ 
+	background-color: #B9CAE6; 
+	font-weight:Bold;
+	font-size:8pt;
+}
+.title1right
+{ 
+	background-color: #B9CAE6; 
+	font-weight:Bold;
+	text-align:right;
+}
+.title1righthash
+{ 
+	background-color: #B9CAE6; 
+	font-weight:Bold;
+	text-align:right;
+	font-family:Courier New;
+}
+.title2 
+{ 
+	background-color: #99FFFF;
+	font-weight:Bold;
+	font-size:7pt;	
+}
+.title2right
+{ 
+	background-color: #B9CAE6; 
+	font-weight:Bold;
+	text-align:right;
+}
+.title2righthash
+{ 
+	background-color: #B9CAE6; 
+	font-weight:Bold;
+	text-align:right;
+	font-family:Courier New;
+}
+.righthash
+{ 
+	text-align:right;
+	font-family:Courier New;
+}
+.bold
+{ 
+	font-weight:Bold;
+}
+.main1 
+{ 
+	font-family:Verdana;
+    font-size:8pt;
+}
+.main1right
+{ 
+    font-family:Verdana;
+    font-size:7pt;
+	text-align:right;
+}
+.main1small
+{ 
+    font-family:Verdana;
+    font-size:7pt;
+}
+.main2 
+{ 
+	background-color: #8888FF; 
+}
+.main3 
+{ 
+	background-color: #dddddd; 
+	font-family:Verdana;
+    font-size:7pt;
+}
+.right
+{
+	text-align:right;
+	white-space: nowrap;
+}
+.rightsmall
+{
+	text-align:right;
+	font-size:7pt;
+}
