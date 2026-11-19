@@ -380,7 +380,7 @@ final class NewznabClient
         }
         finally
         {
-            curl_close($handle);
+            // CurlHandle is released automatically; curl_close() is deprecated in PHP 8.5.
         }
     }
 }

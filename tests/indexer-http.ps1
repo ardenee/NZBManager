@@ -11,6 +11,7 @@ $env:NZB_ADMIN_PASSWORD = $secret
 $env:NZB_STORAGE_DIR = Join-Path $folder 'private'
 $env:NZB_INDEXER_URL = 'https://index.example.net/api'
 $env:NZB_INDEXER_API_KEY = 'fixture-key-not-real'
+$env:NZB_INDEXERS_JSON = '[{"id":"geek","provider":"nzbgeek","api_key":"key-for-geek"},{"id":"slug","provider":"drunkenslug","api_key":"key-for-slug"}]'
 $server = Start-Process -FilePath $php -ArgumentList @('-S', '127.0.0.1:18923', '-t', (Join-Path $repo 'public')) -WindowStyle Hidden -PassThru
 try
 {
@@ -19,6 +20,10 @@ try
     $page = (& curl.exe -s -c $cookie -b $cookie -u $auth ($url + '?module=indexer')) -join [Environment]::NewLine
     if ($page -notmatch 'Search releases' -or $page -notmatch 'indexer_search') { throw 'Configured indexer UI missing' }
     Write-Output 'PASS Configured indexer search form renders'
+    if ($page -notmatch 'NZBGeek' -or $page -notmatch 'DrunkenSlug') { throw 'Multiple indexer choices missing' }
+    Write-Output 'PASS Multiple providers appear as separate search options'
+    if ($page -match 'key-for-geek|key-for-slug') { throw 'Multiple API keys leaked' }
+    Write-Output 'PASS Multi-indexer API keys remain server-side'
     if ($page -match 'fixture-key-not-real') { throw 'API key leaked into rendered page' }
     Write-Output 'PASS Indexer API key not exposed in HTML'
     if ($page -notmatch 'name="_csrf" value="([a-f0-9]+)"') { throw 'Missing CSRF token' }
@@ -26,6 +31,10 @@ try
     $forbidden = & curl.exe -s -o NUL -w '%{http_code}' -u $auth -c $cookie -b $cookie -d 'action=indexer_search' -d 'query=sample' ($url + '?module=indexer')
     if ($forbidden -ne '403') { throw "Indexer POST without CSRF returned $forbidden" }
     Write-Output 'PASS Indexer search POST enforces CSRF'
+    & curl.exe -s -o NUL -u $auth -c $cookie -b $cookie -d 'action=indexer_search' -d "_csrf=$token" -d 'source=missing' -d 'query=sample' ($url + '?module=indexer')
+    $badSource = (& curl.exe -s -u $auth -c $cookie -b $cookie ($url + '?module=indexer')) -join [Environment]::NewLine
+    if ($badSource -notmatch 'Configured indexer is unavailable') { throw 'Unknown provider was accepted' }
+    Write-Output 'PASS Unknown search provider rejected without network request'
     & curl.exe -s -o NUL -u $auth -c $cookie -b $cookie -d 'action=indexer_search' -d "_csrf=$token" -d 'query=x' ($url + '?module=indexer')
     $invalid = (& curl.exe -s -u $auth -c $cookie -b $cookie ($url + '?module=indexer')) -join [Environment]::NewLine
     if ($invalid -notmatch 'Search query must contain') { throw 'Invalid query not rejected' }
@@ -43,4 +52,5 @@ finally
     Remove-Item Env:NZB_STORAGE_DIR -ErrorAction SilentlyContinue
     Remove-Item Env:NZB_INDEXER_URL -ErrorAction SilentlyContinue
     Remove-Item Env:NZB_INDEXER_API_KEY -ErrorAction SilentlyContinue
+    Remove-Item Env:NZB_INDEXERS_JSON -ErrorAction SilentlyContinue
 }

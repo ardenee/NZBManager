@@ -22,7 +22,12 @@
 | src/Modules/ViewModule.php | Template-backed implementations of the interface |
 | src/Modules/LibraryActions.php | Library and NZB file POST actions |
 | src/Modules/IndexerActions.php | Search and import requests, short-lived result references |
+| src/Modules/BinsearchActions.php | Binsearch search and secure selected-NZB generation |
 | src/Indexers/NewznabClient.php | HTTPS-only Newznab search/get, XML parsing and network limits |
+| src/Indexers/ProviderCatalog.php | Shared Newznab provider presets, including special API paths |
+| src/Indexers/IndexerConnections.php | Multi-indexer server settings and public name-only listing |
+| src/Indexers/BinsearchClient.php | Provider-specific HTML search parsing and selected NZB requests |
+| src/Indexers/FixedOriginHttp.php | Restricted public HTTPS requests with bounded responses and TLS verification |
 | src/NzbDocument.php | NZB XML parsing, safe legacy DTD handling, metadata/segments, subset export and merge |
 | src/NzbStorage.php | Private library, opaque identifiers, metadata rename/delete |
 | src/WebSecurity.php | Authentication, headers, session and CSRF checks |
@@ -30,6 +35,7 @@
 | views/library.php | NZB library module |
 | views/inspector.php | NZB inspector module |
 | views/indexer.php | Search results and importer for configured Newznab endpoint |
+| views/binsearch.php | Public Binsearch search and NZB generation interface |
 | tests/ | Domain regression and HTTP smoke tests |
 | docs/ | Compatibility matrix and deployment design |
 | current/ | Historical source, never served/executed |
@@ -57,11 +63,16 @@ execution of uploaded modules is deliberately prohibited.
 
 ## Planned services
 
-- Indexers: Newznab-compatible t=search/t=get client and short-lived search
-  results implemented and fixture-tested. Live-provider certification, multiple
-  provider settings and provider-specific redirects are still outstanding.
-- Download clients: adapter interface for Synology Download Station and
-  optional generic downloaders, independent of DSM package deployment.
+- Indexers: Multiple Newznab provider profiles and search selection are
+  implemented, with t=search/t=get fixture tests. Live-provider certification,
+  provider-specific redirects and automatic capability discovery remain open.
+- Binsearch: HTML-based search and selected NZB generation have separate,
+  fixed-origin code and have passed live testing; parser maintenance and
+  pagination remain outstanding.
+- Download clients: separate adapters are planned for Synology Download
+  Station and other downloaders. The DSM module must remain disabled until
+  an installed and authorized Download Station API is verified; this is
+  independent of DSM package deployment.
 - File organization: allowlisted source/destination roots, preview/dry-run,
   collision policy, audit records, symlink boundaries, explicit confirmations.
 - PAR2 and archive tools: background job queue, fixed executable allowlist,

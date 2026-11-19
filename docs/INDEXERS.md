@@ -12,7 +12,7 @@ The modern code uses a provider-neutral Newznab client plus a separate UI.
 
 ## Configure the server
 
-Set both PHP-FPM environment variables:
+For a single custom provider, set both PHP-FPM environment variables:
 
     NZB_INDEXER_URL=https://your-indexer.example/api
     NZB_INDEXER_API_KEY=your-indexer-secret
@@ -23,6 +23,29 @@ endpoints include https://api.nzbplanet.net/api, but endpoints may change.
 Do not put credentials in public PHP, web server document roots, Git, HTML or
 JavaScript. PHP-FPM commonly clears inherited environment variables unless
 they are explicitly allowed in the pool/service configuration.
+
+You may also select a preset with NZB_INDEXER_PROVIDER and
+NZB_INDEXER_API_KEY, omitting NZB_INDEXER_URL. For example:
+
+    NZB_INDEXER_PROVIDER=nzbgeek
+    NZB_INDEXER_API_KEY=your-indexer-secret
+
+For multiple indexers, configure NZB_INDEXERS_JSON as a JSON array in the
+protected PHP-FPM environment. For example (one line in your server config):
+
+    [{"id":"geek","provider":"nzbgeek","api_key":"SECRET1"},{"id":"slug","provider":"drunkenslug","api_key":"SECRET2"}]
+
+The environment variable value should be that complete JSON string. IDs must
+be distinct lowercase tokens. Use provider=custom and a full HTTPS API URL
+for an unlisted Newznab indexer. The PHP UI only reveals provider names and IDs,
+never API keys. Built-in provider endpoints are fixed; use a custom profile
+when a provider documents a different endpoint. The application allows up to
+16 connections. NZB_INDEXERS_JSON takes priority over older single-indexer
+configuration. Selecting a search result pins import to the same provider.
+
+Preset IDs include nzbplanet, nzbgeek, drunkenslug, nzbfinder, dognzb,
+althub, ninjacentral, nzblife, tabularasa, animetosho, abnzb, nzbcat,
+nzbstars and custom. NZB.su is retired in favour of NZB.life.
 
 The Indexer Search page displays setup guidance until server configuration
 is complete. No browser-side API key form is used.

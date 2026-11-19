@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace NZB\Modules;
 
 use NZB\Indexers\NewznabClient;
+use NZB\Indexers\IndexerConnections;
 use NZB\NzbStorage;
 use RuntimeException;
 use Throwable;
@@ -16,10 +17,10 @@ final class IndexerActions
     {
         try
         {
-            $client = NewznabClient::fromEnvironment();
-            if ($client === null)
+            $connections = IndexerConnections::fromEnvironment();
+            if (!$connections->available())
             {
-                throw new RuntimeException('Configure NZB_INDEXER_URL and NZB_INDEXER_API_KEY on the server first.');
+                throw new RuntimeException('Configure one or more Newznab providers on the server first.');
             }
 
             $action = $_POST['action'] ?? '';
@@ -31,10 +32,17 @@ final class IndexerActions
                     throw new RuntimeException('Invalid search query.');
                 }
 
+                $source = $_POST['source'] ?? $connections->firstId();
+                if (!is_string($source))
+                {
+                    throw new RuntimeException('Invalid indexer selection.');
+                }
+                $client = $connections->get($source);
                 unset($_SESSION['indexer_search']);
                 $results = $client->search($query);
                 $_SESSION['indexer_search'] = [
                     'at' => time(),
+                    'source' => $source,
                     'query' => trim($query),
                     'results' => $results,
                 ];
@@ -45,6 +53,12 @@ final class IndexerActions
             {
                 $ref = $_POST['ref'] ?? '';
                 $saved = $_SESSION['indexer_search'] ?? null;
+                $source = is_array($saved) ? ($saved['source'] ?? $connections->firstId()) : $connections->firstId();
+                if (!is_string($source))
+                {
+                    throw new RuntimeException('Invalid indexer selection.');
+                }
+                $client = $connections->get($source);
                 $record = self::importRef($ref, is_array($saved) ? $saved : null, $client, $store);
                 \message('Imported NZB from the configured indexer.');
                 \redirectTo('index.php?view=' . $record['id']);

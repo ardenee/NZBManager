@@ -33,6 +33,13 @@ try
     $indexerPage = (& curl.exe -s -u $password -c $cookie -b $cookie ($url + '?module=indexer')) -join "`n"
     if ($indexerPage -notmatch 'Connect an indexer' -or $indexerPage -notmatch 'NZB_INDEXER_API_KEY') { throw 'Indexer configuration view missing' }
     Write-Output 'PASS Unconfigured indexer displays safe setup guidance'
+    $binsearchPage = (& curl.exe -s -u $password -c $cookie -b $cookie ($url + '?module=binsearch')) -join [Environment]::NewLine
+    if ($binsearchPage -notmatch 'Search Binsearch.info' -or $binsearchPage -notmatch 'binsearch_search') { throw 'Binsearch module not accessible' }
+    Write-Output 'PASS Binsearch module renders without credentials'
+    $binsearchCsrf = & curl.exe -s -o NUL -w '%{http_code}' -u $password -c $cookie -b $cookie -d 'action=binsearch_search' -d 'query=linux' ($url + '?module=binsearch')
+    if ($binsearchCsrf -ne '403') { throw "Binsearch POST without CSRF returned $binsearchCsrf" }
+    Write-Output 'PASS Binsearch search requires CSRF'
+
     $forbidden = & curl.exe -s -o NUL -w '%{http_code}' -u $password -c $cookie -b $cookie -d 'action=delete' $url
     if ($forbidden -ne '403') { throw "Missing-CSRF request returned $forbidden" }
     Write-Output 'PASS CSRF rejects unsigned modification'

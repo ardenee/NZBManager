@@ -10,6 +10,11 @@ require dirname(__DIR__) . '/Modules/ModuleRegistry.php';
 require dirname(__DIR__) . '/Modules/LibraryActions.php';
 require __DIR__ . '/ActionRouter.php';
 require dirname(__DIR__) . '/Indexers/NewznabClient.php';
+require dirname(__DIR__) . '/Indexers/ProviderCatalog.php';
+require dirname(__DIR__) . '/Indexers/IndexerConnections.php';
+require dirname(__DIR__) . '/Indexers/FixedOriginHttp.php';
+require dirname(__DIR__) . '/Indexers/BinsearchClient.php';
+require dirname(__DIR__) . '/Modules/BinsearchActions.php';
 require dirname(__DIR__) . '/Modules/IndexerActions.php';
 
 
@@ -76,7 +81,8 @@ function message(string $text, string $type = 'success'): void
 $viewId = isset($_GET['view']) && is_string($_GET['view']) ? $_GET['view'] : '';
 $actions = (new \NZB\Http\ActionRouter())
     ->register(['upload', 'delete', 'rename', 'export', 'merge'], [\NZB\Modules\LibraryActions::class, 'dispatch'])
-    ->register(['indexer_search', 'indexer_import'], [\NZB\Modules\IndexerActions::class, 'dispatch']);
+    ->register(['indexer_search', 'indexer_import'], [\NZB\Modules\IndexerActions::class, 'dispatch'])
+    ->register(['binsearch_search', 'binsearch_generate'], [\NZB\Modules\BinsearchActions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);
 
 if (($_GET['download'] ?? '') !== '')
@@ -120,15 +126,25 @@ header('Cache-Control: private, no-store');
 $registry = \NZB\Modules\ModuleRegistry::standard();
 $indexerConfigured = false;
 $indexerError = null;
+$indexerProviders = [];
+$indexerPresets = \NZB\Indexers\ProviderCatalog::all();
 try
 {
-    $indexerConfigured = \NZB\Indexers\NewznabClient::fromEnvironment() !== null;
+    $indexerConnections = \NZB\Indexers\IndexerConnections::fromEnvironment();
+    $indexerProviders = $indexerConnections->publicList();
+    $indexerConfigured = $indexerConnections->available();
 }
-catch (RuntimeException $error)
+catch (Throwable $error)
 {
     $indexerError = $error->getMessage();
 }
 $indexerSearch = $indexerConfigured ? \NZB\Modules\IndexerActions::recentSearch() : null;
-$moduleName = (($_GET['module'] ?? null) === 'indexer') ? 'indexer' : ($entry ? 'inspector' : 'library');
+if ($indexerSearch !== null && !in_array($indexerSearch['source'] ?? 'default', array_column($indexerProviders, 'id'), true))
+{
+    $indexerSearch = null;
+}
+$requestedModule = $_GET['module'] ?? '';
+$moduleName = in_array($requestedModule, ['indexer', 'binsearch'], true) ? $requestedModule : ($entry ? 'inspector' : 'library');
+$binsearchSearch = \NZB\Modules\BinsearchActions::recentSearch();
 $activeModule = $registry->get($moduleName);
-$moduleContext = compact('entry', 'document', 'summary', 'library', 'flash', 'store', 'indexerConfigured', 'indexerError', 'indexerSearch');
+$moduleContext = compact('entry', 'document', 'summary', 'library', 'flash', 'store', 'indexerConfigured', 'indexerError', 'indexerSearch', 'indexerProviders', 'indexerPresets', 'binsearchSearch');

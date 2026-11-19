@@ -109,4 +109,6 @@ $router = (new \NZB\Http\ActionRouter())->register(['example'], static function 
 check($router->has('example') && !$router->has('missing'), 'Explicit action registration');
 expectFailure(static fn () => $router->register(['example'], static function (): void {}), 'Duplicate action names rejected');
 require __DIR__ . '/indexer.php';
+require __DIR__ . '/providers.php';
+require __DIR__ . '/binsearch.php';
 echo 'All ' . $checks . ' assertions passed.' . PHP_EOL;

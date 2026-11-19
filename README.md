@@ -11,8 +11,11 @@ production security, Linux deployment, and DSM installation are not certified.
 - Multi-file NZB uploads to a private local library; byte-preserving original downloads
 - Inspect subjects, file names, metadata, Usenet groups, segments and sizes
 - Read historical NZB external-DTD declarations without remote DTD requests
-- Search a configured HTTPS Newznab indexer (including NZBPlanet) and import
-  selected NZBs; implemented and fixture-tested, live-provider testing pending
+- Search multiple configured HTTPS Newznab indexers using provider profiles
+  (including NZBPlanet, NZBGeek, DrunkenSlug, NZBFinder, and others) and
+  import selected NZBs; fixture-tested, live-provider testing pending
+- Search Binsearch.info independently of Newznab and create/download or import
+  an NZB from selected results; search and generation tested against live site
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
@@ -26,7 +29,8 @@ nodes. Metadata from additional NZBs is not yet merged.
 
 ## Requirements
 
-- PHP 8.2+ with DOM, libxml, JSON and session extensions (PHP 8.5 target)
+- PHP 8.2+ with cURL, DOM, libxml, JSON, mbstring and session extensions
+  (PHP 8.5 target), and a trusted TLS certificate-authority bundle
 - Linux web server with PHP-FPM (nginx or Apache) and TLS
 - Writable private storage directory outside the public web root
 - No MySQL or Composer dependency for the modern core
@@ -48,6 +52,10 @@ To run regression tests:
     powershell -File tests/smoke.ps1
     powershell -File tests/indexer-http.ps1
 
+Optional live Binsearch test (makes network requests, requires TLS CA trust):
+
+    D:\php8.5\php.exe -d "curl.cainfo=C:\Program Files\Git\usr\ssl\cert.pem" tests/binsearch-live.php
+
 ## Linux installation
 
 1. Place the application under /srv/nzb, with public/ and src/ as siblings.
@@ -67,13 +75,19 @@ Never store passwords or private data in Git or under public/. The default
 storage location is var/nzb relative to the repository and should be replaced
 with an explicitly private production path.
 
-## Optional Newznab indexer
+## Newznab provider profiles
 
-The indexer module is available at **Indexer Search**. It needs both of these
+The Indexer Search module supports preset provider profiles and a generic
+Newznab endpoint. Existing single-indexer deployments still use these
 server-side PHP-FPM environment variables:
 
     NZB_INDEXER_URL=https://your-indexer.example/api
     NZB_INDEXER_API_KEY=your-secret-api-key
+
+Alternatively, set NZB_INDEXER_PROVIDER to a preset ID, for example nzbgeek,
+with NZB_INDEXER_API_KEY, and omit NZB_INDEXER_URL. Multiple indexers can be
+configured with NZB_INDEXERS_JSON (see docs/INDEXERS.md), each using a distinct
+ID, provider and server-side API key.
 
 Use the complete HTTPS API endpoint, not the website homepage. NZBPlanet is
 Newznab-compatible, but a real account/API key is needed to test its live API.
@@ -86,6 +100,15 @@ arbitrary download URLs supplied by RSS results. Some providers with unusual
 GUID formats or download redirects may require a provider-specific adapter.
 The code has fixture and HTTP configuration tests, **not** a successful live
 search/import certification. See docs/INDEXERS.md.
+
+## Binsearch
+
+The Binsearch module is available without an API key. It searches the current
+Binsearch.info HTML interface, then submits selected collection IDs to the
+fixed provider /nzb URL to generate a valid NZB. Generated NZBs can be saved
+in the library or downloaded. A live search and NZB generation succeeded on
+DEV on 19 November 2026. The module does not fetch Usenet article payloads.
+The HTML interface can change; see docs/BINSEARCH.md for limits and testing.
 
 ## Layout
 
@@ -119,8 +142,9 @@ filesystem operations to rename/merge/move downloads. Those features are
 **not currently available** in the modern application. Indexer search and
 import are implemented but require live-provider verification. Old MySQL databases
 are not automatically imported. See docs/FEATURE-MATRIX.md for the
-complete parity checklist, docs/ARCHITECTURE.md for extension points, and
-AUDIT.md for the security risks in the archived PHP.
+complete parity checklist, docs/ARCHITECTURE.md for extension points,
+docs/DOWNLOAD-STATION.md for the optional DSM service activation policy,
+and AUDIT.md for the security risks in the archived PHP.
 
 ## Historical source and licensing
 

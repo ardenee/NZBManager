@@ -33,6 +33,12 @@
     <form method="post" class="indexer-search-form" action="index.php?module=indexer">
         <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
         <input type="hidden" name="action" value="indexer_search">
+        <label class="sr-only" for="indexer-source">Indexer</label>
+        <select id="indexer-source" name="source" class="search" aria-label="Select indexer">
+        <?php foreach ($indexerProviders as $provider): ?>
+            <option value="<?= escape($provider['id']) ?>" <?= ($indexerSearch['source'] ?? $indexerProviders[0]['id']) === $provider['id'] ? 'selected' : '' ?>><?= escape($provider['name']) ?></option>
+        <?php endforeach; ?>
+        </select>
         <label class="sr-only" for="indexer-query">Search releases</label>
         <input id="indexer-query" name="query" type="search" maxlength="150" minlength="2" required placeholder="Search NZB releases…" value="<?= escape($indexerSearch['query'] ?? '') ?>">
         <button class="button primary" type="submit">Search</button>
@@ -81,3 +87,14 @@
     </div>
 </section>
 <?php endif; ?>
+
+<section class="panel">
+    <div class="panel-heading">
+        <div><h2>Supported Newznab profiles</h2><p>These use one shared search client. A profile is usable only when you configure its API credentials on the server.</p></div>
+    </div>
+    <div class="provider-grid">
+        <?php foreach ($indexerPresets as $preset): ?>
+            <div class="provider-name"><?= escape($preset['name']) ?></div>
+        <?php endforeach; ?>
+    </div>
+</section>

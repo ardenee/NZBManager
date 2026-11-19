@@ -31,7 +31,10 @@ nav { display: grid; gap: 5px; }
 .upcoming-module small { border: 1px solid #38465f; color: #7e8ea9; padding: 1px 5px; border-radius: 4px; font-size: 9px; }
 .indexer-search-form { display: flex; gap: 10px; padding: 0 24px 24px; }
 .indexer-search-form input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #d9e1ec; border-radius: 7px; outline-color: #7b92e9; }
+.indexer-search-form select { width: min(210px, 100%); flex: 0 1 210px; }
 .configuration-help { padding: 0 25px 25px; display: grid; gap: 16px; }
+.provider-grid { padding: 0 24px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 9px; }
+.provider-name { border: 1px solid var(--line); border-radius: 7px; background: #f8fafd; padding: 9px 11px; font-size: 12px; color: #55657d; }
 .config-lines { display: grid; gap: 8px; }
 .config-lines code { display: block; padding: 10px 13px; color: #425a7b; background: #f7f9fd; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
 .rename-panel { margin-top: -9px; }
