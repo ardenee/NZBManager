@@ -1,29 +1,49 @@
 # Optional Synology Download Station adapter
 
-Status: IMPLEMENTED WITH MOCK TESTS; live DSM task submission is unverified.
-The integration is independent of packaging NZB Manager as a DSM SPK.
+Download Station integration is independent from the NZB Manager DSM SPK.
+It may be used from a standard Linux/PHP host when a NAS is configured.
 
-It uses SYNO.API.Info discovery to check for both SYNO.API.Auth and
-SYNO.DownloadStation.Task. The UI is hidden if the service cannot be found.
+## Implementation status
 
-For remote DSM, configure these server-side settings:
+The new DownloadStationClient supports:
 
-    NZB_DSM_URL=https://your-nas:5001
-    NZB_DSM_USER=dedicated_nzb_username
-    NZB_DSM_PASSWORD=server_only_secret
+- Discovery via SYNO.API.Info for SYNO.DownloadStation.Task and SYNO.API.Auth
+- Authentication using a DownloadStation-scoped API session
+- Upload of a valid NZB stored in the managed library
+- Optional share-relative destination validation and logout after submission
+- A separate module which stays unavailable when discovery fails
 
-Use a least-privilege account. API credentials stay on the PHP server and are
-never returned in browser responses. The adapter requires HTTPS except for
-same-machine loopback, and enforces TLS certificate validation.
+The tests mock discovery, authentication, upload and logout. They verify
+handling of absent APIs, unsafe paths, invalid NZB data and HTTP restrictions.
 
-Workflow: discover API versions/paths, create a DownloadStation session,
-upload a validated NZB from the managed library, and logout. The action does
-not accept arbitrary browser-supplied paths or file URLs. The selected DSM
-destination is checked for unsafe traversal syntax.
+**Actual Download Station submission on your NAS has not been tested yet.**
+Some NAS versions advertise newer DownloadStation2 APIs that would need a
+separate adapter.
 
-Fixture tests cover discovery, absent APIs, login, upload, task response,
-safe destination and logout. Real-world API permissions, version differences
-and actual task submission must still be checked on DSM.
+## Optional connection configuration
 
-The newer SYNO.DownloadStation2 APIs are not yet integrated and may require a
-later adapter. No Download Station package is installed or enabled by this SPK.
+Set the following only if Download Station is installed and you want to
+submit managed NZBs to it:
+
+    NZB_DSM_URL=https://nas.example.com:5001
+    NZB_DSM_USER=downloadstation-user
+    NZB_DSM_PASSWORD=nas-account-secret
+
+These credentials are for the external Download Station API, NOT a login
+for NZB Manager itself. The DSM NZB Manager test package requires no login,
+password or installation setup wizard.
+
+The integration remains disabled unless the server settings are present
+and the remote NAS advertises the required Download Station task API.
+It will recheck availability before submitting tasks.
+
+## Security and testing
+
+Only managed library documents may be submitted; the browser cannot supply
+arbitrary filesystem paths or download URLs. HTTPS with validated certificates
+is required for connections to the NAS except same-host loopback.
+
+    D:\php8.5\php.exe tests/run.php
+
+Live DSM API compatibility, permissions, certificate trust, and task creation
+are outstanding. See docs/DSM7-PACKAGING.md.

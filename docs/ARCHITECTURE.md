@@ -72,10 +72,10 @@ execution of uploaded modules is deliberately prohibited.
 - Binsearch: HTML-based search and selected NZB generation have separate,
   fixed-origin code and have passed live testing; parser maintenance and
   pagination remain outstanding.
-- Download clients: Synology Download Station adapter has API discovery,
-  scoped authentication and NZB upload, with fixture tests. The UI is hidden
-  unless the service can be discovered. Real NAS tests remain outstanding.
-  Generic downloaders are not yet implemented.
+- Download clients: a separate Download Station API adapter is implemented with
+  mocked discovery, login, upload and logout tests. It remains unavailable
+  unless DSM discovery advertises the required API; an actual NAS must still
+  certify task submission and lifecycle. This is independent of the SPK build.
 - File organization: allowlisted source/destination roots, preview/dry-run,
   collision policy, audit records, symlink boundaries, explicit confirmations.
 - PAR2 and archive tools: background job queue, fixed executable allowlist,

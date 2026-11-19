@@ -3,7 +3,8 @@
 This is a release gate, not marketing copy. A feature counts as **implemented**
 only after its new PHP 8.5 implementation is verified with appropriate tests.
 The 2013 code remains archived under current/, but is not a runnable fallback
-on PHP 8.5.
+on PHP 8.5. A password-free DSM test SPK is available before full parity; it is
+not a production release.
 
 | Original workflow | Modern module | State on 19 Nov 2026 | Notes |
 | --- | --- | --- | --- |
@@ -20,7 +21,7 @@ on PHP 8.5.
 | Search multiple Newznab indexers | Indexer | **Implemented; live unverified** | Multi-provider profiles and selections, t=search; credentials stay on server |
 | Download NZB from indexer | Indexer | **Implemented; live unverified** | Newznab t=get by trusted ID, imported into managed library |
 | Binsearch.info search and NZB creation | Binsearch | **Working; live verified** | Search and selected NZB generation verified with public site, no key |
-| Download Station submission | Download clients | **Implemented; live unverified** | Disabled without an installed DSM Task API; discovery, login, upload and logout tested with fixtures |
+| Download Station submission | Download clients | **Implemented, mocked tests only** | Automatically disabled unless DSM API is detected; real DSM task creation not certified |
 | Filename filters / auto naming options | Settings / Import | Not ported | Modern validated rule definitions |
 | PAR2 scan, verify and repair | Repair | Not ported | Safe background jobs required |
 | RAR, ZIP, tar/tgz unpack | Extract | Not ported | Explicit safe destinations, async jobs |
@@ -31,7 +32,7 @@ on PHP 8.5.
 | Delete downloaded files/folders | File manager | Not ported | Confirmations and restricted roots required |
 | Original settings UI (paths, filters, options) | Settings | Not ported | All settings validated, secrets protected |
 | Legacy Synology Web Station UI integration | Platform adapter | Deferred | Not part of Linux runtime |
-| Synology DSM 7.2+ SPK test build | Package builder | **Built; NAS install unverified** | Password-at-install wizard, Web Station resource and protected storage; test SPK only |
+| Synology DSM7 SPK build | CI/release workflow | **Test SPK built, uninstalled** | Password-free DSM 7.2+ Web Station package; real install/upgrade still needs NAS testing |
 
 ## Release requirements
 
@@ -44,4 +45,4 @@ on PHP 8.5.
 - DSM 7 package automation is introduced **after** feature-complete Linux
   release, using one common application source.
 
-Completed domain test cases: 120. Completed HTTP smoke checks: 20. DSM installer script and archive validation pass on DEV. Binsearch live verification passed; live Newznab provider testing remains pending. Live indexer testing remains pending.
+Completed domain test cases: 120. Existing HTTP smoke checks pass. Binsearch live verification passed; live Newznab/Download Station and DSM install/upgrade checks remain pending.

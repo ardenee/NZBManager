@@ -13,31 +13,29 @@ final class AppConfig
 
     public static function storageDir(): string
     {
-        $configured = getenv('NZB_STORAGE_DIR');
-        if (is_string($configured) && $configured !== '')
+        $value = getenv('NZB_STORAGE_DIR');
+        if (is_string($value) && $value !== '')
         {
-            return $configured;
+            return $value;
         }
-        $packageDir = self::privateDir();
-        return $packageDir !== null ? $packageDir . '/nzb' : dirname(__DIR__) . '/var/nzb';
+        $private = self::privateDir();
+        return $private !== null ? $private . '/nzb' : dirname(__DIR__) . '/var/nzb';
     }
 
+    /** Linux installations may still use the existing optional password authentication. */
     public static function passwordHash(): string
     {
-        $configured = getenv('NZB_ADMIN_PASSWORD_HASH');
-        if (is_string($configured) && $configured !== '')
-        {
-            return $configured;
-        }
-        $override = getenv('NZB_AUTH_HASH_FILE');
-        $path = is_string($override) && $override !== ''
-            ? $override : (self::privateDir() !== null ? self::privateDir() . '/auth.hash' : '');
-        if ($path === '' || !is_file($path) || is_link($path))
-        {
-            return '';
-        }
-        $hash = file_get_contents($path, false, null, 0, 257);
-        return is_string($hash) && strlen($hash) <= 256 ? trim($hash) : '';
+        $value = getenv('NZB_ADMIN_PASSWORD_HASH');
+        return is_string($value) ? $value : '';
     }
 
+    /**
+     * DSM test package uses no app login or password wizard.
+     * The marker is created outside web root by the DSM package installer.
+     */
+    public static function passwordlessDsm(): bool
+    {
+        $private = self::privateDir();
+        return $private !== null && is_file($private . '/no-auth') && !is_link($private . '/no-auth');
+    }
 }

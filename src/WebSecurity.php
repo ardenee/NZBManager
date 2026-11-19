@@ -12,13 +12,14 @@ final class WebSecurity
         header('X-Frame-Options: DENY');
         header("Content-Security-Policy: default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 
+        $passwordlessDsm = AppConfig::passwordlessDsm();
         $password = getenv('NZB_ADMIN_PASSWORD') ?: '';
         $hash = AppConfig::passwordHash();
-        if ($password === '' && $hash === '')
+        if (!$passwordlessDsm && $password === '' && $hash === '')
         {
             http_response_code(503);
             header('Content-Type: text/plain; charset=UTF-8');
-            exit('NZB login is not configured. Set a password during installation.');
+            exit('NZB login is not configured for this Linux deployment. Set NZB_ADMIN_PASSWORD_HASH or NZB_ADMIN_PASSWORD.');
         }
 
         $username = $_SERVER['PHP_AUTH_USER'] ?? null;
@@ -41,7 +42,7 @@ final class WebSecurity
         $expectedUser = getenv('NZB_ADMIN_USERNAME') ?: 'admin';
         $allowed = hash_equals($expectedUser, $username) &&
             ($hash !== '' ? password_verify($provided, $hash) : hash_equals($password, $provided));
-        if (!$allowed)
+        if (!$passwordlessDsm && !$allowed)
         {
             header('WWW-Authenticate: Basic realm="NZB Manager", charset="UTF-8"');
             http_response_code(401);

@@ -8,6 +8,3 @@ description="NZB Manager test release: search, create and manage NZBs with optio
 thirdparty="yes"
 install_dep_packages="WebStation:PHP8.2"
 support_url="https://www.arden.ie/2013/03/28/nzb-released/"
-adminprotocol="https"
-adminport="443"
-adminurl="nzbmanager/"

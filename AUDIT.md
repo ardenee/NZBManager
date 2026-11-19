@@ -14,7 +14,7 @@ is a separately isolated core; **function parity has not been achieved**.
 | High | nzbp.php, nzbsearch.php | Unbounded XML and no explicit DTD policy | Bounded DOM parsing; safe external NZB DTD stripped, entity subsets rejected |
 | High | upload.php, downloadfile.php | Unsafe filename/remote request handling | Only local .nzb upload to opaque storage |
 | High | db.php | MySQL root login and legacy MyISAM/latin1 | No DB required for first release |
-| High | SPK metadata, application.cfg | Old DSM third-party UI integration | DSM 7 build deferred until application parity |
+| High | SPK metadata, application.cfg | Old DSM third-party UI integration | DSM 7.2+ password-free **test SPK** assembled; real installation/upgrade validation outstanding |
 | Medium | nzbp.php | Parses shell ls listing; fragile with unusual filenames | New core uses PHP filesystem APIs |
 | Medium | nzbp.php | Creates data directories with mode 0777 | New private directories default to 0700 |
 | Medium | legacy forms | Missing CSRF verification on state changes | New POST actions require CSRF token |

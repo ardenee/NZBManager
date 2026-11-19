@@ -21,7 +21,8 @@ production security, Linux deployment, and DSM installation are not certified.
 - Merge two or more NZBs and download the result
 - Rename and delete imported NZBs without altering their XML content
 - Responsive modern HTML/CSS/JS interface, without external front-end dependencies
-- Required HTTP Basic authentication, CSRF protection and constrained XML parsing
+- Linux HTTP Basic authentication (optional on other deployments), CSRF protection and constrained XML parsing
+- DSM 7.2+ test package runs **without an application password**; restrict its web portal to a trusted network
 
 These operations edit NZB metadata; no Usenet article content is downloaded.
 Merging currently retains the first NZB's header metadata and all selected file
@@ -119,7 +120,7 @@ The HTML interface can change; see docs/BINSEARCH.md for limits and testing.
 | views/ | Shared layout and modular feature templates |
 | tests/ | PHP regression tests and HTTP smoke tests |
 | deploy/ | Linux web-server example |
-| docs/ | Architecture, parity matrix and future DSM 7 plan |
+| docs/ | Architecture, parity matrix, DSM 7 test-package instructions |
 | current/source/ | Historical PHP, **not safe to serve** |
 | current/spk/ | Historical Synology package files |
 | ARCHIVE-MANIFEST.json | Original package recovery manifest |
@@ -127,30 +128,33 @@ The HTML interface can change; see docs/BINSEARCH.md for limits and testing.
 
 ## Synology DSM 7.2+ test package
 
-A test-only installer is generated from the same modern PHP application:
+A password-free **test SPK** can now be built from this same application source:
 
     python packaging/dsm7/build.py
-    python tests/validate-spk.py
 
-Output: `dist/NZBManager-0.2.1-0001-noarch-test.spk`.
-Install Web Station and PHP 8.2 on DSM, then choose **Package Center > Manual
-Install** and select the SPK. During installation, choose an NZB Manager
-password (minimum 12 characters). Log in to the web app as `admin` with that
-password at the Web Station alias (normally `https://NAS/nzbmanager/`).
-Do not publish the portal on the internet; use an HTTPS certificate accepted
-by your browser. The password is hashed into package-private storage and is
-not included in the SPK. See docs/DSM7-PACKAGING.md for the installation
-checklist and caveats. The DSM installer has only been structurally and
-script-tested on DEV, **not installed on a live Synology NAS**. It remains a
-test prerelease; feature parity, DSM lifecycle and upgrade testing are pending.
+Install `dist/NZB-Manager-DSM7-0.2.1-0001-noauth-test.spk` through Package
+Center > Manual Install. Web Station and PHP 8.2 must be available. The
+application registers an alias portal at `/nzbmanager/` through Web Station.
+There is **no installation wizard, application password or login prompt**.
+The package retains its library and session data under the package-private
+`var` directory. It does not contain the original 2013 PHP application.
+
+**Security:** Synology Web Station does not require DSM login for arbitrary web
+sites. Anyone who can reach this portal can use NZB Manager. Keep it on a
+trusted local network using NAS firewall/reverse-proxy access controls; do not
+publish this password-free test instance to the internet.
+
+The SPK has passed structural checks but **has not been installed or upgraded
+on a real DSM NAS**. It is an early alpha with important legacy workflows still
+missing, not a production-certified release. See docs/DSM7-PACKAGING.md.
 
 ## Functions not yet ported
 
 The historical application also had torrent uploads, filesystem scans,
 PAR2 repair, archive unpacking and filesystem operations to rename/merge/move
-downloads. Those features are **not currently available** in the modern application.
-An optional Synology Download Station adapter is implemented and fixture-tested,
-but a real DSM task upload still needs NAS verification. Indexer search and
+downloads. Those features are **not currently available** in the modern
+application. Optional Download Station submission has a mocked API-tested
+adapter, but still requires connection settings and actual DSM validation. Indexer search and
 import are implemented but require live-provider verification. Old MySQL databases
 are not automatically imported. See docs/FEATURE-MATRIX.md for the
 complete parity checklist, docs/ARCHITECTURE.md for extension points,
