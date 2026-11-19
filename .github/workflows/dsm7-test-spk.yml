@@ -18,7 +18,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Build and validate SPK
-        run: python packaging/dsm7/build.py
+        run: |
+          python packaging/dsm7/build.py
+          python tests/validate-spk.py
       - name: Upload test installer
         uses: actions/upload-artifact@v4
         with:
