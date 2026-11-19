@@ -46,6 +46,8 @@ $xml = <<<'XML'
 XML;
 
 $doc = NzbDocument::fromXml($xml);
+$legacyXml = str_replace('<nzb xmlns=', '<!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://example.invalid/nzb.dtd">' . "\n" . '<nzb xmlns=', $xml);
+check(count(NzbDocument::fromXml($legacyXml)->summary()['files']) === 2, 'Legacy external DTD accepted without fetching');
 $summary = $doc->summary();
 check(count($summary['files']) === 2, 'Namespaced NZB parsed');
 check($summary['totalBytes'] === 280, 'Segment byte totals');
@@ -73,7 +75,14 @@ try
     check($saved['name'] === 'test.nzb', 'Upload filename sanitization');
     check(count($storage->all()) === 1, 'Library enumeration');
     check($storage->load($saved['id'])->summary()['segmentCount'] === 3, 'Storage round-trip');
+    $legacyStored = $storage->save('legacy.nzb', $legacyXml);
+    check($storage->raw($legacyStored['id']) === $legacyXml, 'Original legacy NZB bytes preserved');
+    $storage->delete($legacyStored['id']);
     expectFailure(static fn () => $storage->load('../bad'), 'Reject unsafe storage ID');
+    $renamed = $storage->rename($saved['id'], 'renamed release');
+    check($renamed['name'] === 'renamed release.nzb', 'Rename adds NZB extension');
+    check($storage->info($saved['id'])['name'] === 'renamed release.nzb', 'Rename persists after reload');
+    expectFailure(static fn () => $storage->rename($saved['id'], '   '), 'Reject empty rename');
     $storage->delete($saved['id']);
     check($storage->all() === [], 'Delete only managed NZB');
 }
@@ -85,4 +94,17 @@ finally
     }
     rmdir($directory);
 }
+require dirname(__DIR__) . '/src/Modules/ModuleInterface.php';
+require dirname(__DIR__) . '/src/Modules/ViewModule.php';
+require dirname(__DIR__) . '/src/Modules/ModuleRegistry.php';
+$registry = \NZB\Modules\ModuleRegistry::standard();
+check($registry->get('library')->route() === 'index.php', 'Library route from module registry');
+check($registry->get('inspector')->route('abc') === 'index.php?view=abc', 'Inspector module route');
+check($registry->get('repair')->route() === null, 'Unfinished modules cannot be opened');
+check(count($registry->planned()) === 6, 'Six planned parity modules tracked');
+expectFailure(static fn () => $registry->register(new \NZB\Modules\ViewModule('library', 'Duplicate', '', null, '')), 'Duplicate module IDs rejected');
+require dirname(__DIR__) . '/src/Http/ActionRouter.php';
+$router = (new \NZB\Http\ActionRouter())->register(['example'], static function (): void {});
+check($router->has('example') && !$router->has('missing'), 'Explicit action registration');
+expectFailure(static fn () => $router->register(['example'], static function (): void {}), 'Duplicate action names rejected');
 echo 'All ' . $checks . ' assertions passed.' . PHP_EOL;

@@ -16,10 +16,15 @@ final class NzbDocument
         {
             throw new RuntimeException('NZB data is empty or exceeds the 32 MiB limit.');
         }
-        if (preg_match('/<!\s*(?:DOCTYPE|ENTITY)\b/i', $xml))
+        // Historical NZBs include an external PUBLIC/SYSTEM DTD declaration.
+        // Strip only a simple declaration before parsing: never load its URL.
+        $externalDtd = '~<!DOCTYPE[ \t\r\n]+nzb(?:[ \t\r\n]+(?:SYSTEM[ \t\r\n]+["\x27][^"\x27<>]*["\x27]|PUBLIC[ \t\r\n]+["\x27][^"\x27<>]*["\x27][ \t\r\n]+["\x27][^"\x27<>]*["\x27]))?[ \t\r\n]*>~i';
+        $sanitized = preg_replace($externalDtd, '', $xml, 1, $removed);
+        if ($sanitized === null || preg_match('/<!\s*(?:DOCTYPE|ENTITY)\b/i', $sanitized))
         {
-            throw new RuntimeException('DTD and entity declarations are not accepted.');
+            throw new RuntimeException('Unsafe DTD or entity declaration in NZB.');
         }
+        $xml = $sanitized;
         $dom = new DOMDocument('1.0', 'UTF-8');
         $dom->resolveExternals = false;
         $dom->substituteEntities = false;

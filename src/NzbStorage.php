@@ -21,14 +21,7 @@ final class NzbStorage
     {
         $summary = NzbDocument::fromXml($xml)->summary();
         $id = bin2hex(random_bytes(16));
-        $name = trim(str_replace(['/', '\\', "\0"], '', $name));
-        $name = substr(preg_replace('/[\x00-\x1F\x7F]/', '', $name) ?? '', 0, 180);
-        $name = trim($name, " .");
-        $name = $name ?: 'untitled.nzb';
-        if (!str_ends_with(strtolower($name), '.nzb'))
-        {
-            $name .= '.nzb';
-        }
+        $name = self::safeName($name);
         $record = [
             'id' => $id, 'name' => $name, 'created' => gmdate('c'),
             'files' => count($summary['files']), 'bytes' => $summary['totalBytes'],
@@ -48,6 +41,18 @@ final class NzbStorage
             throw new RuntimeException('Could not save NZB metadata.');
         }
         return $record;
+    }
+
+    private static function safeName(string $name): string
+    {
+        $name = trim(str_replace(['/', '\\', "\0"], '', $name));
+        $name = substr(preg_replace('/[\x00-\x1F\x7F]/', '', $name) ?? '', 0, 180);
+        $name = trim($name, " .");
+        if ($name === '')
+        {
+            throw new RuntimeException('The NZB name cannot be empty.');
+        }
+        return str_ends_with(strtolower($name), '.nzb') ? $name : $name . '.nzb';
     }
 
     private function path(string $id, string $suffix): string
@@ -74,7 +79,7 @@ final class NzbStorage
         return $info;
     }
 
-    public function load(string $id): NzbDocument
+    public function raw(string $id): string
     {
         $this->info($id);
         $path = $this->path($id, '.nzb');
@@ -83,11 +88,16 @@ final class NzbStorage
             throw new RuntimeException('NZB not found.');
         }
         $xml = file_get_contents($path, false, null, 0, NzbDocument::MAX_BYTES + 1);
-        if ($xml === false)
+        if ($xml === false || strlen($xml) > NzbDocument::MAX_BYTES)
         {
-            throw new RuntimeException('Could not load NZB.');
+            throw new RuntimeException('Could not read NZB.');
         }
-        return NzbDocument::fromXml($xml);
+        return $xml;
+    }
+
+    public function load(string $id): NzbDocument
+    {
+        return NzbDocument::fromXml($this->raw($id));
     }
 
     public function all(): array
@@ -106,6 +116,34 @@ final class NzbStorage
         }
         usort($entries, static fn (array $a, array $b): int => strcmp($b['created'], $a['created']));
         return $entries;
+    }
+
+    public function rename(string $id, string $newName): array
+    {
+        $record = $this->info($id);
+        $record['name'] = self::safeName($newName);
+        $encoded = json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $target = $this->path($id, '.json');
+        $temporary = $this->path($id, '.json.tmp.' . bin2hex(random_bytes(6)));
+        try
+        {
+            if (file_put_contents($temporary, $encoded, LOCK_EX) !== strlen($encoded))
+            {
+                throw new RuntimeException('Could not update NZB metadata.');
+            }
+            if (!rename($temporary, $target))
+            {
+                throw new RuntimeException('Could not commit NZB rename.');
+            }
+        }
+        finally
+        {
+            if (is_file($temporary))
+            {
+                unlink($temporary);
+            }
+        }
+        return $record;
     }
 
     public function delete(string $id): void

@@ -25,6 +25,14 @@ button { cursor: pointer; }
 nav { display: grid; gap: 5px; }
 .nav-link { color: #aab9d1; display: block; padding: 11px 14px; border-radius: 9px; font-weight: 650; }
 .nav-link:hover, .nav-link.active { background: #263853; color: #fff; text-decoration: none; }
+.upcoming-heading { margin-top: 30px; }
+.upcoming-list { display: grid; gap: 3px; }
+.upcoming-module { padding: 8px 14px; color: #a3b0c5; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.upcoming-module small { border: 1px solid #38465f; color: #7e8ea9; padding: 1px 5px; border-radius: 4px; font-size: 9px; }
+.rename-panel { margin-top: -9px; }
+.rename-panel .panel-heading { flex-wrap: wrap; }
+.rename-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.rename-form input { border: 1px solid #d9e1ec; border-radius: 7px; padding: 9px 12px; min-width: 210px; max-width: 100%; }
 .sidebar-bottom { margin-top: auto; padding: 22px 12px 0; color: #b1beda; font-size: 12px; border-top: 1px solid #283750; }
 .sidebar-bottom span { color: #8393ad; font-size: 11px; }
 .main { flex: 1; min-width: 0; }
@@ -104,7 +112,7 @@ footer { color: #98a3b6; text-align: center; font-size: 11px; padding: 8px 0; }
   .sidebar { width: auto; padding: 12px; }
   .brand { margin: 0 5px 12px; font-size: 16px; }
   .brand-icon { width: 30px; height: 30px; font-size: 21px; }
-  .nav-heading, .sidebar-bottom { display: none; }
+  .nav-heading, .sidebar-bottom, .upcoming-list { display: none; }
   nav { display: flex; }
   .nav-link { padding: 7px 12px; }
   .topbar { height: 52px; }

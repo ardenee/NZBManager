@@ -13,6 +13,7 @@ $env:NZB_ADMIN_PASSWORD = $secret
 $env:NZB_STORAGE_DIR = (Join-Path $folder 'private')
 @'
 <?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://example.invalid/nzb.dtd">
 <nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
 <file poster="u@example.com" subject="&quot;one.rar&quot;"><groups><group>alt.test</group></groups><segments><segment number="1" bytes="100">message-one</segment></segments></file>
 <file poster="u@example.com" subject="&quot;two.par2&quot;"><groups><group>alt.test</group></groups><segments><segment number="1" bytes="20">message-two</segment></segments></file>
@@ -49,9 +50,18 @@ try
     $result = Get-Content $export -Raw
     if (!$result.Contains('message-one') -or $result.Contains('message-two')) { throw 'Filtered export content incorrect' }
     Write-Output 'PASS Selective NZB export preserves correct segment'
+    & curl.exe -s -o NUL -u $password -c $cookie -b $cookie -d 'action=rename' -d "_csrf=$token" -d "id=$id" -d 'name=updated.nzb' ($url + '?view=' + $id)
+    $renamedListing = (& curl.exe -s -u $password -c $cookie -b $cookie $url) -join "`n"
+    if ($renamedListing -notmatch 'updated.nzb') { throw 'Rename did not persist through HTTP' }
+    Write-Output 'PASS Rename document via authenticated POST'
+    $original = Join-Path $folder 'original.nzb'
+    & curl.exe -s -o $original -u $password -c $cookie -b $cookie ($url + '?download=' + $id)
+    $originalText = Get-Content $original -Raw
+    if (!$originalText.Contains('<!DOCTYPE nzb') -or !$originalText.Contains('message-two')) { throw 'Original NZB download lost legacy DTD or content' }
+    Write-Output 'PASS Original download preserves historic DTD and segments'
     & curl.exe -s -o NUL -u $password -c $cookie -b $cookie -d "action=delete" -d "_csrf=$token" -d "id=$id" $url
     $after = & curl.exe -s -u $password -c $cookie -b $cookie $url
-    if ($after -match 'sample.nzb') { throw 'Delete did not remove document' }
+    if ($after -match 'updated.nzb') { throw 'Delete did not remove document' }
     Write-Output 'PASS Delete removes imported document'
 }
 finally

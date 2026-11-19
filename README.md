@@ -8,12 +8,13 @@ production security, Linux deployment, and DSM installation are not certified.
 
 ## Working in the modern application
 
-- Multi-file NZB uploads to a private local library; original NZB downloads
+- Multi-file NZB uploads to a private local library; byte-preserving original downloads
 - Inspect subjects, file names, metadata, Usenet groups, segments and sizes
+- Read historical NZB external-DTD declarations without remote DTD requests
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
-- Delete previously imported NZBs
+- Rename and delete imported NZBs without altering their XML content
 - Responsive modern HTML/CSS/JS interface, without external front-end dependencies
 - Required HTTP Basic authentication, CSRF protection and constrained XML parsing
 
@@ -68,26 +69,24 @@ with an explicitly private production path.
 | Path | Purpose |
 | --- | --- |
 | public/ | Only web-served files |
-| src/ | Modern NZB parser, storage, request security |
-| tests/ | Standalone PHP regression tests |
-| deploy/ | Example nginx configuration |
-| packaging/synology/ | Optional Synology DSM 7 package staging |
+| src/ | Parser, storage, security, module registry and request handlers |
+| views/ | Shared layout and modular feature templates |
+| tests/ | PHP regression tests and HTTP smoke tests |
+| deploy/ | Linux web-server example |
+| docs/ | Architecture, parity matrix and future DSM 7 plan |
 | current/source/ | Historical PHP, **not safe to serve** |
 | current/spk/ | Historical Synology package files |
 | ARCHIVE-MANIFEST.json | Original package recovery manifest |
 | AUDIT.md | Detailed legacy findings and migration roadmap |
 
-## Optional Synology staging package
+## Future Synology deployment
 
-From Git Bash or Linux:
-
-    bash packaging/synology/build.sh
-
-This generates dist/NZB-0.2.0-0001-noarch.spk containing the modern core.
-This is NOT a fully configured or DSM-certified package. It still needs
-DSM 7 Web Station service/portal registration, supported PHP runtime, PHP-FPM
-permissions and a secure method to set credentials. See
-packaging/synology/README.md.
+**Do not build an SPK yet.** The previous provisional package builder has
+been removed from active source, along with its generated test package. After
+the complete Linux application's feature and security acceptance tests pass,
+a release-gated automated workflow will produce a DSM 7 SPK from the same
+code. No duplicate Synology fork is planned. See docs/DSM7-PACKAGING.md and
+Synology's official developer guide for the requirements.
 
 ## Functions not yet ported
 
@@ -95,7 +94,9 @@ The historical application also had NZBPlanet search and remote NZB fetching,
 Synology Download Station submission, PAR2 repair, archive unpacking and
 filesystem operations to rename/merge/move downloads. Those features are
 **not currently available** in the modern application. Old MySQL databases
-are not automatically imported. See AUDIT.md for priorities and risks.
+are not automatically imported. See docs/FEATURE-MATRIX.md for the
+complete parity checklist, docs/ARCHITECTURE.md for extension points, and
+AUDIT.md for the security risks in the archived PHP.
 
 ## Historical source and licensing
 

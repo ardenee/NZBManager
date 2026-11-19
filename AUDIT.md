@@ -11,10 +11,10 @@ is a separately isolated core; **function parity has not been achieved**.
 | Critical | deletefolder.php, merge.php | User-controlled paths included in recursive shell deletion | No shell commands in new core |
 | High | nzbp.php, actions | SQL constructed by string concatenation | Future database code must use parameterized PDO |
 | High | display.php, index.inc, nzbsearch.php | HTML/JS output not consistently escaped | New UI HTML-escapes user content |
-| High | nzbp.php, nzbsearch.php | Unbounded XML and no explicit DTD policy | Bounded DOM parsing, DTD rejected |
+| High | nzbp.php, nzbsearch.php | Unbounded XML and no explicit DTD policy | Bounded DOM parsing; safe external NZB DTD stripped, entity subsets rejected |
 | High | upload.php, downloadfile.php | Unsafe filename/remote request handling | Only local .nzb upload to opaque storage |
 | High | db.php | MySQL root login and legacy MyISAM/latin1 | No DB required for first release |
-| High | SPK metadata, application.cfg | Old DSM third-party UI integration | New staging SPK, DSM validation outstanding |
+| High | SPK metadata, application.cfg | Old DSM third-party UI integration | DSM 7 build deferred until application parity |
 | Medium | nzbp.php | Parses shell ls listing; fragile with unusual filenames | New core uses PHP filesystem APIs |
 | Medium | nzbp.php | Creates data directories with mode 0777 | New private directories default to 0700 |
 | Medium | legacy forms | Missing CSRF verification on state changes | New POST actions require CSRF token |
@@ -27,8 +27,9 @@ is a separately isolated core; **function parity has not been achieved**.
 - Session-bound CSRF tokens and POST-only mutations
 - Opaque hexadecimal identifiers, no filesystem paths accepted from requests
 - HTML escaping, Content Security Policy and standard browser protections
-- NZB XML parser rejects DTD, does not substitute external entities and
-  limits documents to 32 MiB and 10,000 entries
+- NZB XML parser removes simple historical external DTD declarations before
+  parsing, rejects unsafe entity subsets, disables external entities and limits
+  documents to 32 MiB and 10,000 entries
 - No shell execution, remote HTTP fetching, archive unpacking or repair workers
 
 ## Outstanding gaps
@@ -44,8 +45,8 @@ is a separately isolated core; **function parity has not been achieved**.
    first input; define deterministic metadata merge rules.
 6. Improve persistence with transaction-safe metadata, pagination, file
    limits, duplicate detection, cleanup and audit logs.
-7. Validate DSM 7 installation and package lifecycle, register Web Station
-   service/portal and configure PHP profile/environment and permissions.
+7. After application feature completion, automate DSM 7 packaging in a
+   release-gated pipeline and validate Web Station setup and lifecycle.
 8. Review copyright and licences of historical and third-party code before
    redistribution.
 
