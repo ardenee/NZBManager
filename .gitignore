@@ -1,6 +1,4 @@
-# Original SPK archives may embed old credentials. Never commit.
-original-spk/
-# Local runtime secrets and data
+# Private runtime data and secrets — never deploy from the repository root.
 .env
 .env.*
 !.env.example
@@ -11,11 +9,19 @@ original-spk/
 .DS_Store
 Thumbs.db
 vendor-local/
-
-# Modern application runtime and generated packages
 /var/
 /dist/
 
-# Python bytecode from packaging/test validation
+# Internal development materials are kept locally/offline, not in GitHub.
+/current/
+/original-spk/
+/docs/
+/tests/
+/.github/
+/AUDIT.md
+/ARCHIVE-MANIFEST.json
+/packaging/dsm7/README.md
+
+# Development and packaging caches.
 __pycache__/
 *.pyc

@@ -1,4 +1,0 @@
-#!/bin/sh
-LOG="/var/packages/NZB/log"
-ln -s $SYNOPKG_PKGDEST /usr/syno/synoman/webman/3rdparty/NZB 
-date +'%c installed' >> $LOG
