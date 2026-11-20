@@ -29,6 +29,7 @@ final class LibraryActions
                 throw new RuntimeException('Select at least one NZB file.');
             }
             $uploaded = 0;
+            $duplicates = 0;
             foreach ($files['name'] as $key => $name)
             {
                 $error = $files['error'][$key] ?? UPLOAD_ERR_NO_FILE;
@@ -51,14 +52,21 @@ final class LibraryActions
                 {
                     throw new RuntimeException('Unable to read uploaded NZB.');
                 }
-                $store->save($name, $xml);
-                $uploaded++;
+                $record = $store->save($name, $xml);
+                if ($record['already_exists'] ?? false)
+                {
+                    $duplicates++;
+                }
+                else
+                {
+                    $uploaded++;
+                }
             }
-            if ($uploaded === 0)
+            if ($uploaded === 0 && $duplicates === 0)
             {
                 throw new RuntimeException('No NZB files were uploaded.');
             }
-            \message($uploaded . ' NZB file(s) added to your library.');
+            \message($uploaded . ' NZB file(s) added; ' . $duplicates . ' duplicate(s) skipped.');
         }
         elseif ($action === 'delete')
         {

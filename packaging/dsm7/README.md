@@ -21,7 +21,7 @@ PHP-FPM profile configuration after a first-install 502/missing PHP profile.
 
 For an existing 0.2.1-0001 installation without the PHP profile, back up
 any private library data and uninstall the previous test SPK before installing
-0.2.1-0003. The Web Station service registration is not directly updatable.
+0.3.0-0001. The Web Station service registration is not directly updatable.
 
 The package includes INFO, package.tgz, scripts/, conf/resource,
 conf/privilege and the required 64/256px PNG icons. The application payload

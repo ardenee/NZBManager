@@ -3,8 +3,10 @@
 A Linux-first PHP web application for inspecting and manipulating NZB metadata,
 modernized from the recovered NZB 0.1 Synology package published in 2013.
 
-**Status: early alpha.** The modern core is tested with PHP 8.5.12 on DEV;
-production security, Linux deployment, and DSM installation are not certified.
+**Status: early alpha.** The modern core is tested with PHP 8.5 on DEV and
+running on DSM 7 / PHP 8.2.35 at `192.168.0.67`. Functional smoke tests
+have passed on that NAS; production security and cross-device compatibility
+are not yet certified.
 
 ## Working in the modern application
 
@@ -16,6 +18,13 @@ production security, Linux deployment, and DSM installation are not certified.
   import selected NZBs; fixture-tested, live-provider testing pending
 - Search Binsearch.info independently of Newznab and create/download or import
   an NZB from selected results; search and generation tested against live site
+- Search, globally sort and paginate documents; sort the other result tables
+- Configure Binsearch page size, library size and per-page file/segment counts
+- Configure Newznab providers and API keys from Settings (stored in private data)
+- Import NZBs from a configured DSM folder without altering source files
+- Suppress duplicate NZBs across all import methods using SHA-256 content hashes
+- Push up to 25 NZBs to a monitored download folder or to a restricted HTTPS upload endpoint
+- Inspect suspect segment numbering; add, edit or delete NZB references into a new document
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
@@ -104,8 +113,8 @@ search/import certification. See docs/INDEXERS.md.
 
 ## Binsearch
 
-The Binsearch module is available without an API key. It searches the current
-Binsearch.info HTML interface, then submits selected collection IDs to the
+The Binsearch module is available without an API key. It searches multiple
+pages of the current Binsearch.info HTML interface, then submits selected collection IDs to the
 fixed provider /nzb URL to generate a valid NZB. Generated NZBs can be saved
 in the library or downloaded. A live search and NZB generation succeeded on
 DEV on 19 November 2026. The module does not fetch Usenet article payloads.
@@ -132,28 +141,30 @@ A password-free **test SPK** can now be built from this same application source:
 
     python packaging/dsm7/build.py
 
-Install `dist/NZB-Manager-DSM7-0.2.1-0003-noauth-test.spk` through Package
+Install `dist/NZB-Manager-DSM7-0.3.0-0001-noauth-test.spk` through Package
 Center > Manual Install. Web Station and PHP 8.2 must be available. The
 application registers an alias portal at `/nzbmanager/` through Web Station.
 There is **no installation wizard, application password or login prompt**.
-The package retains its library and session data under the package-private
-`var` directory. It does not contain the original 2013 PHP application.
+The package retains its library, saved indexer profiles, settings and session
+data under the package-private `var` directory. It does not contain the original 2013 PHP application.
 
 **Security:** Synology Web Station does not require DSM login for arbitrary web
 sites. Anyone who can reach this portal can use NZB Manager. Keep it on a
 trusted local network using NAS firewall/reverse-proxy access controls; do not
 publish this password-free test instance to the internet.
 
-The SPK has passed structural checks but **has not been installed or upgraded
-on a real DSM NAS**. It is an early alpha with important legacy workflows still
-missing, not a production-certified release. See docs/DSM7-PACKAGING.md.
+The SPK has been installed and its PHP profile tested on the development NAS.
+It remains an early alpha with important legacy workflows missing, not a
+production-certified release. The current active DSM website contains newer
+code than the last packaged SPK; rebuild before deploying those changes. See docs/DSM7-PACKAGING.md.
 
 ## Functions not yet ported
 
-The historical application also had torrent uploads, filesystem scans,
-PAR2 repair, archive unpacking and filesystem operations to rename/merge/move
-downloads. Those features are **not currently available** in the modern
-application. Optional Download Station submission has a mocked API-tested
+The historical application also had torrent uploads, continuous folder
+monitoring, PAR2 repair, archive unpacking and filesystem operations to
+rename/merge/move downloaded content. Those features are **not currently
+available** in the modern application. Bounded, manual NZB-folder importing
+and monitored-folder NZB output are implemented. Optional Download Station submission has a mocked API-tested
 adapter, but still requires connection settings and actual DSM validation. Indexer search and
 import are implemented but require live-provider verification. Old MySQL databases
 are not automatically imported. See docs/FEATURE-MATRIX.md for the

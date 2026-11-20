@@ -39,6 +39,18 @@ check($calls[1]['params'][$idOne] === 'on' && $calls[1]['params'][$idTwo] === 'o
 expectFailure(static fn () => $client->createNzb('sample', []), 'Binsearch disallows empty output selection');
 expectFailure(static fn () => $client->createNzb('sample', ['../../bad']), 'Binsearch disallows unsafe selected IDs');
 
+$pagedHtml = str_replace('<body>', '<body><a aria-label="Page 1"></a><a aria-label="Page 2 is your current page"></a><a aria-label="Page 3"></a>', $html);
+$pagedCalls = [];
+$paged = new BinsearchClient(static function (string $path, array $params, int $limit) use ($pagedHtml, &$pagedCalls): string {
+    $pagedCalls[] = $params;
+    return $pagedHtml;
+});
+$pageTwo = $paged->searchPage('sample', 1, 25);
+check($pageTwo['page'] === 1 && $pageTwo['pages'] === 3 && count($pageTwo['results']) === 2, 'Binsearch parses active page and total page labels');
+check($pagedCalls[0]['page'] === '1' && $pagedCalls[0]['max'] === '25', 'Binsearch uses zero-based page and configured page size');
+expectFailure(static fn () => $paged->searchPage('sample', -1, 25), 'Binsearch rejects negative page');
+expectFailure(static fn () => $paged->searchPage('sample', 0, 33), 'Binsearch rejects unsupported provider page size');
+expectFailure(static fn () => $paged->searchPage('sample', 3, 25), 'Binsearch rejects response for wrong requested page');
 $state = ['at' => time(), 'query' => 'sample', 'results' => $search];
 check(BinsearchActions::generate([$search[0]['ref']], $state, $client) === $xml, 'Binsearch action resolves session-backed reference');
 expectFailure(static fn () => BinsearchActions::generate(['../../bad'], $state, $client), 'Binsearch action rejects user path inputs');

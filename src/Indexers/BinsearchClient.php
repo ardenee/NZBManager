@@ -18,7 +18,8 @@ final class BinsearchClient
 {
     public const HOST = 'www.binsearch.info';
     public const MAX_HTML_BYTES = 2097152;
-    public const MAX_RESULTS = 50;
+    public const MAX_RESULTS = 100;
+    public const MAX_PAGES = 500;
     private ?Closure $transport;
 
     public function __construct(?callable $transport = null)
@@ -46,9 +47,49 @@ final class BinsearchClient
     /** @return list<array{ref:string,id:string,title:string,size:string,age:string}> */
     public function search(string $query): array
     {
+        return $this->searchPage($query, 0, 50)['results'];
+    }
+
+    /**
+     * Binsearch's current /search page query is ZERO-BASED.
+     * Never accept arbitrary URL parameters from the browser.
+     * @return array{results:array,page:int,pages:int}
+     */
+    public function searchPage(string $query, int $page = 0, int $perPage = 50): array
+    {
         $query = self::validateQuery($query);
-        $html = $this->fetch('/search', ['q' => $query], self::MAX_HTML_BYTES, 'text/html');
-        return self::parseSearch($html);
+        if ($page < 0 || $page >= self::MAX_PAGES || !in_array($perPage, [25, 50, 100], true))
+        {
+            throw new RuntimeException('Invalid Binsearch page or page size.');
+        }
+        $html = $this->fetch('/search', [
+            'q' => $query, 'page' => (string) $page, 'max' => (string) $perPage
+        ], self::MAX_HTML_BYTES, 'text/html');
+
+        // Page labels are part of the provider's server-rendered pagination.
+        $current = null;
+        if (preg_match('/aria-label=["\x27]Page ([0-9]{1,6}) is your current page["\x27]/i', $html, $match))
+        {
+            $current = (int) $match[1];
+        }
+        if ($current !== null && $current !== $page + 1)
+        {
+            throw new RuntimeException('Binsearch returned a different page than requested.');
+        }
+        $pages = 1;
+        if (preg_match_all('/aria-label=["\x27]Page ([0-9]{1,6})(?: is your current page)?["\x27]/i', $html, $matches))
+        {
+            foreach ($matches[1] as $number)
+            {
+                $pages = max($pages, min(self::MAX_PAGES, (int) $number));
+            }
+        }
+        $results = self::parseSearch($html);
+        if ($page > 0 && $results === [])
+        {
+            throw new RuntimeException('Binsearch did not return results for that page.');
+        }
+        return ['results' => $results, 'page' => $page, 'pages' => max($page + 1, $pages)];
     }
 
     /** @param list<string> $ids */

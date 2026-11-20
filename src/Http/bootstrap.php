@@ -4,6 +4,8 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/NzbDocument.php';
 require dirname(__DIR__) . '/NzbStorage.php';
 require dirname(__DIR__) . '/AppConfig.php';
+require dirname(__DIR__) . '/AppSettings.php';
+require dirname(__DIR__) . '/AppPlatform.php';
 require dirname(__DIR__) . '/WebSecurity.php';
 require dirname(__DIR__) . '/Modules/ModuleInterface.php';
 require dirname(__DIR__) . '/Modules/ViewModule.php';
@@ -13,12 +15,17 @@ require __DIR__ . '/ActionRouter.php';
 require dirname(__DIR__) . '/Indexers/NewznabClient.php';
 require dirname(__DIR__) . '/Indexers/ProviderCatalog.php';
 require dirname(__DIR__) . '/Indexers/IndexerConnections.php';
+require dirname(__DIR__) . '/Indexers/IndexerProfileStore.php';
 require dirname(__DIR__) . '/Indexers/FixedOriginHttp.php';
 require dirname(__DIR__) . '/Indexers/BinsearchClient.php';
 require dirname(__DIR__) . '/Modules/BinsearchActions.php';
 require dirname(__DIR__) . '/Modules/IndexerActions.php';
 require dirname(__DIR__) . '/DownloadClients/DownloadStationClient.php';
 require dirname(__DIR__) . '/Modules/DownloadStationActions.php';
+require dirname(__DIR__) . '/Modules/SettingsActions.php';
+require dirname(__DIR__) . '/Modules/PushToActions.php';
+require dirname(__DIR__) . '/Modules/FolderImportActions.php';
+require dirname(__DIR__) . '/Modules/SegmentActions.php';
 
 
 use NZB\NzbDocument;
@@ -86,7 +93,11 @@ $actions = (new \NZB\Http\ActionRouter())
     ->register(['upload', 'delete', 'rename', 'export', 'merge'], [\NZB\Modules\LibraryActions::class, 'dispatch'])
     ->register(['indexer_search', 'indexer_import'], [\NZB\Modules\IndexerActions::class, 'dispatch'])
     ->register(['binsearch_search', 'binsearch_generate'], [\NZB\Modules\BinsearchActions::class, 'dispatch'])
-    ->register(['downloadstation_submit'], [\NZB\Modules\DownloadStationActions::class, 'dispatch']);
+    ->register(['downloadstation_submit'], [\NZB\Modules\DownloadStationActions::class, 'dispatch'])
+    ->register(['settings_save', 'indexer_add', 'indexer_remove'], [\NZB\Modules\SettingsActions::class, 'dispatch'])
+    ->register(['push_to'], [\NZB\Modules\PushToActions::class, 'dispatch'])
+    ->register(['folder_import'], [\NZB\Modules\FolderImportActions::class, 'dispatch'])
+    ->register(['segment_add', 'segment_replace', 'segment_delete'], [\NZB\Modules\SegmentActions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);
 
 if (($_GET['download'] ?? '') !== '')
@@ -121,7 +132,31 @@ if ($viewId !== '')
         exit('NZB not found.');
     }
 }
-$library = $entry ? [] : $store->all();
+$appSettings = \NZB\AppSettings::load();
+$libraryAll = $entry ? [] : $store->all();
+$librarySort = isset($_GET['sort']) && is_string($_GET['sort']) && in_array($_GET['sort'], ['name', 'files', 'segments', 'bytes', 'created'], true) ? $_GET['sort'] : 'created';
+$libraryDir = ($_GET['dir'] ?? '') === 'asc' ? 'asc' : 'desc';
+$libraryQuery = isset($_GET['q']) && is_string($_GET['q']) ? mb_substr(trim($_GET['q']), 0, 120, 'UTF-8') : '';
+if ($libraryQuery !== '')
+{
+    $libraryAll = array_values(array_filter($libraryAll, static fn (array $item): bool => mb_stripos($item['name'], $libraryQuery, 0, 'UTF-8') !== false));
+}
+usort($libraryAll, static function (array $left, array $right) use ($librarySort, $libraryDir): int {
+    $compare = in_array($librarySort, ['name', 'created'], true)
+        ? strnatcasecmp((string) $left[$librarySort], (string) $right[$librarySort])
+        : ((int) $left[$librarySort] <=> (int) $right[$librarySort]);
+    if ($compare === 0)
+    {
+        $compare = strcmp($left['id'], $right['id']);
+    }
+    return $libraryDir === 'asc' ? $compare : -$compare;
+});
+$libraryTotal = count($libraryAll);
+$libraryPageSize = $appSettings['library_page_size'];
+$libraryPages = max(1, (int) ceil($libraryTotal / $libraryPageSize));
+$rawLibraryPage = $_GET['library_page'] ?? '1';
+$libraryPage = is_string($rawLibraryPage) && preg_match('/\A[0-9]{1,6}\z/D', $rawLibraryPage) ? max(1, min($libraryPages, (int) $rawLibraryPage)) : 1;
+$library = array_slice($libraryAll, ($libraryPage - 1) * $libraryPageSize, $libraryPageSize);
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 header('Content-Type: text/html; charset=UTF-8');
@@ -143,18 +178,21 @@ catch (Throwable $error)
 {
     $indexerError = $error->getMessage();
 }
+$savedIndexers = \NZB\Indexers\IndexerProfileStore::publicList();
 $indexerSearch = $indexerConfigured ? \NZB\Modules\IndexerActions::recentSearch() : null;
 if ($indexerSearch !== null && !in_array($indexerSearch['source'] ?? 'default', array_column($indexerProviders, 'id'), true))
 {
     $indexerSearch = null;
 }
 $requestedModule = $_GET['module'] ?? '';
-$allowedModules = ['indexer', 'binsearch'];
+$allowedModules = ['indexer', 'binsearch', 'settings', 'push-to'];
 if ($downloadStationAvailable)
 {
     $allowedModules[] = 'download-client';
 }
 $moduleName = in_array($requestedModule, $allowedModules, true) ? $requestedModule : ($entry ? 'inspector' : 'library');
 $binsearchSearch = \NZB\Modules\BinsearchActions::recentSearch();
-$activeModule = $registry->get($moduleName);
-$moduleContext = compact('entry', 'document', 'summary', 'library', 'flash', 'store', 'indexerConfigured', 'indexerError', 'indexerSearch', 'indexerProviders', 'indexerPresets', 'binsearchSearch');
+$activeModule = $moduleName === 'settings'
+    ? new \NZB\Modules\ViewModule('settings', 'Settings', 'Application configuration', 'settings', 'index.php?module=settings')
+    : $registry->get($moduleName);
+$moduleContext = compact('entry', 'document', 'summary', 'library', 'flash', 'store', 'indexerConfigured', 'indexerError', 'indexerSearch', 'indexerProviders', 'indexerPresets', 'binsearchSearch', 'appSettings', 'libraryTotal', 'libraryPage', 'libraryPages', 'libraryAll', 'downloadStationAvailable', 'librarySort', 'libraryDir', 'libraryQuery', 'savedIndexers');

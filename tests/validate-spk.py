@@ -8,7 +8,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SPK = ROOT / "dist/NZB-Manager-DSM7-0.2.1-0003-noauth-test.spk"
+SPK = ROOT / "dist/NZB-Manager-DSM7-0.3.0-0001-noauth-test.spk"
 assert SPK.is_file(), f"SPK missing: {SPK}"
 
 with tarfile.open(SPK, "r:") as package:

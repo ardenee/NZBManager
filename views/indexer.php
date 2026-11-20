@@ -56,9 +56,9 @@
         <?php endif; ?>
     </div>
     <div class="table-scroll">
-        <table>
+        <table data-sortable>
             <thead><tr>
-                <th>Release</th><th>Category</th><th>Files</th><th>Grabs</th><th>Size</th><th>Published (UTC)</th><th class="right">Action</th>
+                <th>Release</th><th>Category</th><th>Files</th><th>Grabs</th><th>Size</th><th>Published (UTC)</th><th data-no-sort class="right">Action</th>
             </tr></thead>
             <tbody>
                 <?php foreach (($indexerSearch['results'] ?? []) as $result): ?>

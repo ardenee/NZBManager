@@ -25,7 +25,14 @@
 | src/Modules/BinsearchActions.php | Binsearch search and secure selected-NZB generation |
 | src/Modules/DownloadStationActions.php | Optional task submission and detected-service visibility |
 | src/DownloadClients/DownloadStationClient.php | DSM task API discovery, scoped authentication, NZB upload and logout |
-| src/AppConfig.php | Runtime settings and protected DSM auth hash loading |
+| src/AppConfig.php | DSM package detection and private storage setup |
+| src/AppSettings.php | Validated private page sizes and folder paths |
+| src/AppPlatform.php | Runtime PHP/DSM platform information |
+| src/Indexers/IndexerProfileStore.php | Persisted Newznab profiles and private API keys |
+| src/Modules/SettingsActions.php | Saved settings and Newznab connection management |
+| src/Modules/PushToActions.php | Restricted HTTPS NZB upload and monitored-folder copy |
+| src/Modules/FolderImportActions.php | Bounded, duplicate-aware NZB folder scan |
+| src/Modules/SegmentActions.php | Safe add/edit/delete into a revised NZB |
 | src/Indexers/NewznabClient.php | HTTPS-only Newznab search/get, XML parsing and network limits |
 | src/Indexers/ProviderCatalog.php | Shared Newznab provider presets, including special API paths |
 | src/Indexers/IndexerConnections.php | Multi-indexer server settings and public name-only listing |
@@ -69,9 +76,9 @@ execution of uploaded modules is deliberately prohibited.
 - Indexers: Multiple Newznab provider profiles and search selection are
   implemented, with t=search/t=get fixture tests. Live-provider certification,
   provider-specific redirects and automatic capability discovery remain open.
-- Binsearch: HTML-based search and selected NZB generation have separate,
-  fixed-origin code and have passed live testing; parser maintenance and
-  pagination remain outstanding.
+- Binsearch: HTML-based search, zero-based provider pagination and selected
+  NZB generation are implemented and have passed live testing; parser
+  maintenance remains necessary when Binsearch changes its website.
 - Download clients: a separate Download Station API adapter is implemented with
   mocked discovery, login, upload and logout tests. It remains unavailable
   unless DSM discovery advertises the required API; an actual NAS must still
@@ -95,8 +102,8 @@ directory in production via NZB_STORAGE_DIR. The application rejects requests
 when NZB_ADMIN_PASSWORD_HASH or NZB_ADMIN_PASSWORD is missing. Use HTTPS for
 password authentication. No database or service manager is required yet.
 
-The storage index is JSON sidecars and will need transactional improvements for
-concurrent background work. Content checksums, deduplication, audit logs,
-migrations and non-blocking tasks remain outstanding.
+The storage index is JSON sidecars. SHA-256 hashes and a lock around imports
+prevent duplicate NZBs even from different import sources. Broader transaction
+handling, audit logs, migrations and non-blocking work remain outstanding.
 
 See FEATURE-MATRIX.md for exact implementation status.

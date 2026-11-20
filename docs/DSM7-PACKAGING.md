@@ -32,7 +32,10 @@ not expose the password-free test package to the public internet.
 - HTTPS is recommended even on the local network
 
 The Web Station service uses nginx_php and PHP profile backend ID **11** for
-PHP 8.2. The earlier NZB test packages incorrectly used backend 10, and the
+PHP 8.2. Version 0.3.0-0001 also grants the PHP profile open_basedir access
+to /volume1 through /volume4, allowing folder imports and monitored-folder
+outputs when the package execution user has the necessary share permissions.
+The version can be read from /etc.defaults/VERSION on supported DSM hosts. The earlier NZB test packages incorrectly used backend 10, and the
 DSM web portal was registered without a working package-based PHP profile.
 A known-working DUP 0.6.3-0009 DSM 7 SPK provided as a reference uses backend
 11 with a named PHP 8.2 profile. Its postinst script only logs installation:
@@ -59,7 +62,7 @@ From the repository root:
 
 Output:
 
-    dist/NZB-Manager-DSM7-0.2.1-0003-noauth-test.spk
+    dist/NZB-Manager-DSM7-0.3.0-0001-noauth-test.spk
 
 The builder validates the resource configuration, PHP profile, privilege
 policy, icons, lifecycle scripts, absence of an installation wizard, and

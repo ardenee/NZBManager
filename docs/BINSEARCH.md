@@ -40,8 +40,9 @@ require Binsearch to be online:
 
 ## Limitations
 
-- Initial search results are limited to the first 50 entries; the current
-  Binsearch page returned 25 in testing. Pagination is not implemented yet.
+- Binsearch uses a zero-based `page` parameter. Previous, Next and numbered
+  navigation are available with a configurable page size of 25, 50 or 100.
+  Selected NZB IDs are validated against the current page's server session.
 - HTML scraping depends on the structure of Binsearch's forms and checkboxes;
   this is inherently less stable than the Newznab protocol.
 - Selected NZB generation is based on Binsearch collection IDs. It does not

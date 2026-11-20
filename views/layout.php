@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= escape($entry ? $entry['name'] . ' — NZB Manager' : 'NZB Manager') ?></title>
-<link rel="stylesheet" href="style.css">
-<script src="app.js" defer></script>
+<link rel="stylesheet" href="style.css?v=<?= escape((string) (@filemtime(__DIR__ . '/../public/style.css') ?: 1)) ?>">
+<script src="app.js?v=<?= escape((string) (@filemtime(__DIR__ . '/../public/app.js') ?: 1)) ?>" defer></script>
 </head>
 <body>
 <div class="app-shell">
@@ -20,13 +20,13 @@
     <?php endif; ?>
     <?php endforeach; ?>
     </nav>
-    <div class="nav-heading upcoming-heading">UPCOMING MODULES</div>
+    <div class="nav-heading upcoming-heading">MODULES</div>
     <div class="upcoming-list">
     <?php foreach ($registry->planned() as $module): ?>
         <div class="upcoming-module" title="<?= escape($module->description()) ?>"><span><?= escape($module->label()) ?></span><small>Planned</small></div>
     <?php endforeach; ?>
     </div>
-    <div class="sidebar-bottom">Linux-first · PHP 8.5<br><span>Historical Synology source retained</span></div>
+    <div class="sidebar-bottom"><a class="nav-link <?= $moduleName === 'settings' ? 'active' : '' ?>" href="index.php?module=settings">Settings</a></div>
 </aside>
 <main class="main">
 <header class="topbar"><span>NZB Workspace</span><span class="status"><span class="status-dot"></span> Local library</span></header>
@@ -35,6 +35,6 @@
 <div class="notice <?= $flash['type'] === 'error' ? 'error' : 'success' ?>" role="alert"><?= escape($flash['text']) ?></div>
 <?php endif; ?>
 <?php $activeModule->render($moduleContext); ?>
-<footer>NZB Manager · PHP 8.5 modernization · DSM 7 packaging deferred until release</footer>
+<footer>NZB Manager · PHP <?= escape(PHP_VERSION) ?> · <?= escape(\NZB\AppPlatform::label()) ?></footer>
 </div></main></div>
 </body></html>

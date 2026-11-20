@@ -22,8 +22,40 @@ final class NzbStorage
         $summary = NzbDocument::fromXml($xml)->summary();
         $id = bin2hex(random_bytes(16));
         $name = self::safeName($name);
+        $digest = hash('sha256', $xml);
+        $lock = @fopen($this->dir . DIRECTORY_SEPARATOR . '.import.lock', 'c');
+        if ($lock === false || !flock($lock, LOCK_EX))
+        {
+            throw new RuntimeException('Cannot lock NZB imports.');
+        }
+        try
+        {
+            foreach ($this->all() as $existing)
+            {
+                $known = $existing['sha256'] ?? null;
+                if (!is_string($known))
+                {
+                    $path = $this->dir . DIRECTORY_SEPARATOR . $existing['id'] . '.nzb';
+                    $known = is_file($path) && !is_link($path) ? @hash_file('sha256', $path) : false;
+                }
+                if (is_string($known) && hash_equals($digest, $known))
+                {
+                    return $existing + ['already_exists' => true];
+                }
+            }
+            return $this->saveUnique($id, $name, $xml, $summary, $digest);
+        }
+        finally
+        {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    private function saveUnique(string $id, string $name, string $xml, array $summary, string $digest): array
+    {
         $record = [
-            'id' => $id, 'name' => $name, 'created' => gmdate('c'),
+            'id' => $id, 'name' => $name, 'created' => gmdate('c'), 'sha256' => $digest,
             'files' => count($summary['files']), 'bytes' => $summary['totalBytes'],
             'segments' => $summary['segmentCount']
         ];

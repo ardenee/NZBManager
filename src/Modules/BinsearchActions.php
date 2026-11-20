@@ -25,14 +25,22 @@ final class BinsearchActions
                 {
                     throw new RuntimeException('Invalid Binsearch query.');
                 }
-                unset($_SESSION['binsearch_search']);
-                $results = $client->search($query);
+                $rawPage = $_POST['page'] ?? '0';
+                if (!is_string($rawPage) || !preg_match('/\A[0-9]{1,3}\z/D', $rawPage))
+                {
+                    throw new RuntimeException('Invalid Binsearch page.');
+                }
+                $page = (int) $rawPage;
+                $size = \NZB\AppSettings::load()['binsearch_page_size'];
+                // Do not clear the previous results on an upstream error.
+                $response = $client->searchPage($query, $page, $size);
                 $_SESSION['binsearch_search'] = [
-                    'at' => time(),
-                    'query' => trim($query),
-                    'results' => $results,
+                    'at' => time(), 'query' => trim($query),
+                    'results' => $response['results'],
+                    'page' => $response['page'], 'pages' => $response['pages'],
+                    'per_page' => $size,
                 ];
-                \message(count($results) . ' Binsearch result(s) returned.');
+                \message(count($response['results']) . ' Binsearch result(s) returned on page ' . ($page + 1) . '.');
             }
             elseif ($action === 'binsearch_generate')
             {

@@ -69,6 +69,12 @@ final class IndexerConnections
 
     public static function fromEnvironment(): self
     {
+        require_once __DIR__ . '/IndexerProfileStore.php';
+        $saved = IndexerProfileStore::load();
+        if ($saved !== [])
+        {
+            return new self($saved);
+        }
         $multi = getenv('NZB_INDEXERS_JSON');
         if (is_string($multi) && trim($multi) !== '')
         {

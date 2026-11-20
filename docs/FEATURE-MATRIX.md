@@ -1,48 +1,51 @@
-# Historical functionality parity matrix
+# NZB Manager feature matrix
 
-This is a release gate, not marketing copy. A feature counts as **implemented**
-only after its new PHP 8.5 implementation is verified with appropriate tests.
-The 2013 code remains archived under current/, but is not a runnable fallback
-on PHP 8.5. A password-free DSM test SPK is available before full parity; it is
-not a production release.
+Status at 20 November 2026. A feature marked **Working** has been exercised
+by tests; DSM tests were run on the active Web Station site at 192.168.0.67,
+with temporary records removed afterward. Other NAS devices remain untested.
 
-| Original workflow | Modern module | State on 19 Nov 2026 | Notes |
+| Feature | Area | Current state | Limitations / notes |
 | --- | --- | --- | --- |
-| Upload NZB files | Library | **Working** | Multiple files, private storage and validation |
-| Upload torrent files | Library / Import adapters | Not ported | Historical upload accepted torrent files |
-| Scan an NZB folder | Import / Watches | Not ported | File watching/scanning needs constrained root |
-| View NZB files, segments, groups, sizes, metadata | Inspector | **Working** | Includes historical NZBs with safe external DTD declarations |
-| Select entries, omit PAR2/NFO/etc and save a new NZB | Inspector | **Working** | Metadata/segments preserved in subset |
-| Merge NZB documents | Library | **Working, limited** | Keeps first document header metadata |
-| Save/download NZB documents | Library | **Working** | Original XML bytes preserved in direct downloads |
-| Rename NZB document | Library | **Working** | Renames library label; XML unchanged |
-| Delete NZB documents | Library | **Working** | Only managed private library files |
-| Saved file catalog / hashes / MySQL | Library migration | Not ported | New core stores NZB XML with JSON sidecars |
-| Search multiple Newznab indexers | Indexer | **Implemented; live unverified** | Multi-provider profiles and selections, t=search; credentials stay on server |
-| Download NZB from indexer | Indexer | **Implemented; live unverified** | Newznab t=get by trusted ID, imported into managed library |
-| Binsearch.info search and NZB creation | Binsearch | **Working; live verified** | Search and selected NZB generation verified with public site, no key |
-| Download Station submission | Download clients | **Implemented, mocked tests only** | Automatically disabled unless DSM API is detected; real DSM task creation not certified |
-| Filename filters / auto naming options | Settings / Import | Not ported | Modern validated rule definitions |
-| PAR2 scan, verify and repair | Repair | Not ported | Safe background jobs required |
-| RAR, ZIP, tar/tgz unpack | Extract | Not ported | Explicit safe destinations, async jobs |
-| Rename downloaded files using NZB names | File manager | Not ported | Needs preview and collision handling |
-| Rename downloaded directories | File manager | Not ported | Allowlisted root, safe path canonicalization |
-| Move files/folders to configured destinations | File manager | Not ported | Must never accept arbitrary absolute paths |
-| Merge contents of downloaded directories | File manager | Not ported | Collision strategy required |
-| Delete downloaded files/folders | File manager | Not ported | Confirmations and restricted roots required |
-| Original settings UI (paths, filters, options) | Settings | Not ported | All settings validated, secrets protected |
-| Legacy Synology Web Station UI integration | Platform adapter | Deferred | Not part of Linux runtime |
-| Synology DSM7 SPK build | CI/release workflow | **Test SPK built, uninstalled** | Password-free DSM 7.2+ Web Station package; real install/upgrade still needs NAS testing |
+| Multi-file NZB import | Library | **Working** | Validates NZB XML and max 32 MiB per file |
+| Import NZBs from a configured folder | Library | **Implemented, DEV-tested** | Manual scans up to 200; DSM shares need PHP permission and open_basedir access |
+| Prevent duplicate NZB imports | Library | **Working** | SHA-256 across new and historical library contents |
+| Rename/delete/download and merge | Library | **Working** | Managed NZB documents only; merge header behavior limited |
+| Global sorting/search/pagination | Library | **Working** | Sorts whole library before page slicing |
+| Inspect file metadata and segments | Inspector | **Working** | External DTD references disabled |
+| Missing/repeated/invalid segment warnings | Inspector | **Working** | Cannot always know absent final segments |
+| Segment viewer with add/edit/delete | Inspector | **Working** | Saves revised NZB; Add offers gaps or next sequential number |
+| Segment and file entry sorting/pagination | Inspector | **Working** | Sorts full list before page slicing |
+| Selective NZB entry export | Inspector | **Working** | Never fetches Usenet article payloads |
+| Search Binsearch.info and create NZBs | Binsearch | **Working, live tested** | Scrapes public HTML; max 25 selected results per page |
+| Navigate Binsearch pages | Binsearch | **Working, live tested** | Provider zero-based pagination, 25/50/100 page size |
+| Sort Binsearch results | Binsearch | **Implemented** | Sorts current provider page in browser |
+| Preset Newznab searches and importing | Indexer | **Implemented, live provider unverified** | Presets require real credentials |
+| Manage Newznab profiles in Settings | Settings | **Working, DSM HTTP tested** | Keys private, never redisplayed; trusted LAN only |
+| Sort Newznab results | Indexer | **Implemented** | Sorts retrieved results in browser |
+| Push To public HTTPS upload | Push To | **Implemented, unit-tested** | Custom parameters, 1–25 NZBs; public TLS destinations only |
+| Push To monitored NZB folder | Push To | **Working on DEV** | Atomic copy, no overwrite; NAS share permission tests pending |
+| Settings page size/folder controls | Settings | **Implemented** | Private on-disk settings |
+| Optional DSM Download Station API | Download Station | **Mock-tested, optional** | Disabled without API; live task submission pending |
+| DSM 7 package and original icons | Packaging | **Built, deployed on test NAS** | Existing SPK 0003; new app changes need repackaging |
+| Torrent uploads | Import | Not ported | Historical feature |
+| PAR2 scan/repair | Repair | Not ported | Secure background work required |
+| RAR/ZIP/tar extraction | Unpack | Not ported | Safe directory/worker architecture required |
+| Download payload rename/move/merge/delete | File organizer | Not ported | Limited roots and preview required |
+| Historical MySQL catalogue import | Migration | Not ported | Read-only migration tool required |
 
-## Release requirements
+## Test coverage
 
-- All required old workflows have parity coverage (or explicit documented
-  replacement with equivalent behavior).
-- Linux PHP 8.5, nginx/Apache and secure configured storage pass integration.
-- Threat-model and test file operations, unpacking, repair jobs and network
-  indexer clients.
-- README accurately reflects only tested features.
-- DSM 7 package automation is introduced **after** feature-complete Linux
-  release, using one common application source.
+- 165 PHP assertions on DEV
+- HTTP smoke tests on DEV
+- DSM HTTP: upload, duplicate suppression, view segments, add missing segment,
+  produce revised NZB and remove both temporary records
+- DSM HTTP: add a temporary Newznab provider, confirm search form is usable,
+  remove the provider
+- Live Binsearch page-2 navigation
+- Working DSM PHP 8.2 profile confirmed on the test NAS
 
-Completed domain test cases: 120. Existing HTTP smoke checks pass. Binsearch live verification passed; live Newznab/Download Station and DSM install/upgrade checks remain pending.
+## Outstanding release gates
+
+Real third-party Newznab requests and live Download Station submissions
+remain unverified. PAR2, extraction and advanced file organization remain
+incomplete. Do not expose the password-free DSM site to the public internet.

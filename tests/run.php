@@ -102,7 +102,9 @@ check($registry->get('library')->route() === 'index.php', 'Library route from mo
 check($registry->get('inspector')->route('abc') === 'index.php?view=abc', 'Inspector module route');
 check($registry->get('repair')->route() === null, 'Unfinished modules cannot be opened');
 check($registry->get('indexer')->route() === 'index.php?module=indexer', 'Indexer module is routed');
-check(count($registry->planned()) === 5, 'Five planned parity modules tracked');
+check(count($registry->planned()) === 4, 'Four unfinished parity modules tracked');
+check($registry->get('push-to')->route() === 'index.php?module=push-to', 'Push To is enabled as a module');
+expectFailure(static fn () => $registry->get('settings'), 'Settings is global navigation, not a module');
 expectFailure(static fn () => $registry->register(new \NZB\Modules\ViewModule('library', 'Duplicate', '', null, '')), 'Duplicate module IDs rejected');
 require dirname(__DIR__) . '/src/Http/ActionRouter.php';
 $router = (new \NZB\Http\ActionRouter())->register(['example'], static function (): void {});
@@ -112,4 +114,5 @@ require __DIR__ . '/indexer.php';
 require __DIR__ . '/providers.php';
 require __DIR__ . '/binsearch.php';
 require __DIR__ . '/download-station.php';
+require __DIR__ . '/new-features.php';
 echo 'All ' . $checks . ' assertions passed.' . PHP_EOL;

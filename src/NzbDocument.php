@@ -110,10 +110,14 @@ final class NzbDocument
                 }
             }
             $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            $integrity = self::segmentIntegrity($file);
             $files[] = [
                 'index' => $index, 'name' => $name, 'subject' => $subject,
                 'poster' => $file->getAttribute('poster'), 'groups' => implode(', ', $groups),
-                'segments' => $segments, 'bytes' => $bytes, 'type' => $extension ?: 'other'
+                'segments' => $segments, 'bytes' => $bytes, 'type' => $extension ?: 'other',
+                'missingSegments' => $integrity['missing'], 'missingSample' => $integrity['sample'],
+                'duplicateSegments' => $integrity['duplicates'], 'invalidSegments' => $integrity['invalid'],
+                'suspect' => $integrity['missing'] > 0 || $integrity['duplicates'] > 0 || $integrity['invalid'] > 0 || $segments === 0
             ];
             $totalBytes = $bytes > PHP_INT_MAX - $totalBytes ? PHP_INT_MAX : $totalBytes + $bytes;
             $totalSegments += $segments;
@@ -134,6 +138,217 @@ final class NzbDocument
             }
         }
         return ['files' => $files, 'totalBytes' => $totalBytes, 'segmentCount' => $totalSegments, 'metadata' => $meta];
+    }
+
+    /** @return list<DOMElement> */
+    private static function segmentNodes(DOMElement $file): array
+    {
+        $rows = [];
+        foreach ($file->childNodes as $child)
+        {
+            if ($child instanceof DOMElement && $child->localName === 'segments')
+            {
+                foreach ($child->childNodes as $segment)
+                {
+                    if ($segment instanceof DOMElement && $segment->localName === 'segment')
+                    {
+                        $rows[] = $segment;
+                    }
+                }
+            }
+        }
+        return $rows;
+    }
+
+    /** @return array{missing:int,sample:list<int>,duplicates:int,invalid:int} */
+    private static function segmentIntegrity(DOMElement $file): array
+    {
+        $numbers = [];
+        $duplicates = 0;
+        $invalid = 0;
+        foreach (self::segmentNodes($file) as $segment)
+        {
+            $raw = $segment->getAttribute('number');
+            if (!ctype_digit($raw) || strlen($raw) > 8 || (int) $raw < 1)
+            {
+                $invalid++;
+                continue;
+            }
+            $number = (int) $raw;
+            if (isset($numbers[$number]))
+            {
+                $duplicates++;
+            }
+            $numbers[$number] = true;
+        }
+        $sorted = array_keys($numbers);
+        sort($sorted, SORT_NUMERIC);
+        $previous = 0;
+        $missing = 0;
+        $sample = [];
+        foreach ($sorted as $number)
+        {
+            if ($number > $previous + 1)
+            {
+                $gap = $number - $previous - 1;
+                $missing += $gap;
+                for ($i = $previous + 1; $i < $number && count($sample) < 16; $i++)
+                {
+                    $sample[] = $i;
+                }
+            }
+            $previous = $number;
+        }
+        return ['missing' => $missing, 'sample' => $sample, 'duplicates' => $duplicates, 'invalid' => $invalid];
+    }
+
+    /** @return list<array{number:int,bytes:int,id:string,valid:bool}> */
+    public function segmentsFor(int $fileIndex): array
+    {
+        $file = $this->files()[$fileIndex] ?? null;
+        if ($file === null || $fileIndex < 0)
+        {
+            throw new RuntimeException('Invalid file index for segment viewer.');
+        }
+        $rows = [];
+        foreach (self::segmentNodes($file) as $segment)
+        {
+            $rawNumber = $segment->getAttribute('number');
+            $rawBytes = $segment->getAttribute('bytes');
+            $valid = ctype_digit($rawNumber) && strlen($rawNumber) <= 8 && (int) $rawNumber >= 1;
+            $rows[] = [
+                'number' => $valid ? (int) $rawNumber : 0,
+                'bytes' => ctype_digit($rawBytes) && strlen($rawBytes) <= 18 ? (int) $rawBytes : 0,
+                'id' => trim($segment->textContent),
+                'valid' => $valid,
+            ];
+        }
+        usort($rows, static fn (array $a, array $b): int => $a['number'] <=> $b['number']);
+        return $rows;
+    }
+
+    /**
+     * Only existing internal gaps or the next sequential segment can be added.
+     * @return list<int>
+     */
+    public function allowedAddNumbers(int $fileIndex): array
+    {
+        $rows = $this->segmentsFor($fileIndex);
+        $seen = [];
+        $max = 0;
+        foreach ($rows as $row)
+        {
+            if ($row['valid'])
+            {
+                $seen[$row['number']] = true;
+                $max = max($max, $row['number']);
+            }
+        }
+        if ($max >= 50000)
+        {
+            throw new RuntimeException('This very large file is beyond the manual add-dropdown limit.');
+        }
+        $options = [];
+        for ($n = 1; $n <= $max; $n++)
+        {
+            if (!isset($seen[$n]))
+            {
+                $options[] = $n;
+            }
+        }
+        $options[] = $max + 1;
+        return $options;
+    }
+
+    /**
+     * Return a new NZB XML document. The original library record is retained.
+     * @param 'add'|'replace'|'delete' $operation
+     */
+    public function withSegmentChange(int $fileIndex, string $operation, int $number, string $messageId = '', int $bytes = 0): string
+    {
+        if (!in_array($operation, ['add', 'replace', 'delete'], true) ||
+            $number < 1 || $number > 99999999)
+        {
+            throw new RuntimeException('Invalid segment operation or number.');
+        }
+        if ($operation !== 'delete' && (
+            $bytes < 1 || $bytes > PHP_INT_MAX ||
+            !preg_match('/\A[\x21-\x3b\x3d\x3f-\x7e]{3,512}\z/D', $messageId)
+        ))
+        {
+            throw new RuntimeException('Provide a valid Message-ID and positive segment byte count.');
+        }
+        $copy = self::fromXml($this->xml());
+        $file = $copy->files()[$fileIndex] ?? null;
+        if ($fileIndex < 0 || $file === null)
+        {
+            throw new RuntimeException('Selected NZB file was not found.');
+        }
+        $segmentsNode = null;
+        foreach ($file->childNodes as $child)
+        {
+            if ($child instanceof DOMElement && $child->localName === 'segments')
+            {
+                $segmentsNode = $child;
+                break;
+            }
+        }
+        $matches = [];
+        foreach (self::segmentNodes($file) as $segment)
+        {
+            if ($segment->getAttribute('number') === (string) $number)
+            {
+                $matches[] = $segment;
+            }
+        }
+        if (count($matches) > 1)
+        {
+            throw new RuntimeException('Multiple existing segments have this number; edit is ambiguous.');
+        }
+        if ($operation === 'add')
+        {
+            if (!in_array($number, $copy->allowedAddNumbers($fileIndex), true))
+            {
+                throw new RuntimeException('Add only a missing segment number or the next sequential number.');
+            }
+            if ($matches !== [])
+            {
+                throw new RuntimeException('This segment number already exists.');
+            }
+            if ($segmentsNode === null)
+            {
+                $segmentsNode = $copy->doc->createElementNS($file->namespaceURI, 'segments');
+                $file->appendChild($segmentsNode);
+            }
+            $new = $copy->doc->createElementNS($file->namespaceURI, 'segment');
+            $new->setAttribute('number', (string) $number);
+            $new->setAttribute('bytes', (string) $bytes);
+            $new->textContent = $messageId;
+            $segmentsNode->appendChild($new);
+        }
+        else
+        {
+            if ($matches === [])
+            {
+                throw new RuntimeException('Segment number does not exist.');
+            }
+            if ($operation === 'delete')
+            {
+                $matches[0]->parentNode->removeChild($matches[0]);
+            }
+            else
+            {
+                $matches[0]->setAttribute('bytes', (string) $bytes);
+                $matches[0]->textContent = $messageId;
+            }
+        }
+        $result = $copy->doc->saveXML();
+        if (!is_string($result))
+        {
+            throw new RuntimeException('Unable to serialize edited NZB.');
+        }
+        self::fromXml($result);
+        return $result;
     }
 
     public function xml(): string
