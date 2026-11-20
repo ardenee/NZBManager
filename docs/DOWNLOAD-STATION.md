@@ -3,6 +3,13 @@
 Download Station integration is independent from the NZB Manager DSM SPK.
 It may be used from a standard Linux/PHP host when a NAS is configured.
 
+**Not the same as Push To:** Push To copies an NZB into a monitored folder
+or sends it to a configured HTTP endpoint. Download Station instead
+authenticates to the Synology Download Station Task API and uploads an NZB
+as a native download task, allowing Download Station to manage the download.
+It does not simply drop an NZB into the configured workspace. If unused, this
+optional module stays unavailable and requires no NAS credentials.
+
 ## Implementation status
 
 The new DownloadStationClient supports:

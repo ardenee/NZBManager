@@ -27,6 +27,7 @@ require dirname(__DIR__) . '/Modules/PushToActions.php';
 require dirname(__DIR__) . '/Modules/FolderImportActions.php';
 require dirname(__DIR__) . '/Modules/SegmentActions.php';
 require dirname(__DIR__) . '/Modules/WorkspaceFiles.php';
+require dirname(__DIR__) . '/Modules/ManagedFolders.php';
 require dirname(__DIR__) . '/Modules/FolderBrowser.php';
 require dirname(__DIR__) . '/Modules/FileOrganizerActions.php';
 require dirname(__DIR__) . '/Modules/ArchiveTools.php';
@@ -130,7 +131,7 @@ $actions = (new \NZB\Http\ActionRouter())
     ->register(['push_to'], [\NZB\Modules\PushToActions::class, 'dispatch'])
     ->register(['folder_import'], [\NZB\Modules\FolderImportActions::class, 'dispatch'])
     ->register(['segment_add', 'segment_replace', 'segment_delete'], [\NZB\Modules\SegmentActions::class, 'dispatch'])
-    ->register(['organizer_preview', 'organizer_apply', 'organizer_mkdir'], [\NZB\Modules\FileOrganizerActions::class, 'dispatch'])
+    ->register(['organizer_preview', 'organizer_apply', 'organizer_mkdir', 'organizer_folder_rename_preview', 'organizer_folder_rename_apply', 'organizer_folder_delete'], [\NZB\Modules\FileOrganizerActions::class, 'dispatch'])
     ->register(['archive_extract'], [\NZB\Modules\ArchiveActions::class, 'dispatch'])
     ->register(['par2_verify', 'par2_repair'], [\NZB\Modules\Par2Actions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);

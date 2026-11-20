@@ -243,3 +243,16 @@ tr.integrity-suspect td { background: #fff8e9; }
 /* Live module availability in the private Settings page */
 .runtime-available { color: #186b44; }
 .runtime-unavailable { color: #a6382d; }
+
+
+/* File Organizer: managed-folder actions remain compact and never nest forms. */
+.organizer-folder-actions { min-width: 210px; }
+.organizer-folder-actions > a, .organizer-folder-actions > form, .organizer-folder-actions > details { display: inline-block; vertical-align: middle; margin: 2px 6px 2px 0; }
+.organizer-folder-actions .organizer-rename-details { position: relative; }
+.organizer-rename-details summary { list-style: none; cursor: pointer; color: #305bb0; font-size: 12px; padding: 5px; }
+.organizer-rename-details summary::-webkit-details-marker { display: none; }
+.organizer-rename-details[open] { display: block; }
+.organizer-rename-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 9px; margin: 7px 0 10px; }
+.organizer-rename-form label { display: grid; gap: 4px; font-size: 12px; color: #647890; }
+.organizer-rename-form input { min-width: 170px; max-width: 250px; padding: 8px 10px; border: 1px solid #d9e1ec; border-radius: 6px; }
+.organizer-existing-note { color: #8696ab; font-size: 11px; white-space: nowrap; }

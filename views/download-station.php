@@ -2,7 +2,7 @@
     <div>
         <div class="eyebrow">OPTIONAL SYNOLOGY INTEGRATION</div>
         <h1>Download Station</h1>
-        <p>Submit an existing NZB to a configured, detected Synology Download Station.</p>
+        <p>Submit an existing NZB as a native Download Station task through DSM's API. This does not copy NZBs into a monitored folder; use Push To for that.</p>
     </div>
     <span class="chip">DSM task API detected</span>
 </section>

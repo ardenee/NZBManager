@@ -31,7 +31,9 @@ are not yet certified.
 - Inspect suspect segment numbering; add, edit or delete NZB references into a new document;
   segment Article bytes are displayed as exact integer values
 - Browse a configured downloads workspace with the File Organizer module;
-  preview and confirm safe same-filesystem renames/moves and create subfolders
+  preview and confirm safe same-filesystem file renames/moves, create tracked
+  folders, rename those folders (preserving contents) and delete them when empty.
+  Pre-existing folders cannot be renamed or deleted through this module.
 - Inspect small ZIP archives and extract their validated members into new
   directories without overwriting the original files (PHP zip extension)
 - Verify PAR2 2.0 packet integrity and protected-file/slice checksums natively

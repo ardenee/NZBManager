@@ -33,19 +33,24 @@ with temporary records removed afterward. Other NAS devices remain untested.
 | PAR2 repair of downloaded payloads | PAR2 Repair | **Opt-in external-only; not live-certified** | Reed–Solomon recovery not yet implemented in PHP; par2cmdline and worker required |
 | ZIP preview and bounded extraction | Archive Extraction | **Working, DEV-tested** | Max 250 entries, 32 MiB archive/64 MiB output; safe new folder only |
 | RAR/7z/TAR archive extraction | Archive Extraction | **Recognized; not extracted** | Separate safe adapters needed |
-| Workspace file preview, rename/move and create subfolder | File Organizer | **Working, DEV-tested** | Approved workspace only, preview/confirm, no overwrite |
+| Workspace file preview, rename/move and create subfolder | File Organizer | **Working, DSM HTTP tested** | Approved workspace only, preview/confirm, no overwrite |
+| Rename File Organizer-created folders | File Organizer | **Working, DSM HTTP tested** | Requires managed-folder identity, preview/confirmation; contents preserved; tracked children updated |
+| Delete File Organizer-created folders | File Organizer | **Working, DSM HTTP tested** | Empty folders only, confirmation; pre-existing folders protected |
 | Batch move/folder merge/payload joining | File Organizer | **Not ported** | Requires deeper operation queue and collision safeguards |
 | Historical MySQL catalogue import | Migration | Not ported | Read-only migration tool required |
 
 ## Test coverage
 
-- 222 PHP assertions on DEV (native PAR2 fixtures, folder picker and permissions included)
+- 252 PHP assertions on DEV (native PAR2, folder picker, managed-folder identity, rename/delete safeguards)
 - HTTP smoke tests on DEV
 - DSM HTTP: upload, duplicate suppression, view segments, add missing segment,
   produce revised NZB and remove both temporary records
 - DSM HTTP: add a temporary Newznab provider, confirm search form is usable,
   remove the provider
 - Live Binsearch page-2 navigation
+- DSM HTTP and real Chrome UI: create uniquely named temporary managed folders,
+  preview and confirm rename, verify management status, delete empty folders;
+  temporary test folders removed
 - DSM HTTP: directory picker has three controls, a volume/folder listing,
   safe-path rejection and CSRF checking; raw segment bytes verified
 - Working DSM PHP 8.2 profile confirmed on the test NAS

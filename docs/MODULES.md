@@ -45,9 +45,20 @@ layer. Do not expose the site to the internet.
 - The original must be unchanged since preview. An atomic hard-link
   plus unlink moves the regular file, and never overwrites existing files.
   This requires compatible source/destination filesystem permissions.
-- Create a subfolder in the current approved workspace folder.
+- Create a subfolder in the current approved workspace folder. NZB Manager
+  records its relative path and filesystem identity in a locked private
+  managed-folder registry outside the downloadable workspace.
+- **Rename** a folder created through File Organizer (same parent folder).
+  This uses a 120-second preview and confirmation, rejects collisions,
+  verifies the folder identity and preserves all its contents. If a managed
+  parent contains other managed folders, their tracked paths update together.
+- **Delete** a File Organizer-created folder only when truly empty, after
+  user confirmation. No recursive deletion. The workspace root and existing,
+  untracked, externally replaced or symlinked folders remain protected.
+  A folder created by an older version before tracking was introduced is
+  intentionally not treated as managed, because its origin cannot be proven.
 
-**Limitations:** Batch operations, moving entire folders, merging payload
+**Limitations:** Batch operations, moving folders to different parents, merging payload
 fragments, recursive full-disk scans and background file processing are
 not yet implemented. The app does not modify arbitrary files outside the
 configured workspace.

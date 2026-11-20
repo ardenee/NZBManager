@@ -34,6 +34,7 @@
 | src/Modules/FolderImportActions.php | Bounded, duplicate-aware NZB folder scan |
 | src/Modules/SegmentActions.php | Safe add/edit/delete into a revised NZB |
 | src/Modules/FolderBrowser.php | Folder-only DSM volume/share navigation and PHP access checks |
+| src/Modules/ManagedFolders.php | Locked private registry, filesystem identity checks and managed-folder rename/empty-delete |
 | src/Modules/Par2Reader.php | Native PAR2 2.0 packet, file hash and slice checksum verifier |
 | src/Modules/Par2Jobs.php | Private PAR2 job queue and CLI-only verification/repair dispatch |
 | bin/par2-worker.php | Standalone PHP CLI job runner outside public/ |
