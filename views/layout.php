@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= escape($entry ? $entry['name'] . ' — NZB Manager' : 'NZB Manager') ?></title>
-<link rel="stylesheet" href="style.css?v=<?= escape((string) (@filemtime(__DIR__ . '/../public/style.css') ?: 1)) ?>">
-<script src="app.js?v=<?= escape((string) (@filemtime(__DIR__ . '/../public/app.js') ?: 1)) ?>" defer></script>
+<link rel="stylesheet" href="style.css?v=<?= escape(substr((string) (@hash_file('sha256', __DIR__ . '/../public/style.css') ?: 'missing'), 0, 16)) ?>">
+<script src="app.js?v=<?= escape(substr((string) (@hash_file('sha256', __DIR__ . '/../public/app.js') ?: 'missing'), 0, 16)) ?>" defer></script>
 </head>
 <body>
 <div class="app-shell">

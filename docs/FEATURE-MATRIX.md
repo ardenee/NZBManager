@@ -24,9 +24,9 @@ with temporary records removed afterward. Other NAS devices remain untested.
 | Sort Newznab results | Indexer | **Implemented** | Sorts retrieved results in browser |
 | Push To public HTTPS upload | Push To | **Implemented, unit-tested** | Custom parameters, 1–25 NZBs; public TLS destinations only |
 | Push To monitored NZB folder | Push To | **Working on DEV** | Atomic copy, no overwrite; NAS share permission tests pending |
-| Settings page size/folder controls | Settings | **Implemented, DSM-tested** | Directory-only picker, PHP account permission checks and inaccessible-folder errors |
+| Settings page size/folder controls | Settings | **Working, Chrome-tested on DSM** | Modal opens, navigates real NAS folders, checks permissions, and fills selection; CSP and asset cache fixed |
 | Optional DSM Download Station API | Download Station | **Mock-tested, optional** | Disabled without API; live task submission pending |
-| DSM 7 package and original icons | Packaging | **Built; earlier revision tested on NAS** | 0.4.2-0001 automatically requires cURL, mbstring, OpenSSL, ZIP and zlib; active profile pending install validation |
+| DSM 7 package and original icons | Packaging | **Built; earlier revision tested on NAS** | 0.4.3-0001 automatically requires cURL, mbstring, OpenSSL, ZIP and zlib; active profile pending install validation |
 | Torrent uploads | Import | Not ported | Historical feature |
 | PAR2 set browser and packet inspection | PAR2 Repair | **Working, DEV-tested** | Recognizes PAR2 packet headers in approved workspace |
 | Native PHP PAR2 verification job queue/worker | PAR2 Repair | **Working with conformant fixtures** | Main/FileDesc/IFSC, MD5+CRC32 file/slice verification; CLI worker required; no par2cmdline for verify |

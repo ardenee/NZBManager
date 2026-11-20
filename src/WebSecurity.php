@@ -10,7 +10,7 @@ final class WebSecurity
         header('X-Content-Type-Options: nosniff');
         header('Referrer-Policy: same-origin');
         header('X-Frame-Options: DENY');
-        header("Content-Security-Policy: default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+        header("Content-Security-Policy: default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 
         $passwordlessDsm = AppConfig::passwordlessDsm();
         $password = getenv('NZB_ADMIN_PASSWORD') ?: '';

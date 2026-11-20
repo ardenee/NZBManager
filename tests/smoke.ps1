@@ -30,6 +30,15 @@ try
     $page = (& curl.exe -s -c $cookie -b $cookie -u $password $url) -join "`n"
     if (!($page -match 'NZB Library')) { throw 'Authenticated library failed' }
     Write-Output 'PASS Authenticated dashboard'
+    # The Settings folder picker must be allowed to fetch its own JSON route.
+    $headers = (& curl.exe -s -u $password -c $cookie -b $cookie -D - -o NUL $url) -join [Environment]::NewLine
+    if ($headers -notmatch "connect-src 'self'") { throw 'CSP blocks same-origin folder picker requests' }
+    Write-Output 'PASS CSP permits same-origin browser fetch'
+    # SPK files have a reproducible 1970 timestamp, so mtime alone is not a safe asset version.
+    $jsVersion = (Get-FileHash (Join-Path $repo 'public/app.js') -Algorithm SHA256).Hash.Substring(0, 16).ToLowerInvariant()
+    $cssVersion = (Get-FileHash (Join-Path $repo 'public/style.css') -Algorithm SHA256).Hash.Substring(0, 16).ToLowerInvariant()
+    if ($page -notmatch ('app\.js\?v=' + $jsVersion) -or $page -notmatch ('style\.css\?v=' + $cssVersion)) { throw 'Browser asset URLs do not match source content hashes' }
+    Write-Output 'PASS CSS and JavaScript use content-hash cache versions'
     $indexerPage = (& curl.exe -s -u $password -c $cookie -b $cookie ($url + '?module=indexer')) -join "`n"
     if ($indexerPage -notmatch 'Connect an indexer' -or $indexerPage -notmatch 'NZB_INDEXER_API_KEY') { throw 'Indexer configuration view missing' }
     Write-Output 'PASS Unconfigured indexer displays safe setup guidance'

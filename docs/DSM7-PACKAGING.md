@@ -35,7 +35,7 @@ not expose the password-free test package to the public internet.
 - HTTPS is recommended even on the local network
 
 The Web Station service uses nginx_php and PHP profile backend ID **11** for
-PHP 8.2. The 0.4.2-0001 SPK enables all five declared PHP extensions, module
+PHP 8.2. The 0.4.3-0001 SPK enables all five declared PHP extensions, module
 workspace access to /volume1–/volume4 and the CLI-only PAR2 worker inside
 webapp/bin. Native PAR2 verification requires the PHP hash functionality and a
 separately scheduled CLI worker; only actual repair needs par2cmdline.
@@ -85,6 +85,27 @@ remains unchanged, back up package-private data before re-registering the
 Web Station package service or performing a clean reinstall. Do not delete
 package storage without a verified backup.
 
+## Browser-side folder picker and asset cache
+
+The Settings folder picker uses a CSRF-checked JSON POST to the same-origin
+index.php endpoint. src/WebSecurity.php explicitly permits
+connect-src 'self' in the Content Security Policy while maintaining
+default-src 'none' and script-src 'self'. Omitting that directive blocks
+folder navigation in the browser even though the backend and NAS filesystem
+permissions are correct.
+
+DSM packages use reproducible archive modification timestamps (often Unix
+zero). The views/layout.php script and stylesheet URLs therefore use a
+short SHA-256 digest of the public file contents instead of filemtime();
+otherwise their query versions can remain stuck at v=1 and browsers may
+run an older JavaScript handler after DSM source updates.
+
+The DEV HTTP smoke test checks both the same-origin CSP directive and the
+actual asset content-hash URLs. The folder picker was also exercised with
+headless Chrome on the running DSM website, including opening the modal,
+navigating /volume1/data, checking permissions, selecting a folder and
+reopening for Push To.
+
 ## Build on DEV
 
 From the repository root:
@@ -93,7 +114,7 @@ From the repository root:
 
 Output:
 
-    dist/NZB-Manager-DSM7-0.4.2-0001-noauth-test.spk
+    dist/NZB-Manager-DSM7-0.4.3-0001-noauth-test.spk
 
 The builder validates the resource configuration, PHP profile, privilege
 policy, icons, lifecycle scripts, absence of an installation wizard, and

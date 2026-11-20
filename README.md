@@ -21,7 +21,9 @@ are not yet certified.
 - Search, globally sort and paginate documents; sort the other result tables
 - Configure Binsearch page size, library size and per-page file/segment counts
 - Select configured NAS folders through a directory-only Settings picker that
-  reports PHP service-account read/write permissions and rejects inaccessible paths
+  reports PHP service-account read/write permissions and rejects inaccessible paths.
+  The picker uses same-origin requests permitted by the application's CSP; CSS
+  and JavaScript asset URLs use content hashes to prevent stale cached scripts.
 - Configure Newznab providers and API keys from Settings (stored in private data)
 - Import NZBs from a configured DSM folder without altering source files
 - Suppress duplicate NZBs across all import methods using SHA-256 content hashes
@@ -154,7 +156,7 @@ A password-free **test SPK** can now be built from this same application source:
 
     python packaging/dsm7/build.py
 
-Install `dist/NZB-Manager-DSM7-0.4.2-0001-noauth-test.spk` through Package
+Install `dist/NZB-Manager-DSM7-0.4.3-0001-noauth-test.spk` through Package
 Center > Manual Install. Web Station and PHP 8.2 must be available. The
 application registers an alias portal at `/nzbmanager/` through Web Station.
 There is **no installation wizard, application password or login prompt**.
@@ -167,7 +169,7 @@ trusted local network using NAS firewall/reverse-proxy access controls; do not
 publish this password-free test instance to the internet.
 
 An earlier SPK was installed and its PHP profile tested on the development NAS.
-The latest 0.4.2 test SPK includes the native PAR2 verifier, secure folder
+The latest 0.4.3 test SPK includes the native PAR2 verifier, secure folder
 picker, CLI worker, modules and automatic cURL/mbstring/OpenSSL/zip/zlib
 profile configuration, but its installation
 and real-world PAR2 verification on a NAS
