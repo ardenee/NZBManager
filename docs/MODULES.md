@@ -67,9 +67,7 @@ password-free test site directly to the Internet.
 The implementation uses the official Parchive 2.0 specification:
 https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
 
-- **Par2Reader.php:** Pure PHP packet header checks, MD5 validation,
-  Main/FileDesc/IFSC metadata and protected-file/per-slice MD5/CRC32 checks.
-  Verification is non-destructive.
+- **Par2Reader.php:** Non-destructive whole-set validation shares the Par2Recovery packet catalog, discovering all matching PAR2 index/recovery volumes no matter which volume was selected. Every packet (including recovery slices) receives a streaming MD5 check, then every protected file is checked against its full-file, first-16 KiB and per-slice MD5/CRC32 checksums. Corrupt matching volumes fail verification instead of being silently ignored. The web monitor shows expandable per-file and per-volume details, distinguishing one protected ZIP from its archive contents.
 - **Par2Galois.php:** PHP Reed-Solomon arithmetic in GF(2^16), primitive
   polynomial 0x1100B, input coefficients, matrix inversion and binary
   16-bit slice operations. No FFI or non-PHP repair executable.
@@ -130,6 +128,16 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
    rejection and password-enabled background reruns all pass. DSM PHP-FPM
    8.2.35 independently decrypted a protected AES ZIP fixture successfully;
    the short-lived probe files were removed.
+4. A real NAS PAR2 set was checked via the live DSM HTTP Verify action and
+   its independent PHP CLI worker (20 November 2026). The selected index
+   belongs to one 143.6 MiB protected ZIP. Verification discovered six
+   recovery volumes, validated 103 total PAR2 packets including 39 recovery
+   slices, and checked all 393 protected-data slices. The NAS copy was
+   identified as having one damaged input slice (index 0); an earlier local
+   copy had passed. Hash comparison confirmed the two ZIP copies differ.
+   A separate DEV test corrupted one recovery-volume byte and confirmed
+   verification rejects that recovery set. No live repair or source-file
+   modification was performed during this diagnostic.
 
 **Remaining certification:** Real third-party recovery sets, unusual PAR2
 packets, multi-gigabyte repair performance, complex rename mappings and

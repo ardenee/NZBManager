@@ -458,13 +458,32 @@ final class BackgroundJobs
                     $result = Par2Reader::verify($work, $record['relative'], $report);
                     $errors = array_values(array_filter($result['files'],
                         static fn (array $item): bool => $item['status'] !== 'verified'));
-                    $record['message'] = count($result['files']) . ' protected file(s), ' .
-                        count($errors) . ' damaged or missing';
+                    $protectedCount = count($result['files']);
+                    $checkedSlices = array_sum(array_column($result['files'], 'checked_slices'));
+                    $verifiedCount = $protectedCount - count($errors);
+                    $record['verification'] = [
+                        'set' => $result['set'], 'protected_files' => $protectedCount,
+                        'verified_files' => $verifiedCount, 'damaged_files' => count($errors),
+                        'protected_bytes' => $result['bytes'], 'total_slices' => $result['slices'],
+                        'checked_slices' => $checkedSlices, 'par2_files' => $result['par2_files'],
+                        'packet_count' => $result['packet_count'],
+                        'recovery_volumes' => $result['recovery_volumes'],
+                        'recovery_slices' => $result['recovery_packets'],
+                        'volume_names' => array_slice($result['recovery_files'], 0, 20),
+                        'volume_details' => array_slice($result['volume_details'], 0, 20),
+                        'files' => array_slice($result['files'], 0, 20)
+                    ];
+                    $record['message'] = $verifiedCount . '/' . $protectedCount .
+                        ' protected file(s) verified (' . number_format($result['bytes'] / 1048576, 1) .
+                        ' MiB; ' . $checkedSlices . '/' . $result['slices'] .
+                        ' data slices checked), ' . $result['recovery_volumes'] .
+                        ' recovery volume(s) / ' . $result['recovery_packets'] .
+                        ' recovery slice(s) checksum-validated';
                     if ($errors !== [])
                     {
-                        $record['message'] .= ': ' . implode('; ', array_map(
+                        $record['message'] .= '; damaged or missing: ' . implode('; ', array_map(
                             static fn (array $item): string => $item['name'] . ' (' . $item['status'] . ')',
-                            array_slice($errors, 0, 5)));
+                            array_slice($errors, 0, 3)));
                     }
                 }
                 elseif ($record['type'] === 'archive_extract')

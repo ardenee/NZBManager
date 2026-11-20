@@ -77,7 +77,18 @@ final class Par2Recovery
      * retaining recovery bytes in memory. Recovery descriptors hold only
      * a volume path, an on-disk offset and a packet hash.
      */
-    private static function collect(WorkspaceFiles $work, string $relative, callable $progress): array
+    public static function catalog(WorkspaceFiles $work, string $relative, ?callable $progress = null): array
+    {
+        return self::collect($work, $relative, $progress ?? static function (int $percent, string $message): void {}, false);
+    }
+
+    /** Main index and .volNN+NN files identify the same named recovery family. */
+    private static function family(string $relative): string
+    {
+        return (string) preg_replace('/(?:\.vol[0-9]+\+[0-9]+)?\.par2\z/i', '', basename($relative));
+    }
+
+    private static function collect(WorkspaceFiles $work, string $relative, callable $progress, bool $requireIfsc = true): array
     {
         if (!str_ends_with(strtolower($relative), '.par2'))
         {
@@ -141,12 +152,19 @@ final class Par2Recovery
         $recovery = [];
         $packetCount = 0;
         $scannedBytes = 0;
+        $matchingFiles = [];
+        $recoveryFiles = [];
         foreach ($candidates as $candidate)
         {
             $path = $work->resolve($candidate, 'file');
             $size = @filesize($path);
+            $sameFamily = strcasecmp(self::family($candidate), self::family($relative)) === 0;
             if (!is_int($size) || $size < 64)
             {
+                if ($sameFamily)
+                {
+                    throw new RuntimeException('Matching PAR2 volume is truncated: ' . basename($candidate));
+                }
                 continue;
             }
             $fp = @fopen($path, 'rb');
@@ -160,8 +178,13 @@ final class Par2Recovery
                 if (substr($header, 0, 8) !== "PAR2\0PKT" ||
                     !hash_equals(substr($header, 32, 16), $setId))
                 {
+                    if ($sameFamily)
+                    {
+                        throw new RuntimeException('Matching PAR2 volume has an invalid header or recovery-set identifier: ' . basename($candidate));
+                    }
                     continue;
                 }
+                $matchingFiles[] = $candidate;
                 rewind($fp);
                 for ($at = 0; $at < $size;)
                 {
@@ -230,6 +253,7 @@ final class Par2Recovery
                     $at += $length;
                     if ($type === $recvType)
                     {
+                        $recoveryFiles[$candidate] = true;
                         if ($exponent > 65534)
                         {
                             throw new RuntimeException('Recovery exponent exceeds the GF16 range.');
@@ -319,6 +343,11 @@ final class Par2Recovery
             {
                 fclose($fp);
             }
+            if (in_array($candidate, $matchingFiles, true))
+            {
+                $progress(3 + (int) (20 * count($matchingFiles) / max(1, count($candidates))),
+                    'Validated recovery-set file ' . basename($candidate));
+            }
         }
         if ($main === null)
         {
@@ -330,7 +359,7 @@ final class Par2Recovery
         foreach ($main['ids'] as $id)
         {
             $info = $descriptions[$id] ?? null;
-            if (!is_array($info) || !isset($checksums[$id]))
+            if (!is_array($info) || ($requireIfsc && !isset($checksums[$id])))
             {
                 throw new RuntimeException('PAR2 lacks a required FileDesc or slice checksum packet.');
             }
@@ -341,7 +370,7 @@ final class Par2Recovery
             $names[strtolower($info['name'])] = true;
             $sliceSize = $main['slice_size'];
             $count = $info['size'] === 0 ? 0 : intdiv($info['size'] - 1, $sliceSize) + 1;
-            if ($count !== count($checksums[$id]))
+            if (isset($checksums[$id]) && $count !== count($checksums[$id]))
             {
                 throw new RuntimeException('PAR2 slice checksums do not match the protected file size.');
             }
@@ -351,11 +380,14 @@ final class Par2Recovery
             }
             $fileIndex = count($files);
             $files[] = ['id' => $id] + $info;
-            for ($j = 0; $j < $count; $j++)
+            if (isset($checksums[$id]))
             {
-                $blocks[] = ['file' => $fileIndex, 'slice' => $j,
-                    'length' => min($sliceSize, $info['size'] - $j * $sliceSize),
-                    'hash' => $checksums[$id][$j][0], 'crc32' => $checksums[$id][$j][1]];
+                for ($j = 0; $j < $count; $j++)
+                {
+                    $blocks[] = ['file' => $fileIndex, 'slice' => $j,
+                        'length' => min($sliceSize, $info['size'] - $j * $sliceSize),
+                        'hash' => $checksums[$id][$j][0], 'crc32' => $checksums[$id][$j][1]];
+                }
             }
         }
         foreach ($recovery as $entry)
@@ -365,8 +397,10 @@ final class Par2Recovery
                 throw new RuntimeException('PAR2 recovery packet length does not match the Main slice size.');
             }
         }
-        return ['parent' => $parent, 'slice_size' => $main['slice_size'],
-            'files' => $files, 'blocks' => $blocks, 'recovery' => $recovery];
+        return ['parent' => $parent, 'set' => bin2hex($setId), 'slice_size' => $main['slice_size'],
+            'files' => $files, 'blocks' => $blocks, 'checksums' => $checksums,
+            'recovery' => $recovery, 'packet_count' => $packetCount,
+            'matching_files' => $matchingFiles, 'recovery_files' => array_keys($recoveryFiles)];
     }
 
     /** Verify an original slice in fixed-size reads, including PAR2 zero padding. */

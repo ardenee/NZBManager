@@ -36,7 +36,7 @@
 | src/Modules/SegmentActions.php | Safe add/edit/delete into a revised NZB |
 | src/Modules/FolderBrowser.php | Folder-only DSM volume/share navigation and PHP access checks |
 | src/Modules/ManagedFolders.php | Locked private registry, filesystem identity checks and managed-folder rename/empty-delete |
-| src/Modules/Par2Reader.php | Native PAR2 2.0 packet, file hash and slice checksum verifier |
+| src/Modules/Par2Reader.php | Native whole-set PAR2 2.0 verifier, sharing recovery volume scanner; files, slices and recovery-volume details in PHP job records |
 | src/Modules/Par2Jobs.php | PAR2 header inspection and native job compatibility facade |
 | src/Modules/Par2Galois.php | Pure PHP GF16 Reed–Solomon field/matrix arithmetic |
 | src/Modules/Par2Recovery.php | Bounded native PHP PAR2 recovery and checksum-verified non-overwriting outputs |

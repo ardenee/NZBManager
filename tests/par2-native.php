@@ -66,11 +66,49 @@ try
     check($result['packet_count'] === 3 && $result['slice_bytes'] === 4, 'Native PHP PAR2 reads Main, FileDesc and IFSC packet structure');
     check($result['set'] === bin2hex($setId) && $result['files'][0]['bad_slices'] === [], 'Native PHP PAR2 verifies recovery set and all slice checksums including zero padding');
 
+    $inputCoefficients = \NZB\Modules\Par2Galois::inputConstants(3);
+    $recoveryData = str_repeat("\0", $sliceSize);
+    for ($sliceIndex = 0; $sliceIndex < 3; $sliceIndex++)
+    {
+        $sliceData = str_pad(substr($contents, $sliceIndex * $sliceSize, $sliceSize), $sliceSize, "\0");
+        $recoveryData ^= \NZB\Modules\Par2Galois::multiplySlice($sliceData,
+            \NZB\Modules\Par2Galois::power($inputCoefficients[$sliceIndex], 0));
+    }
+    $volume = 'valid.vol00+01.PAR2';
+    $validRecovery = $packet("PAR 2.0\0RecvSlic", pack('V', 0) . $recoveryData);
+    file_put_contents($par2TestRoot . '/' . $volume, $validRecovery);
+    $verifiedSet = Par2Reader::verify($work, 'valid.par2');
+    check($verifiedSet['par2_files'] === 2 && $verifiedSet['packet_count'] === 4 &&
+        $verifiedSet['recovery_volumes'] === 1 && $verifiedSet['recovery_packets'] === 1,
+        'Verify validates matching PAR2 recovery volumes and counts their verified recovery packets');
+    check($verifiedSet['slices'] === 3 && $verifiedSet['files'][0]['checked_slices'] === 3 &&
+        $verifiedSet['files'][0]['status'] === 'verified',
+        'Verify reports the actual number of protected-file data slices checked');
+    $fromVolume = Par2Reader::verify($work, $volume);
+    check($fromVolume['packet_count'] === 4 && $fromVolume['files'][0]['status'] === 'verified' &&
+        $fromVolume['recovery_volumes'] === 1,
+        'Selecting any PAR2 recovery volume discovers matching index and verifies the whole set');
+    file_put_contents($par2TestRoot . '/' . $volume, substr_replace($validRecovery, 'Z', -1, 1));
+    expectFailure(static fn () => Par2Reader::verify($work, 'valid.par2'),
+        'A corrupted matching PAR2 recovery packet causes Verify to fail rather than reporting a healthy set');
+    file_put_contents($par2TestRoot . '/' . $volume, $validRecovery);
+    file_put_contents($par2TestRoot . '/valid.vol02+01.PAR2', str_repeat("\0", 72));
+    expectFailure(static fn () => Par2Reader::verify($work, 'valid.par2'),
+        'A matching recovery-volume file with an invalid first packet is not silently ignored');
+    unlink($par2TestRoot . '/valid.vol02+01.PAR2');
+    check(Par2Reader::verify($work, 'valid.par2')['recovery_packets'] === 1,
+        'Valid recovery-volume contents restore successful whole-set verification after the test corruption');
+
     file_put_contents($par2TestRoot . '/invalid-checksum.par2', substr_replace($parData, 'Z', 76, 1));
     expectFailure(static fn () => Par2Reader::verify($work, 'invalid-checksum.par2'), 'Native PHP rejects a corrupted PAR2 packet MD5');
+    unlink($par2TestRoot . '/invalid-checksum.par2');
     file_put_contents($par2TestRoot . '/payload.dat', 'ABCDXFGHIJ');
     $damage = Par2Reader::verify($work, 'valid.par2');
     check($damage['files'][0]['status'] !== 'verified', 'Native PHP PAR2 detects damaged protected file');
+    check($damage['files'][0]['bad_slice_count'] === 1 &&
+        $damage['files'][0]['checked_slices'] === 3 &&
+        $damage['files'][0]['bad_slices'] === [1],
+        'Verifier continues checking every slice and identifies the exact damaged slice even when file MD5 fails');
     file_put_contents($par2TestRoot . '/payload.dat', $contents);
 
     $queued = Par2Jobs::submit($work, 'valid.par2', 'verify');
@@ -80,7 +118,9 @@ try
         check(Par2Jobs::runOne(), 'Native PHP CLI worker processes verification without external executable');
         $jobs = Par2Jobs::all();
         check(count($jobs) === 1 && $jobs[0]['status'] === 'completed' &&
-            str_contains($jobs[0]['message'], '1 protected file(s), 0 damaged or missing'),
+            str_contains($jobs[0]['message'], '1/1 protected file(s) verified') &&
+            str_contains($jobs[0]['message'], '1 recovery volume(s) / 1 recovery slice(s) checksum-validated') &&
+            ($jobs[0]['verification']['checked_slices'] ?? null) === 3,
             'Native PHP verification records a verified result in private job metadata');
         check(Par2Jobs::runOne() === false, 'Native verifier does not rerun completed job');
         expectFailure(static fn () => \NZB\Modules\BackgroundJobs::rerun($queued, 'archive_extract', $work),

@@ -25,7 +25,7 @@ has newer source than the last published SPK; no package is being built now.
 | Native DSM Download Station API discovery | Download Station | **Working on DSM** | Legacy and DownloadStation2 API advertised; legacy Task API used |
 | Configure Download Station credentials | Download Station | **Implemented** | Private DSM connection file; use a restricted account and HTTPS front end |
 | Submit NZB / list/pause/resume/remove DSM tasks | Download Station | **Mock-tested** | Authenticated tasks on user's NAS not yet tested |
-| Native PHP PAR2 packet & slice verification | PAR2 Repair | **DEV-tested** | MD5/CRC, checks protected files; independent PHP worker |
+| Native PHP PAR2 whole-set verification | PAR2 Repair | **DEV-tested and DSM real-set verified** | Checks every matching PAR2 volume packet, protected-file MD5/16 KiB and per-slice MD5/CRC; reports recovery volumes/slices separately and highlights damaged files |
 | Pure PHP Reed-Solomon repair | PAR2 Repair | **DSM small-case / DEV 300 MiB tested** | Streaming 64 KiB windows, no total-data/slice-size/volume-byte cap; GF16 repair of up to 128 erasures, 32,768 input slices; originals preserved |
 | PAR2 background progress, cancellation, rerun and removal | PAR2 Repair | **DEV-tested; DSM UI updated** | Verified data takes original filename, damaged source becomes `.damaged`; rerun verifies existing repair, removal leaves files |
 | Archive inspection | Archive Extraction | **DEV-tested** | ZIP and raw-split `.zip.001`, TAR/TGZ/SPK; 64 GiB ZIP compressed / 128 GiB expanded, 10,000 entries |
@@ -40,7 +40,7 @@ has newer source than the last published SPK; no package is being built now.
 
 ## Tests and live checks
 
-- **378 PHP assertions on DEV**, covering metadata, parity, workspace
+- **385 PHP assertions on DEV**, covering metadata, parity, workspace
   protection, 68 MiB standard / 300 MiB stress PAR2 reconstruction, 5 GiB metadata, managed
   folders, asynchronous ZIP jobs, Download Station mock API contracts, etc.
 - DEV HTTP smoke tests for indexer/security/asset-cache routes.

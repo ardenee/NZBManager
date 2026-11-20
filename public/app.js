@@ -265,6 +265,54 @@ if (folderDialog) {
 }
 
 
+/** Append read-only verified PAR2 details after an asynchronous worker completes. */
+const showPar2Verification = (cell, report) => {
+  if (!report || typeof report !== "object" || cell.querySelector("[data-par2-verification]")) return;
+  const details = document.createElement("details");
+  details.dataset.par2Verification = "";
+  details.className = "par2-verification-details";
+  const summary = document.createElement("summary");
+  summary.textContent = "View protected-file and recovery-volume checks";
+  details.appendChild(summary);
+  const meta = document.createElement("p");
+  meta.textContent = "Recovery set " + (report.set || "") + " · " +
+    Number(report.packet_count || 0) + " PAR2 packets validated";
+  details.appendChild(meta);
+  const summaryText = document.createElement("p");
+  summaryText.textContent = Number(report.verified_files || 0) + "/" +
+    Number(report.protected_files || 0) + " protected files verified; " +
+    Number(report.checked_slices || 0) + "/" + Number(report.total_slices || 0) +
+    " data slices checked; " + Number(report.recovery_volumes || 0) +
+    " recovery volumes, " + Number(report.recovery_slices || 0) + " recovery slices validated";
+  details.appendChild(summaryText);
+  const addGroup = (heading, items, emptyText, render) => {
+    const label = document.createElement("strong");
+    label.textContent = heading;
+    details.appendChild(label);
+    const list = document.createElement("ul");
+    if (Array.isArray(items) && items.length > 0) {
+      items.forEach((item) => {
+        const line = document.createElement("li");
+        line.textContent = render(item);
+        list.appendChild(line);
+      });
+    } else {
+      const line = document.createElement("li");
+      line.textContent = emptyText;
+      list.appendChild(line);
+    }
+    details.appendChild(list);
+  };
+  addGroup("Protected files", report.files, "No protected-file details available", (file) =>
+    String(file.name || "") + ": " + String(file.status || "unknown") +
+    " (" + Number(file.checked_slices || 0) + "/" + Number(file.total_slices || 0) +
+    " slices checked" + (file.bad_slice_count ? ", " + Number(file.bad_slice_count) + " damaged; slice indices: " +
+      (Array.isArray(file.bad_slices) ? file.bad_slices.slice(0, 20).join(", ") : "") : "") + ")");
+  addGroup("Recovery volumes (validated)", report.volume_details, "No recovery slices available", (volume) =>
+    String(volume.name || "") + ": " + Number(volume.slices || 0) + " recovery slice(s)");
+  cell.appendChild(details);
+};
+
 /** Read-only PHP background task progress. JSON is served from the same origin. */
 document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
   const category = monitor.dataset.backgroundMonitor;
@@ -288,8 +336,23 @@ document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
         const message = row.querySelector("[data-job-message]");
         if (bar) bar.value = progress;
         if (percent) percent.textContent = progress + "%";
-        if (state) state.textContent = job.status || "unknown";
-        if (message) message.textContent = job.message || "";
+        if (state) {
+          const damaged = category === "par2" && job.status === "completed" &&
+            Number(job.verification?.damaged_files || 0) > 0;
+          state.textContent = damaged ? "Completed — damage detected" : (job.status || "unknown");
+          state.classList.toggle("par2-state-damaged", damaged);
+        }
+        if (message) {
+          let summary = message.querySelector("[data-job-summary]");
+          if (!summary) {
+            message.textContent = "";
+            summary = document.createElement("span");
+            summary.dataset.jobSummary = "";
+            message.appendChild(summary);
+          }
+          summary.textContent = job.message || "";
+          if (category === "par2") showPar2Verification(message, job.verification);
+        }
         if (["completed", "failed", "cancelled"].includes(job.status)) {
           const cancelForm = row.querySelector('form:has(input[value$="_cancel"])');
           if (cancelForm) {

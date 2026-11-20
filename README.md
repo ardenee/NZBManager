@@ -41,8 +41,7 @@ are not yet certified.
   Extraction uses 64 GiB compressed / 128 GiB expanded safeguards and 10,000
   member limit. Finished jobs can be rerun or removed without deleting outputs.
   True multi-disk `.z01` ZIP and compressed RAR/7z remain unsupported. Native PHP TAR, TGZ, TAR.GZ and SPK extraction is available.
-- Verify PAR2 2.0 packet integrity and protected-file/slice checksums natively
-  in PHP, with an independent worker, live job monitor, progress and cancellation
+- Verify complete PAR2 2.0 sets natively in PHP: every matching recovery volume's packet MD5, protected-file MD5, first-16 KiB MD5, and slice MD5/CRC32 checksums. Results detail the protected files, checked data slices, recovery volumes and recovery slices separately. A protected ZIP counts as one file even if it contains many entries. The independent PHP worker reports progress and supports cancellation.
 - Repair PAR2-protected files using PHP-only GF(2^16) Reed–Solomon arithmetic.
   Verified data takes the original protected filename so downstream extraction
   works immediately; an existing damaged original is retained as

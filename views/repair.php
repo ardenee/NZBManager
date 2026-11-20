@@ -40,7 +40,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
 <section class="panel">
     <div class="panel-heading">
         <div><h2>PAR2 sets in <?= escape($par2Folder ?: 'workspace root') ?></h2>
-            <p>Select any PAR2 index or volume; matching recovery volumes are discovered in the same folder.</p></div>
+            <p>Verify checks every matching PAR2 volume and all protected-file checksums. One ZIP counts as one protected file, even if it contains many archive entries. Open the completed job's verification details to see each volume and slice count.</p></div>
         <?php if ($par2Folder !== ''): ?>
         <a class="button secondary" href="index.php?module=repair&amp;folder=<?= escape(rawurlencode(str_contains($par2Folder, '/') ? substr($par2Folder, 0, strrpos($par2Folder, '/')) : '')) ?>">Parent</a>
         <?php endif; ?>
@@ -87,7 +87,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
 </section>
 <?php endif; ?>
 <section class="panel" data-background-monitor="par2">
-    <div class="panel-heading"><div><h2>PAR2 background jobs</h2><p>Progress updates automatically. Reruns revalidate already-restored files; removing a finished job clears history only.</p></div>
+    <div class="panel-heading"><div><h2>PAR2 background jobs</h2><p>Verify now validates the entire matching recovery set. Older job results retain their original summaries until rerun; removing a finished job clears history only.</p></div>
         <a class="button subtle" href="index.php?module=repair">Refresh</a></div>
     <div class="table-scroll"><table data-sortable>
         <thead><tr><th>Created (UTC)</th><th>PAR2 set</th><th>Operation</th><th>Status / progress</th><th>Details</th><th data-no-sort>Action</th></tr></thead><tbody>
@@ -96,10 +96,39 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
             <td><?= escape($job['created'] ?? '') ?></td>
             <td class="name"><?= escape($job['name'] ?? '') ?></td>
             <td><?= escape(($job['type'] ?? '') === 'par2_repair' ? 'Repair' : 'Verify') ?></td>
-            <td><strong data-job-state><?= escape($job['status'] ?? '') ?></strong>
+            <?php $hasDamage = ($job['type'] ?? '') === 'par2_verify' && (int) ($job['verification']['damaged_files'] ?? 0) > 0; ?>
+            <td><strong data-job-state class="<?= $hasDamage ? 'par2-state-damaged' : '' ?>"><?= $hasDamage && ($job['status'] ?? '') === 'completed' ? 'Completed — damage detected' : escape($job['status'] ?? '') ?></strong>
                 <progress data-job-progress max="100" value="<?= (int) ($job['progress'] ?? 0) ?>"></progress>
                 <span data-job-percent><?= (int) ($job['progress'] ?? 0) ?>%</span></td>
-            <td data-job-message><?= escape($job['message'] ?? '') ?></td>
+            <td data-job-message>
+                <span data-job-summary><?= escape($job['message'] ?? '') ?></span>
+                <?php $verified = $job['verification'] ?? null; ?>
+                <?php if (($job['type'] ?? '') === 'par2_verify' && is_array($verified)): ?>
+                <details data-par2-verification class="par2-verification-details">
+                    <summary>View protected-file and recovery-volume checks</summary>
+                    <p>Recovery set <?= escape($verified['set'] ?? '') ?> · <?= (int) ($verified['packet_count'] ?? 0) ?> PAR2 packets validated</p>
+                    <p><?= (int) ($verified['verified_files'] ?? 0) ?>/<?= (int) ($verified['protected_files'] ?? 0) ?> protected files verified;
+                        <?= (int) ($verified['checked_slices'] ?? 0) ?>/<?= (int) ($verified['total_slices'] ?? 0) ?> data slices checked;
+                        <?= (int) ($verified['recovery_volumes'] ?? 0) ?> recovery volumes and
+                        <?= (int) ($verified['recovery_slices'] ?? 0) ?> recovery slices validated.</p>
+                    <strong>Protected files</strong>
+                    <ul>
+                        <?php foreach ($verified['files'] ?? [] as $resultFile): ?>
+                        <li><?= escape($resultFile['name'] ?? '') ?>:
+                            <?= escape($resultFile['status'] ?? 'unknown') ?>
+                            (<?= (int) ($resultFile['checked_slices'] ?? 0) ?>/<?= (int) ($resultFile['total_slices'] ?? 0) ?> slices checked<?= !empty($resultFile['bad_slice_count']) ? ', ' . (int) $resultFile['bad_slice_count'] . ' damaged; slice indices: ' . escape(implode(', ', $resultFile['bad_slices'] ?? [])) : '' ?>)</li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <strong>Recovery volumes (validated)</strong>
+                    <ul>
+                        <?php foreach ($verified['volume_details'] ?? [] as $volume): ?>
+                        <li><?= escape($volume['name'] ?? '') ?>: <?= (int) ($volume['slices'] ?? 0) ?> recovery slice(s)</li>
+                        <?php endforeach; ?>
+                        <?php if (empty($verified['volume_details'])): ?><li>No recovery slices available in this set.</li><?php endif; ?>
+                    </ul>
+                </details>
+                <?php endif; ?>
+            </td>
             <td><?php if (in_array($job['status'] ?? '', ['queued', 'running'], true)): ?>
                 <form method="post" action="index.php?module=repair" data-confirm="Request cancellation of this PHP PAR2 job?">
                     <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">

@@ -65,6 +65,7 @@ if (isset($_GET['job_status']))
             'id' => $job['id'], 'type' => $job['type'], 'name' => $job['name'],
             'status' => $job['status'], 'progress' => $job['progress'],
             'message' => $job['message'], 'outputs' => $job['outputs'] ?? [],
+            'verification' => $job['verification'] ?? null,
         ], \NZB\Modules\BackgroundJobs::all($type));
         echo json_encode(['jobs' => $records], JSON_THROW_ON_ERROR);
     }
