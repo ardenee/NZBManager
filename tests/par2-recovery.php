@@ -92,23 +92,27 @@ try
     $result = Par2Recovery::repair($work, 'recovery.par2',
         static function (int $percent, string $step) use (&$events): void { $events[] = [$percent,$step]; });
     check($result['recovered'] === 5, 'Pure PHP PAR2 reconstructs one damaged and four missing GF16 slices');
-    check(count($result['outputs']) === 2, 'Recovered files are published separately from protected originals');
-    check(file_get_contents($workRoot . '/alpha.bin.repaired') === $sourceFiles['alpha.bin'] &&
-        file_get_contents($workRoot . '/beta.bin.repaired') === $sourceFiles['beta.bin'],
-        'Pure PHP PAR2 reconstruction matches original bytes across multiple protected files');
-    check(file_get_contents($workRoot . '/alpha.bin') === 'ZBCDEFGHIJKL' && !is_file($workRoot . '/beta.bin'),
-        'Pure PHP PAR2 never overwrites existing damaged files or restores missing files under original names');
+    check(count($result['outputs']) === 2 && in_array('alpha.bin', $result['outputs'], true) &&
+        in_array('beta.bin', $result['outputs'], true), 'Recovery publishes original filenames for downstream archive extraction');
+    check(file_get_contents($workRoot . '/alpha.bin') === $sourceFiles['alpha.bin'] &&
+        file_get_contents($workRoot . '/beta.bin') === $sourceFiles['beta.bin'],
+        'Pure PHP PAR2 publishes verified bytes using expected original filenames');
+    check(file_get_contents($workRoot . '/alpha.bin.damaged') === 'ZBCDEFGHIJKL' &&
+        !is_file($workRoot . '/beta.bin.damaged'),
+        'Damaged originals are preserved as filename.ext.damaged; originally missing files have no backup');
     check($events !== [] && $events[array_key_last($events)][0] === 100,
         'PAR2 repair emits completed percentage updates to job monitor callbacks');
     $second = Par2Recovery::repair($work, 'recovery.par2');
-    check($second['recovered'] === 5 && count($second['outputs']) === 2 &&
-        in_array('alpha.bin.repaired-1', $second['outputs'], true) &&
-        in_array('beta.bin.repaired-1', $second['outputs'], true),
-        'Rerunning PAR2 repair publishes new numbered outputs rather than colliding with existing repairs');
-    check(file_get_contents($workRoot . '/alpha.bin.repaired-1') === $sourceFiles['alpha.bin'] &&
-        file_get_contents($workRoot . '/beta.bin.repaired-1') === $sourceFiles['beta.bin'] &&
-        file_get_contents($workRoot . '/alpha.bin.repaired') === $sourceFiles['alpha.bin'],
-        'PAR2 reruns preserve earlier verified repaired outputs unchanged');
+    check($second['recovered'] === 0 && $second['outputs'] === [],
+        'Rerunning a successful PAR2 repair verifies the restored original filenames without creating duplicates');
+    check(file_get_contents($workRoot . '/alpha.bin.damaged') === 'ZBCDEFGHIJKL',
+        'Rerun leaves the previously backed-up damaged original unchanged');
+    file_put_contents($workRoot . '/alpha.bin', 'YBCDEFGHIJKL');
+    expectFailure(static fn () => Par2Recovery::repair($work, 'recovery.par2'),
+        'Repair refuses to overwrite a previously saved .damaged backup');
+    check(file_get_contents($workRoot . '/alpha.bin') === 'YBCDEFGHIJKL' &&
+        file_get_contents($workRoot . '/alpha.bin.damaged') === 'ZBCDEFGHIJKL',
+        'Conflicting .damaged backup leaves both source and backup unchanged');
     $bad = file_get_contents($workRoot . '/recovery.vol00+06.par2');
     file_put_contents($workRoot . '/recovery.vol00+06.par2', substr_replace($bad, 'X', 90, 1));
     expectFailure(static fn () => Par2Recovery::repair($work, 'recovery.par2'),

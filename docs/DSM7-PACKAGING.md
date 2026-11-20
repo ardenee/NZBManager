@@ -168,7 +168,7 @@ correctly or that the PHP profile and permissions work on the NAS.
 - Download Station real API discovery/login/task upload
 - Live PAR2 executable/worker and repair certification
 - Full RAR/7z/TAR archive extraction, batch moves and payload merging
-- Bounded ZIP extraction and file organizer permissions on the actual NAS
+- Password-protected ZIP and raw-split `.zip.001` extraction workflow on the actual NAS (DEV-tested; DSM PHP-FPM AES decryption probe passed)
 
 Official references:
 - https://help.synology.com/developer-guide/synology_package/introduction.html

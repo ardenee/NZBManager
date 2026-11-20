@@ -43,7 +43,12 @@ final class ArchiveActions
                 }
                 else
                 {
-                    $newId = BackgroundJobs::rerun($jobId, 'archive_extract', WorkspaceFiles::fromSettings());
+                    $password = $_POST['password'] ?? null;
+                    if ($password !== null && !is_string($password))
+                    {
+                        throw new RuntimeException('Invalid ZIP password input.');
+                    }
+                    $newId = BackgroundJobs::rerun($jobId, 'archive_extract', WorkspaceFiles::fromSettings(), $password);
                     try
                     {
                         BackgroundJobs::start($newId);
@@ -61,10 +66,15 @@ final class ArchiveActions
                 $relative = $_POST['archive'] ?? null;
                 if (!is_string($relative))
                 {
-                    throw new RuntimeException('Select a ZIP within the downloads workspace.');
+                    throw new RuntimeException('Select a ZIP or .zip.001 within the downloads workspace.');
                 }
                 $work = WorkspaceFiles::fromSettings();
-                $id = BackgroundJobs::queue('archive_extract', $work, $relative);
+                $password = $_POST['password'] ?? null;
+                if ($password !== null && !is_string($password))
+                {
+                    throw new RuntimeException('Invalid ZIP password input.');
+                }
+                $id = BackgroundJobs::queue('archive_extract', $work, $relative, $password);
                 try
                 {
                     BackgroundJobs::start($id);

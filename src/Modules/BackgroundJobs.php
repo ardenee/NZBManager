@@ -117,7 +117,7 @@ final class BackgroundJobs
         return array_slice($records, 0, 40);
     }
 
-    public static function queue(string $type, WorkspaceFiles $work, string $relative): string
+    public static function queue(string $type, WorkspaceFiles $work, string $relative, ?string $password = null): string
     {
         if (!in_array($type, ['par2_verify', 'par2_repair', 'archive_extract'], true))
         {
@@ -156,8 +156,65 @@ final class BackgroundJobs
             'updated' => gmdate('c'), 'status' => 'queued', 'progress' => 0,
             'message' => 'Queued for a separate PHP CLI worker', 'outputs' => []
         ];
-        self::save($record);
+        if ($password !== null && $password !== '' && $type === 'archive_extract')
+        {
+            if (strlen($password) > 1024)
+            {
+                throw new RuntimeException('ZIP password exceeds 1024 bytes.');
+            }
+            $secret = self::directory() . '/' . $id . '.password';
+            $fp = @fopen($secret, 'xb');
+            if (!is_resource($fp))
+            {
+                throw new RuntimeException('Cannot create a private ZIP password record.');
+            }
+            try
+            {
+                @chmod($secret, 0600);
+                if (fwrite($fp, $password) !== strlen($password))
+                {
+                    throw new RuntimeException('Cannot securely store ZIP password for the worker.');
+                }
+            }
+            catch (Throwable $error)
+            {
+                fclose($fp);
+                @unlink($secret);
+                throw $error;
+            }
+            fclose($fp);
+        }
+        try
+        {
+            self::save($record);
+        }
+        catch (Throwable $error)
+        {
+            @unlink(self::directory() . '/' . $id . '.password');
+            throw $error;
+        }
         return $id;
+    }
+
+    /** Passwords live only in private 0600 sidecar files and are never included in job-status JSON. */
+    private static function consumePassword(string $id): ?string
+    {
+        $path = self::directory() . '/' . $id . '.password';
+        if (is_link($path))
+        {
+            throw new RuntimeException('Background ZIP password record may not be a symlink.');
+        }
+        if (!is_file($path))
+        {
+            return null;
+        }
+        $password = @file_get_contents($path, false, null, 0, 1025);
+        @unlink($path);
+        if (!is_string($password) || strlen($password) > 1024)
+        {
+            throw new RuntimeException('Private ZIP password record is invalid.');
+        }
+        return $password;
     }
 
     public static function start(string $id): void
@@ -209,6 +266,11 @@ final class BackgroundJobs
         $record['updated'] = gmdate('c');
         $record['finished'] = gmdate('c');
         self::save($record);
+        $secret = self::directory() . '/' . $id . '.password';
+        if (is_file($secret) && !is_link($secret))
+        {
+            @unlink($secret);
+        }
     }
 
     public static function requestCancel(string $id): void
@@ -235,7 +297,7 @@ final class BackgroundJobs
     }
 
     /** A completed, failed or cancelled job can be queued again from its original input. */
-    public static function rerun(string $id, string $category, WorkspaceFiles $work): string
+    public static function rerun(string $id, string $category, WorkspaceFiles $work, ?string $password = null): string
     {
         $job = self::read($id);
         self::assertCategory($job, $category);
@@ -249,7 +311,7 @@ final class BackgroundJobs
         {
             throw new RuntimeException('Job is missing its original operation or input path.');
         }
-        return self::queue($type, $work, $relative);
+        return self::queue($type, $work, $relative, $password);
     }
 
     private static function assertCategory(array $job, string $category): void
@@ -299,6 +361,15 @@ final class BackgroundJobs
             if (is_file($log) && !@unlink($log))
             {
                 throw new RuntimeException('Could not remove the job log.');
+            }
+            $secret = $dir . '/' . $id . '.password';
+            if (is_link($secret))
+            {
+                throw new RuntimeException('Job password symlink is forbidden.');
+            }
+            if (is_file($secret))
+            {
+                @unlink($secret);
             }
             if (!@unlink(self::path($id)))
             {
@@ -371,7 +442,7 @@ final class BackgroundJobs
                     $result = Par2Recovery::repair($work, $record['relative'], $report);
                     $record['outputs'] = $result['outputs'];
                     $record['message'] = 'Reconstructed ' . $result['recovered'] . ' slice(s); ' .
-                        count($result['outputs']) . ' verified .repaired file(s) published; originals unchanged';
+                        count($result['outputs']) . ' original filename(s) restored; damaged copies preserved as .damaged';
                 }
                 elseif ($record['type'] === 'par2_verify')
                 {
@@ -390,7 +461,7 @@ final class BackgroundJobs
                 }
                 elseif ($record['type'] === 'archive_extract')
                 {
-                    $result = ArchiveTools::extract($work, $record['relative'], $report);
+                    $result = ArchiveTools::extract($work, $record['relative'], $report, self::consumePassword($id));
                     $record['outputs'] = [$result];
                     $record['message'] = 'ZIP extracted safely into ' . $result;
                 }

@@ -270,3 +270,8 @@ tr.integrity-suspect td { background: #fff8e9; }
 /* Finished background job actions keep rerun and history removal separate. */
 .job-actions { display: inline-flex; flex-wrap: wrap; gap: 7px; align-items: center; }
 .job-actions form { margin: 0; }
+
+/* ZIP password is submitted only with a start/rerun POST and never shown in job status. */
+.archive-password { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; color: #526781; font-size: 12px; }
+.archive-password input, .archive-job-password { min-width: 175px; max-width: 240px; padding: 8px 10px; border: 1px solid #d9e1ec; border-radius: 7px; background: #fff; }
+.archive-job-password { width: 190px; }

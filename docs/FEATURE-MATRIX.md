@@ -27,10 +27,10 @@ has newer source than the last published SPK; no package is being built now.
 | Submit NZB / list/pause/resume/remove DSM tasks | Download Station | **Mock-tested** | Authenticated tasks on user's NAS not yet tested |
 | Native PHP PAR2 packet & slice verification | PAR2 Repair | **DEV-tested** | MD5/CRC, checks protected files; independent PHP worker |
 | Pure PHP Reed-Solomon repair | PAR2 Repair | **DSM small-case / DEV 300 MiB tested** | Streaming 64 KiB windows, no total-data/slice-size/volume-byte cap; GF16 repair of up to 32 erasures, 32,768 input slices; originals preserved |
-| PAR2 background progress, cancellation, rerun and removal | PAR2 Repair | **DEV-tested; DSM UI updated** | Completed/failed/cancelled jobs can rerun or be removed; numbered `.repaired-N` outputs protect earlier repair results |
-| ZIP archive inspection | Archive Extraction | **Working** | Max 32 MiB ZIP, 250 entries, 64 MiB expanded |
-| ZIP extraction in independent PHP worker | Archive Extraction | **DSM end-to-end tested; rerun/removal DEV-tested** | Finished jobs can rerun into a numbered folder or be removed from history; originals and extracted files remain |
-| RAR/7z/TAR extraction | Archive Extraction | **Not yet implemented** | Recognized, not extracted |
+| PAR2 background progress, cancellation, rerun and removal | PAR2 Repair | **DEV-tested; DSM UI updated** | Verified data takes original filename, damaged source becomes `.damaged`; rerun verifies existing repair, removal leaves files |
+| ZIP archive inspection | Archive Extraction | **DEV-tested** | Normal ZIP and raw-split `.zip.001` families, 64 GiB compressed / 128 GiB expanded, 10,000 entries |
+| ZIP extraction in independent PHP worker | Archive Extraction | **DEV encrypted/split tested; DSM AES verified on PHP 8.2.35** | AES password prompt and one-time private secret, raw multipart joining, CRC check, output folder preserved on rerun |
+| True multi-disk ZIP / RAR / 7z / TAR extraction | Archive Extraction | **Not yet implemented** | `.z01` and compressed multipart RAR/7z need separate decoders; do not confuse with raw split ZIP |
 | Preview file rename/move, create folders | File Organizer | **DSM-tested** | Workspace-only, no overwrite, preview & confirmation |
 | Rename/delete created folders | File Organizer | **DSM HTTP/Chrome tested** | Tracked folders only; delete empty only; older folders protected |
 | Batch file moves/payload merging | File Organizer | Not ported | Requires expanded job queue |
@@ -40,11 +40,11 @@ has newer source than the last published SPK; no package is being built now.
 
 ## Tests and live checks
 
-- **309 PHP assertions on DEV**, covering metadata, parity, workspace
+- **338 PHP assertions on DEV**, covering metadata, parity, workspace
   protection, 68 MiB standard / 300 MiB stress PAR2 reconstruction, 5 GiB metadata, managed
   folders, asynchronous ZIP jobs, Download Station mock API contracts, etc.
 - DEV HTTP smoke tests for indexer/security/asset-cache routes.
-- DSM real PHP-FPM 8.2.35 extensions and DSM package API discovery probed.
+- DSM PHP-FPM 8.2.35 ZIP AES256 decryption and encryption-method metadata verified live using a temporary fixture (removed after test).
 - DSM HTTP: native-PHP background PAR2 reconstruction of **5 damaged/missing
   slices across 2 recovered files**, checksums validated; job reached 100%.
 - DSM HTTP: ZIP background worker reached 100%, output validated.

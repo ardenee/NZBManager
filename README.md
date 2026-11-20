@@ -34,15 +34,21 @@ are not yet certified.
   preview and confirm safe same-filesystem file renames/moves, create tracked
   folders, rename those folders (preserving contents) and delete them when empty.
   Pre-existing folders cannot be renamed or deleted through this module.
-- Inspect small ZIP archives and extract their validated members into new
-  directories via background PHP workers with progress and cancellation.
-  Finished jobs can be rerun or removed from history without deleting outputs.
+- Inspect and extract normal ZIP and raw-split `.zip.001`/`.zip.002` files,
+  including password-protected ZIPs, via independent PHP CLI workers. The
+  browser prompts for encrypted ZIP passwords; the password is held in a
+  temporary private worker sidecar, never the job JSON, and discarded after use.
+  Extraction uses 64 GiB compressed / 128 GiB expanded safeguards and 10,000
+  member limit. Finished jobs can be rerun or removed without deleting outputs.
+  True multi-disk `.z01` ZIP, compressed RAR/7z and TAR remain unsupported.
 - Verify PAR2 2.0 packet integrity and protected-file/slice checksums natively
   in PHP, with an independent worker, live job monitor, progress and cancellation
-- Repair PAR2-protected files using PHP-only GF(2^16) Reed–Solomon arithmetic,
-  writing fully checksum-verified `.repaired` outputs without overwriting originals.
-  PAR2 jobs can be rerun or removed from history; repeated repairs receive
-  numbered `.repaired-1`, `.repaired-2` output filenames to prevent overwrites.
+- Repair PAR2-protected files using PHP-only GF(2^16) Reed–Solomon arithmetic.
+  Verified data takes the original protected filename so downstream extraction
+  works immediately; an existing damaged original is retained as
+  `filename.ext.damaged`. A pre-existing `.damaged` file is never overwritten.
+  Rerunning after a successful repair verifies the restored filename; no duplicate
+  is published. Finished jobs may be removed from the monitor without deleting files.
   File and recovery data are streamed in 64 KiB windows with no 64 MiB data
   ceiling or 1 MiB slice restriction. PAR2 2.0 input slices are limited by
   the format to 32,768; this PHP implementation currently solves up to 32

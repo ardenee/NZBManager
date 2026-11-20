@@ -1,6 +1,6 @@
 <section class="page-header">
     <div><div class="eyebrow">DOWNLOADS WORKSPACE</div><h1>PAR2 Repair</h1>
-        <p>Verify PAR2 recovery sets and reconstruct missing or damaged slices in a separate PHP process. No par2cmdline or other repair executable is used.</p>
+        <p>Restore verified files under their original names, retaining any damaged originals as <code>filename.ext.damaged</code>. Repair runs in native PHP without par2cmdline.</p>
     </div><a class="button secondary" href="index.php?module=settings">Configure workspace</a>
 </section>
 <?php
@@ -28,9 +28,9 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
         <span class="chip">PHP GF(2¹⁶) Reed–Solomon</span>
     </div>
     <div class="configuration-help">
-        <p>Verify checksums without changing downloaded files, or select Repair to reconstruct damaged/missing slices from the PAR2 recovery volumes. Outputs are written as <code>filename.repaired</code> alongside the originals; existing files are never overwritten.</p>
-        <p>Large files are handled in fixed 64 KiB stream windows: there is no 64 MiB total-data cap, 1 MiB slice cap or 256 MiB PAR2-volume cap. Current PAR2 2.0 safeguards allow up to 32 missing/damaged slices, 32,768 input slices and 300 recovery volumes. Large repairs may take substantial CPU time and require free disk space for new <code>.repaired</code> files.</p>
-        <p>The job monitor updates automatically while the independent PHP CLI worker runs. Tasks can be cancelled; cancellation does not delete completed recovered outputs.</p>
+        <p>Verify checksums without changing downloaded files, or select Repair to reconstruct missing or damaged slices. Verified files take their exact original names for Archive Extraction. Existing damaged files are preserved as <code>filename.ext.damaged</code>; a pre-existing <code>.damaged</code> backup blocks publication rather than being overwritten.</p>
+        <p>Large files are handled in fixed 64 KiB stream windows with no 64 MiB total-data cap. Current safeguards allow up to 32 missing/damaged slices, 32,768 input slices and 300 recovery volumes. Large repairs may take substantial CPU time and temporary disk space.</p>
+        <p>The job monitor updates automatically while the independent PHP CLI worker runs. Cancellation never deliberately deletes successfully published repairs or their <code>.damaged</code> backups.</p>
     </div>
 </section>
 <?php if ($workspaceError !== null): ?>
@@ -75,7 +75,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
                     <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                     <input type="hidden" name="par2_file" value="<?= escape($item['relative']) ?>">
                     <button type="submit" class="button secondary" name="action" value="par2_verify">Verify</button>
-                    <button type="submit" class="button subtle" name="action" value="par2_repair" data-confirm="Start native PHP recovery? Recovered outputs will use new .repaired filenames and will not replace originals.">Repair</button>
+                    <button type="submit" class="button subtle" name="action" value="par2_repair" data-confirm="Start native PHP recovery? Verified data will take its original filename and the damaged original will be retained as filename.ext.damaged. Existing .damaged backups are never overwritten.">Repair</button>
                 </form>
             <?php endif; ?></td></tr>
         <?php endforeach; ?>
@@ -87,7 +87,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
 </section>
 <?php endif; ?>
 <section class="panel" data-background-monitor="par2">
-    <div class="panel-heading"><div><h2>PAR2 background jobs</h2><p>Progress updates automatically. Finished jobs can be rerun or removed from history without deleting repaired files.</p></div>
+    <div class="panel-heading"><div><h2>PAR2 background jobs</h2><p>Progress updates automatically. Reruns revalidate already-restored files; removing a finished job clears history only.</p></div>
         <a class="button subtle" href="index.php?module=repair">Refresh</a></div>
     <div class="table-scroll"><table data-sortable>
         <thead><tr><th>Created (UTC)</th><th>PAR2 set</th><th>Operation</th><th>Status / progress</th><th>Details</th><th data-no-sort>Action</th></tr></thead><tbody>

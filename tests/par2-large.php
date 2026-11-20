@@ -78,12 +78,12 @@ try
     $events = [];
     $repaired = Par2Recovery::repair($work, 'large.par2',
         static function (int $percent, string $message) use (&$events): void { $events[] = [$percent, $message]; });
-    check($repaired['recovered'] === 1 && $repaired['outputs'] === [$name . '.repaired'],
+    check($repaired['recovered'] === 1 && $repaired['outputs'] === [$name],
         'Native PHP PAR2 reconstructs a damaged 4 MiB slice inside a ' . intdiv($fileSize, 1048576) . ' MiB file');
-    check(hash_file('md5', $workspace . '/' . $name . '.repaired') === $originalMd5,
+    check(hash_file('md5', $workspace . '/' . $name) === $originalMd5,
         'Streamed PAR2 recovery preserves full-file MD5 beyond the previous 64 MiB ceiling');
-    check(hash_file('md5', $sourceFile) !== $originalMd5,
-        'PAR2 streaming recovery leaves the damaged original file untouched');
+    check(hash_file('md5', $sourceFile . '.damaged') !== $originalMd5,
+        'PAR2 streaming recovery retains damaged originals as filename.ext.damaged');
     check(count($events) > 8 && $events[array_key_last($events)][0] === 100,
         'Large native PAR2 repair emits window-level progress updates');
     check(memory_get_peak_usage(true) < 134217728,

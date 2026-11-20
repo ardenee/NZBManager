@@ -9,7 +9,7 @@ use Throwable;
 /**
  * Native PHP PAR2 2.0 Reed–Solomon recovery with bounded working memory.
  * Handles large files/slices by indexing packets, then streaming 64 KiB windows.
- * Only verified .repaired files are published; originals are never overwritten.
+ * Verified files are published under their intended names; damaged originals are saved as .damaged.
  */
 final class Par2Recovery
 {
@@ -393,20 +393,16 @@ final class Par2Recovery
         {
             throw new RuntimeException('Repaired output directory is not writable.');
         }
-        $target = '';
-        $base = basename($file['name']) . '.repaired';
-        for ($suffix = 0; $suffix < 100; $suffix++)
+        $target = $directory . DIRECTORY_SEPARATOR . basename($file['name']);
+        $backup = $target . '.damaged';
+        if (is_link($target) || (file_exists($target) && !is_file($target)))
         {
-            $candidate = $directory . DIRECTORY_SEPARATOR . $base . ($suffix ? '-' . $suffix : '');
-            if (!file_exists($candidate) && !is_link($candidate))
-            {
-                $target = $candidate;
-                break;
-            }
+            throw new RuntimeException('Protected file is no longer a regular workspace file.');
         }
-        if ($target === '')
+        $hadOriginal = is_file($target);
+        if ($hadOriginal && (file_exists($backup) || is_link($backup)))
         {
-            throw new RuntimeException('No free repaired filename is available; existing output files are protected.');
+            throw new RuntimeException('Cannot preserve damaged original: ' . basename($backup) . ' already exists.');
         }
         $stage = $directory . DIRECTORY_SEPARATOR . '.nzbmanager-par2-' . bin2hex(random_bytes(10));
         $out = @fopen($stage, 'x+b');
@@ -438,8 +434,8 @@ final class Par2Recovery
             {
                 throw new RuntimeException('Could not size a missing protected file for reconstruction.');
             }
-            return ['path' => $stage, 'target' => $target, 'relative' =>
-                ($relativeParent !== '' ? $relativeParent . '/' : '') . basename($target), 'handle' => $out];
+            return ['path' => $stage, 'target' => $target, 'backup' => $backup,
+                'had_original' => $hadOriginal, 'relative' => $relative, 'handle' => $out];
         }
         catch (Throwable $error)
         {
@@ -701,21 +697,99 @@ final class Par2Recovery
             }
             unset($stage);
 
+            // On Windows, an open source handle prevents unlinking its old
+            // pathname even when a hard-link backup exists. Close all reads
+            // after validation and before touching any original file names.
+            foreach ($sources as $fileIndex => $handle)
+            {
+                if (is_resource($handle))
+                {
+                    fclose($handle);
+                    $sources[$fileIndex] = null;
+                }
+            }
+
+            // Validate every destination before changing any source file.
             foreach ($stages as $stage)
             {
-                if (file_exists($stage['target']) || is_link($stage['target']) ||
-                    !@link($stage['path'], $stage['target']))
+                if (is_link($stage['target']) || is_link($stage['backup']) ||
+                    is_file($stage['target']) !== $stage['had_original'] ||
+                    ($stage['had_original'] && (file_exists($stage['backup']) || is_link($stage['backup']))) ||
+                    (!$stage['had_original'] && file_exists($stage['target'])))
                 {
-                    foreach ($outputs as $output)
-                    {
-                        $outputPath = $work->resolve($output, 'file');
-                        @unlink($outputPath);
-                    }
-                    throw new RuntimeException('Could not publish repaired file without overwriting an existing path.');
+                    throw new RuntimeException('Protected filename or .damaged backup changed during recovery; nothing published.');
                 }
-                $outputs[] = $stage['relative'];
             }
-            $progress(100, 'Published ' . count($outputs) . ' independently verified repaired file(s)');
+
+            // Backup the old inode *before* unlinking its original name. A failed
+            // publish restores it; a completed publish keeps filename.ext.damaged.
+            $changes = [];
+            try
+            {
+                foreach ($stages as $stage)
+                {
+                    $change = ['target' => $stage['target'], 'backup' => $stage['backup'],
+                        'had_original' => $stage['had_original'], 'removed' => false, 'published' => false];
+                    if ($stage['had_original'])
+                    {
+                        if (!@link($stage['target'], $stage['backup']))
+                        {
+                            throw new RuntimeException('Could not preserve damaged source as ' . basename($stage['backup']));
+                        }
+                    }
+                    $changes[] = $change;
+                    $index = count($changes) - 1;
+                    if ($stage['had_original'])
+                    {
+                        if (!@unlink($stage['target']))
+                        {
+                            throw new RuntimeException('Cannot remove original name after creating its .damaged backup.');
+                        }
+                        $changes[$index]['removed'] = true;
+                    }
+                    if (file_exists($stage['target']) || is_link($stage['target']) ||
+                        !@link($stage['path'], $stage['target']))
+                    {
+                        throw new RuntimeException('Could not publish verified repair under its original filename.');
+                    }
+                    $changes[$index]['published'] = true;
+                    $outputs[] = $stage['relative'];
+                }
+            }
+            catch (Throwable $publishError)
+            {
+                $rollbackFailed = false;
+                foreach (array_reverse($changes) as $change)
+                {
+                    if ($change['published'])
+                    {
+                        if (!@unlink($change['target']))
+                        {
+                            $rollbackFailed = true;
+                            continue;
+                        }
+                    }
+                    if ($change['had_original'])
+                    {
+                        if ($change['removed'] && !@link($change['backup'], $change['target']))
+                        {
+                            $rollbackFailed = true;
+                            continue;
+                        }
+                        // Only discard a backup after the original name is safe.
+                        if (file_exists($change['target']))
+                        {
+                            @unlink($change['backup']);
+                        }
+                    }
+                }
+                if ($rollbackFailed)
+                {
+                    throw new RuntimeException('PAR2 publication failed and rollback was incomplete. Preserve .damaged backups and inspect files before retrying.', 0, $publishError);
+                }
+                throw $publishError;
+            }
+            $progress(100, 'Restored ' . count($outputs) . ' original filename(s); damaged originals retained as .damaged');
             return ['outputs' => $outputs, 'recovered' => count($missing), 'verified' => count($files)];
         }
         finally

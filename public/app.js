@@ -312,6 +312,17 @@ document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
                   input.value = value;
                   form.appendChild(input);
                 }
+                if (category === "archive_extract" && suffix === "rerun") {
+                  const password = document.createElement("input");
+                  password.type = "password";
+                  password.name = "password";
+                  password.className = "archive-job-password";
+                  password.autocomplete = "new-password";
+                  password.maxLength = 1024;
+                  password.placeholder = "ZIP password (if needed)";
+                  password.setAttribute("aria-label", "ZIP password for rerun");
+                  form.appendChild(password);
+                }
                 const button = document.createElement("button");
                 button.type = "submit";
                 button.className = "button " + className;

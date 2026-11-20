@@ -98,7 +98,9 @@ execution of uploaded modules is deliberately prohibited.
   batch operations, payload merges and persistent audit records are pending.
 - PAR2: pure PHP packet verifier and pure PHP GF(2^16) Reed–Solomon
   reconstruction; no third-party PAR2 executable, FFI or system binary.
-  Repair writes only checksum-verified .repaired outputs and preserves originals.
+  Repair publishes verified files under their original filenames and preserves
+  existing corrupted sources under the `.damaged` suffix; backup collisions
+  abort the operation without overwriting the prior backup.
   The streaming recovery path scans packet headers and hashes, retains only
   volume offsets for recovery data, validates input slices in chunks, solves
   GF16 equations over fixed 64 KiB windows and patches private staged files.
@@ -107,9 +109,12 @@ execution of uploaded modules is deliberately prohibited.
   supports 32 missing/damaged slices. Live web-to-independent PHP CLI repair
   passed on DSM for 5 slices and 2 files; DEV stress tests repaired a 300 MiB file.
   Real multi-gigabyte recovery workloads remain uncertified.
-- Archives: bounded ZIP streaming extraction in an independent PHP CLI worker,
-  with polling progress monitor, cancellation, path traversal/symlink checks.
-  Solid, encrypted, RAR, 7z and TAR adapters remain pending.
+- Archives: streamed ZIP extraction in independent PHP CLI workers, including
+  AES/ZipCrypto password decryption when supported by libzip and raw split
+  `.zip.001` volume assembly, with polling progress, cancellation and path
+  traversal/symlink checks. Passwords are one-use private worker sidecars,
+  never job JSON. True multi-disk `.z01` ZIP, solid and encrypted RAR, 7z and
+  TAR adapters remain pending.
 - Settings: validated deployment configuration and integration settings,
   secret handling, storage migrations.
 - Legacy migration: read-only import of historic MySQL schema and NZB documents.

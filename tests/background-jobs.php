@@ -63,6 +63,48 @@ try
         'Already removed job cannot be removed twice');
     BackgroundJobs::forget($rerun, 'archive_extract');
     check(BackgroundJobs::all('archive_extract') === [], 'Rerun history is independently removable');
+    $passwordArchive = $jobWorkspace . '/encrypted-async.zip';
+    $protectedZip = new \ZipArchive();
+    if ($protectedZip->open($passwordArchive, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true)
+    {
+        throw new RuntimeException('Cannot create protected background ZIP fixture.');
+    }
+    $protectedZip->addFromString('private.txt', 'Encrypted ZIP worker output');
+    if (!$protectedZip->setEncryptionName('private.txt', \ZipArchive::EM_AES_256, 'secret-for-test'))
+    {
+        throw new RuntimeException('Test PHP cannot encrypt ZIP fixtures.');
+    }
+    $protectedZip->close();
+    $protectedId = BackgroundJobs::queue('archive_extract', $work, 'encrypted-async.zip', 'secret-for-test');
+    check(!str_contains(json_encode(BackgroundJobs::all('archive_extract')), 'secret-for-test'),
+        'Encrypted ZIP password never appears in background job status JSON');
+    BackgroundJobs::run($protectedId);
+    $privateJobDir = (\NZB\AppConfig::privateDir() ?? dirname(\NZB\AppConfig::storageDir())) . '/jobs/background';
+    check(!is_file($privateJobDir . '/' . $protectedId . '.password'),
+        'Successful encrypted ZIP job destroys its private one-use password sidecar');
+    $protectedState = array_values(array_filter(BackgroundJobs::all('archive_extract'),
+        static fn (array $job): bool => $job['id'] === $protectedId));
+    check(count($protectedState) === 1 && $protectedState[0]['status'] === 'completed',
+        'Independent background worker can decrypt an AES ZIP with a private one-use password');
+    check(file_get_contents($jobWorkspace . '/encrypted-async-extracted/private.txt') === 'Encrypted ZIP worker output',
+        'AES ZIP background worker writes the verified member');
+    $failedPasswordId = BackgroundJobs::queue('archive_extract', $work, 'encrypted-async.zip', 'incorrect-value');
+    BackgroundJobs::run($failedPasswordId);
+    check(!is_file($privateJobDir . '/' . $failedPasswordId . '.password'),
+        'Failed encrypted ZIP job also destroys its private password sidecar');
+    $failedState = array_values(array_filter(BackgroundJobs::all('archive_extract'),
+        static fn (array $job): bool => $job['id'] === $failedPasswordId));
+    check(count($failedState) === 1 && $failedState[0]['status'] === 'failed' &&
+        !str_contains($failedState[0]['message'], 'incorrect-value'),
+        'Incorrect worker ZIP password fails securely without leaking its value');
+    $retriedId = BackgroundJobs::rerun($failedPasswordId, 'archive_extract', $work, 'secret-for-test');
+    BackgroundJobs::run($retriedId);
+    $retried = array_values(array_filter(BackgroundJobs::all('archive_extract'),
+        static fn (array $job): bool => $job['id'] === $retriedId));
+    check(count($retried) === 1 && $retried[0]['status'] === 'completed',
+        'Previously failed encrypted ZIP can be rerun with a newly supplied password');
+    check(file_get_contents($jobWorkspace . '/encrypted-async-extracted-1/private.txt') === 'Encrypted ZIP worker output',
+        'Password-enabled rerun preserves previous extracted output and creates a new numbered folder');
 
     $cancelId = BackgroundJobs::queue('archive_extract', $work, 'async-test.zip');
     BackgroundJobs::requestCancel($cancelId);

@@ -53,6 +53,16 @@ try
     if ($mainNav -match 'Push To|Download Station' -or $moduleNav -notmatch 'Push To' -or
         $page -notmatch 'MODULES' -or $page -notmatch 'Download Station') { throw 'Sidebar modules are not grouped correctly' }
     Write-Output 'PASS Push To and Download Station are grouped under Modules'
+    $repairPage = (& curl.exe -s -u $password -c $cookie -b $cookie ($url + '?module=repair')) -join "`n"
+    if ($repairPage -notmatch 'filename.ext.damaged' -or $repairPage -match 'Recovered outputs will use new .repaired filenames') {
+        throw 'PAR2 page still advertises old repaired-file publication behavior'
+    }
+    Write-Output 'PASS PAR2 page describes original-name repair and .damaged backup'
+    $unpackPage = (& curl.exe -s -u $password -c $cookie -b $cookie ($url + '?module=unpack')) -join "`n"
+    if ($unpackPage -notmatch 'zip.001' -or $unpackPage -notmatch 'password' -or $unpackPage -notmatch '128 GiB') {
+        throw 'Archive Extraction page is missing new split/password/archive-size guidance'
+    }
+    Write-Output 'PASS Archive Extraction page describes split ZIP, password and size safeguards'
     $indexerPage = (& curl.exe -s -u $password -c $cookie -b $cookie ($url + '?module=indexer')) -join "`n"
     if ($indexerPage -notmatch 'Connect an indexer' -or $indexerPage -notmatch 'NZB_INDEXER_API_KEY') { throw 'Indexer configuration view missing' }
     Write-Output 'PASS Unconfigured indexer displays safe setup guidance'
