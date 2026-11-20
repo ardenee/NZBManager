@@ -134,7 +134,7 @@ if ($selectedFileIndex !== null && isset($summary['files'][$selectedFileIndex]))
     </div>
     <?php endif; ?>
     <div class="table-scroll">
-        <table>
+        <table class="compact-segment-list">
             <thead><tr>
                 <?php foreach (['number' => 'Segment #', 'bytes' => 'Article bytes', 'id' => 'Usenet Message-ID'] as $column => $title): ?>
                 <?php $newDir = $segmentSort === $column && $segmentDir === 'asc' ? 'desc' : 'asc'; ?>

@@ -32,16 +32,16 @@ try
     $events = [];
     $extracted = ArchiveTools::extract($work, 'rawparts.zip.001',
         static function (int $percent, string $message) use (&$events): void { $events[] = $percent; });
-    check($extracted === 'rawparts-extracted' &&
-        file_get_contents($workspace . '/rawparts-extracted/nested/second.txt') === 'second member',
+    check($extracted === 'rawparts' &&
+        file_get_contents($workspace . '/rawparts/nested/second.txt') === 'second member',
         'Raw split ZIP .001/.002 parts are joined and extracted in a PHP worker');
-    check(file_get_contents($workspace . '/rawparts-extracted/nested/hello.txt') ===
+    check(file_get_contents($workspace . '/rawparts/nested/hello.txt') ===
         str_repeat('Raw split ZIP checksums and streaming. ', 100),
         'Raw split ZIP produces byte-identical members');
     check(count(glob($workspace . '/.nzbmanager-split-*.zip') ?: []) === 0,
         'Temporary multipart ZIP assembly is deleted after extraction');
     $again = ArchiveTools::extract($work, 'rawparts.zip.001');
-    check($again === 'rawparts-extracted-1', 'Repeated raw-split ZIP extraction uses a separate numbered output folder');
+    check($again === 'rawparts-1', 'Repeated raw-split ZIP extraction uses a separate numbered output folder');
 
     file_put_contents($workspace . '/gap.zip.001', 'part one');
     file_put_contents($workspace . '/gap.zip.003', 'part three');

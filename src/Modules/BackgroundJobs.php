@@ -163,6 +163,7 @@ final class BackgroundJobs
         if ($type === 'archive_extract')
         {
             $record['collision'] = $collision;
+            $record['needs_password'] = !empty($preview['encrypted']) || ($password !== null && $password !== '');
         }
         if ($password !== null && $password !== '' && $type === 'archive_extract')
         {
@@ -539,6 +540,11 @@ final class BackgroundJobs
             {
                 $record['status'] = str_contains($error->getMessage(), 'cancelled by user') ? 'cancelled' : 'failed';
                 $record['message'] = mb_substr($error->getMessage(), 0, 500);
+                if ($record['type'] === 'archive_extract' &&
+                    preg_match('/password-protected|password is incorrect|zip password|encryption method/i', $error->getMessage()))
+                {
+                    $record['needs_password'] = true;
+                }
             }
             $record['updated'] = gmdate('c');
             $record['finished'] = gmdate('c');

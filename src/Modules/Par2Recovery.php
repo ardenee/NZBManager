@@ -14,12 +14,7 @@ use Throwable;
 final class Par2Recovery
 {
     private const CHUNK_BYTES = 65536;
-    private const MAX_PARTS = 3000;
-    private const MAX_PACKETS = 200000;
-    private const MAX_METADATA_BODY = 4194304;
-    private const MAX_FILES = 1024;
     private const MAX_SLICES = 32768;
-    private const MAX_ERASURES = 128;
 
     private static function uint32(string $bytes): int
     {
@@ -122,10 +117,6 @@ final class Par2Recovery
             {
                 // Skip symlinks, invalid names and unrelated filesystem entries.
             }
-            if (count($candidates) > self::MAX_PARTS)
-            {
-                throw new RuntimeException('PAR2 recovery set discovery exceeds 3000 volumes.');
-            }
         }
         $selectedFp = @fopen($selected, 'rb');
         if (!is_resource($selectedFp))
@@ -188,10 +179,7 @@ final class Par2Recovery
                 rewind($fp);
                 for ($at = 0; $at < $size;)
                 {
-                    if (++$packetCount > self::MAX_PACKETS)
-                    {
-                        throw new RuntimeException('Too many PAR2 packets to index.');
-                    }
+                    $packetCount++;
                     $header = self::readExact($fp, 64);
                     $length = self::uint64(substr($header, 8, 8));
                     if (substr($header, 0, 8) !== "PAR2\0PKT" ||
@@ -207,10 +195,6 @@ final class Par2Recovery
                     $checkType = "PAR 2.0\0IFSC\0\0\0\0";
                     $recvType = "PAR 2.0\0RecvSlic";
                     $metadata = in_array($type, [$mainType, $descType, $checkType], true);
-                    if ($metadata && $bodySize > self::MAX_METADATA_BODY)
-                    {
-                        throw new RuntimeException('PAR2 metadata packet exceeds the 4 MiB parser limit.');
-                    }
                     $hash = hash_init('md5');
                     hash_update($hash, substr($header, 32, 32));
                     $body = '';
@@ -279,7 +263,7 @@ final class Par2Recovery
                         }
                         $sliceSize = self::uint64(substr($body, 0, 8));
                         $fileCount = self::uint32(substr($body, 8, 4));
-                        if ($fileCount < 1 || $fileCount > self::MAX_FILES ||
+                        if ($fileCount < 1 ||
                             $fileCount > ($bodySize - 12) / 16 || $sliceSize < 4 || ($sliceSize % 4) !== 0)
                         {
                             throw new RuntimeException('Invalid PAR2 Main file count or slice size.');
@@ -436,6 +420,169 @@ final class Par2Recovery
             hash_equals($block['crc32'], hash_final($crc));
     }
 
+    /**
+     * Estimate the actual peak working allocation for packed in-memory GF16:
+     * basis, full original matrix, augmented matrix and returned inverse,
+     * optional known-slice coefficient cache, streaming syndromes and PHP
+     * metadata overhead. Choose RAM only if it fits within 90% of CURRENT
+     * available OS memory and any configured PHP memory_limit. If the OS
+     * cannot report available memory, prefer predictable disk-backed rows.
+     *
+     * $availableBytes is injectable for deterministic tests; normal workers
+     * read /proc/meminfo on Synology DSM.
+     */
+    public static function matrixMode(int $missing, int $known, ?int $availableBytes = null): string
+    {
+        if ($missing < 1 || $known < 0)
+        {
+            throw new RuntimeException('Invalid PAR2 source/recovery slice counts.');
+        }
+        if (getenv('NZB_PAR2_DISK_MATRIX') === '1')
+        {
+            return 'disk';
+        }
+        $availableBytes ??= self::availableMemoryBytes();
+        if ($availableBytes === null || $availableBytes <= 0)
+        {
+            return 'disk';
+        }
+        $matrixBytes = 12.0 * $missing * $missing;
+        $cacheBytes = $known * $missing <= 16000000 ? 2.0 * $known * $missing : 0.0;
+        $streamBytes = min(67108864.0, $missing * (float) self::CHUNK_BYTES);
+        $needed = $matrixBytes + $cacheBytes + $streamBytes + 33554432.0;
+        $budget = floor($availableBytes * 0.90);
+        $limit = ini_get('memory_limit');
+        if (is_string($limit) && trim($limit) !== '' && trim($limit) !== '-1')
+        {
+            $multiplier = 1;
+            $suffix = strtolower(substr(trim($limit), -1));
+            if (in_array($suffix, ['k', 'm', 'g'], true))
+            {
+                $multiplier = ['k' => 1024, 'm' => 1048576, 'g' => 1073741824][$suffix];
+            }
+            $phpLimit = (float) $limit * $multiplier;
+            if ($phpLimit > 0)
+            {
+                $budget = min($budget, max(0.0, $phpLimit - memory_get_usage(true)));
+            }
+        }
+        return $needed <= $budget ? 'memory' : 'disk';
+    }
+
+    private static function availableMemoryBytes(): ?int
+    {
+        $path = '/proc/meminfo';
+        if (!is_readable($path))
+        {
+            return null;
+        }
+        $text = @file_get_contents($path, false, null, 0, 8192);
+        if (!is_string($text) || !preg_match('/^MemAvailable:\s+([0-9]+)\s+kB/m', $text, $match))
+        {
+            return null;
+        }
+        $kilobytes = (float) $match[1];
+        if ($kilobytes <= 0 || $kilobytes > PHP_INT_MAX / 1024)
+        {
+            return null;
+        }
+        return (int) ($kilobytes * 1024);
+    }
+
+    /** Store disk-backed PAR2 matrix scratch outside the public web tree. */
+    private static function matrixScratchDirectory(): string
+    {
+        $private = \NZB\AppConfig::privateDir() ?? dirname(\NZB\AppConfig::storageDir());
+        if (!is_dir($private) || !is_writable($private))
+        {
+            throw new RuntimeException('The package-private PAR2 temporary directory is not writable.');
+        }
+        $directory = $private . '/par2-scratch';
+        if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory))
+        {
+            throw new RuntimeException('Cannot create package-private PAR2 matrix scratch directory.');
+        }
+        if (is_link($directory) || !is_writable($directory))
+        {
+            throw new RuntimeException('PAR2 matrix scratch directory is redirected or unwritable.');
+        }
+        return $directory;
+    }
+
+    /**
+     * All damaged originals remain intact while complete replacements are
+     * staged. Reserve enough real free capacity for EVERY replacement file
+     * before copying even the first byte. Multiple folders may share a disk,
+     * so count the required bytes once per underlying filesystem.
+     */
+    private static function requireStagingCapacity(WorkspaceFiles $work, array $catalog, array $changedFiles, int $scratchBytes = 0, ?string $scratchDirectory = null): void
+    {
+        $volumes = [];
+        foreach ($changedFiles as $fileIndex)
+        {
+            $file = $catalog['files'][$fileIndex];
+            $relative = ($catalog['parent'] === '' ? '' : $catalog['parent'] . '/') . $file['name'];
+            $parent = str_contains($relative, '/') ? substr($relative, 0, strrpos($relative, '/')) : '';
+            $directory = $work->resolve($parent, 'dir');
+            if (!is_writable($directory))
+            {
+                throw new RuntimeException('PAR2 output folder is not writable: ' . $parent);
+            }
+            $free = @disk_free_space($directory);
+            $stat = @stat($directory);
+            if ($free === false || !is_array($stat))
+            {
+                throw new RuntimeException('Cannot establish free disk space for PAR2 repair in ' . $directory);
+            }
+            $key = (string) $stat['dev'];
+            if (!isset($volumes[$key]))
+            {
+                $volumes[$key] = ['free' => $free, 'needed' => 0, 'directory' => $directory];
+            }
+            $size = $file['size'];
+            if ($size > PHP_INT_MAX - $volumes[$key]['needed'])
+            {
+                throw new RuntimeException('PAR2 replacement space calculation exceeds the platform filesystem integer range.');
+            }
+            $volumes[$key]['needed'] += $size;
+            $volumes[$key]['free'] = min($volumes[$key]['free'], $free);
+        }
+        if ($scratchBytes > 0)
+        {
+            if (!is_string($scratchDirectory) || $scratchDirectory === '')
+            {
+                throw new RuntimeException('PAR2 temporary matrix destination is not specified.');
+            }
+            $free = @disk_free_space($scratchDirectory);
+            $stat = @stat($scratchDirectory);
+            if ($free === false || !is_array($stat))
+            {
+                throw new RuntimeException('Cannot check PAR2 matrix scratch free space.');
+            }
+            $key = (string) $stat['dev'];
+            if (!isset($volumes[$key]))
+            {
+                $volumes[$key] = ['free' => $free, 'needed' => 0, 'directory' => $scratchDirectory];
+            }
+            if ($scratchBytes > PHP_INT_MAX - $volumes[$key]['needed'])
+            {
+                throw new RuntimeException('PAR2 matrix and replacement size exceed the platform offset range.');
+            }
+            $volumes[$key]['needed'] += $scratchBytes;
+            $volumes[$key]['free'] = min($volumes[$key]['free'], $free);
+        }
+        foreach ($volumes as $volume)
+        {
+            if ($volume['free'] < $volume['needed'])
+            {
+                throw new RuntimeException('Insufficient free space to preserve damaged originals while repairing. Required: ' .
+                    number_format($volume['needed'] / 1073741824, 2) . ' GiB; available: ' .
+                    number_format($volume['free'] / 1073741824, 2) . ' GiB in ' . $volume['directory'] .
+                    '. No original files were changed.');
+            }
+        }
+    }
+
     /** Safely create a staging file for a damaged original, without replacing it. */
     private static function stage(WorkspaceFiles $work, string $parent, array $file, $source, callable $progress): array
     {
@@ -514,6 +661,8 @@ final class Par2Recovery
         $stages = [];
         $recoveryHandles = [];
         $outputs = [];
+        $basisStore = null;
+        $inverseStore = null;
         try
         {
             foreach ($files as $fileIndex => $file)
@@ -546,11 +695,6 @@ final class Par2Recovery
                 if (!is_resource($source) || !self::verifiedBlock($source, $block, $sliceSize))
                 {
                     $missing[] = $i;
-                    if (count($missing) > self::MAX_ERASURES)
-                    {
-                        throw new RuntimeException('Recovery currently supports up to ' .
-                            self::MAX_ERASURES . ' missing/damaged slices per job (PAR2 files are unchanged).');
-                    }
                 }
                 else
                 {
@@ -573,32 +717,57 @@ final class Par2Recovery
                 throw new RuntimeException('Insufficient recovery slices: need ' . $m .
                     ', found ' . count($catalog['recovery']) . '.');
             }
+            $changedFiles = array_values(array_unique(array_map(
+                static fn (int $index): int => $blocks[$index]['file'], $missing)));
+            $mode = self::matrixMode($m, count($known));
+            $diskMatrix = $mode === 'disk';
+            $progress(30, 'PAR2 solver selected ' . $mode . ' matrix using 90% of available memory as a ceiling');
+            $scratchDirectory = $diskMatrix ? self::matrixScratchDirectory() : null;
+            // The disk-backed inverse uses four bytes per element (augmented
+            // GF16 matrix). The smaller basis is closed before inversion.
+            $scratchBytes = $diskMatrix ? 4 * $m * $m : 0;
+            self::requireStagingCapacity($work, $catalog, $changedFiles, $scratchBytes, $scratchDirectory);
+            $progress(30, 'Disk space confirmed for complete replacement files' .
+                ($diskMatrix ? ' and disk-backed recovery matrix' : ''));
             $constants = Par2Galois::inputConstants(count($blocks));
             $selected = [];
             $basis = [];
-            // Accept a recovery equation only if it increases GF16 row rank.
-            // This avoids the old failure where dependent early equations
-            // prevented later, otherwise sufficient recovery sets being used.
+            if ($diskMatrix)
+            {
+                $basisStore = new Par2DiskMatrix($scratchDirectory, 2 * $m);
+            }
+            // Compact packed GF16 rows avoid the disproportionate memory
+            // overhead of large PHP integer arrays. Only independent
+            // recovery equations are retained.
             foreach ($catalog['recovery'] as $exponent => $descriptor)
             {
-                $row = array_map(static fn (int $index): int =>
-                    Par2Galois::power($constants[$index], (int) $exponent), $missing);
-                foreach ($basis as $pivot => $basisRow)
+                $row = '';
+                foreach ($missing as $index)
                 {
-                    $factor = $row[$pivot];
+                    $row .= pack('v', Par2Galois::power($constants[$index], (int) $exponent));
+                }
+                foreach ($basis as $basisPivot => $basisRow)
+                {
+                    if ($basisStore instanceof Par2DiskMatrix)
+                    {
+                        $basisRow = $basisStore->read($basisPivot);
+                    }
+                    $factor = Par2Galois::coefficient($row, $basisPivot);
                     if ($factor === 0)
                     {
                         continue;
                     }
-                    for ($column = $pivot; $column < $m; $column++)
+                    for ($column = $basisPivot; $column < $m; $column++)
                     {
-                        $row[$column] ^= Par2Galois::multiply($factor, $basisRow[$column]);
+                        $value = Par2Galois::coefficient($row, $column) ^
+                            Par2Galois::multiply($factor, Par2Galois::coefficient($basisRow, $column));
+                        Par2Galois::setCoefficient($row, $column, $value);
                     }
                 }
                 $pivot = null;
                 for ($column = 0; $column < $m; $column++)
                 {
-                    if ($row[$column] !== 0)
+                    if (Par2Galois::coefficient($row, $column) !== 0)
                     {
                         $pivot = $column;
                         break;
@@ -608,12 +777,17 @@ final class Par2Recovery
                 {
                     continue;
                 }
-                $inversePivot = Par2Galois::inverse($row[$pivot]);
+                $inv = Par2Galois::inverse(Par2Galois::coefficient($row, $pivot));
                 for ($column = $pivot; $column < $m; $column++)
                 {
-                    $row[$column] = Par2Galois::multiply($row[$column], $inversePivot);
+                    Par2Galois::setCoefficient($row, $column,
+                        Par2Galois::multiply(Par2Galois::coefficient($row, $column), $inv));
                 }
-                $basis[$pivot] = $row;
+                if ($basisStore instanceof Par2DiskMatrix)
+                {
+                    $basisStore->write($pivot, $row);
+                }
+                $basis[$pivot] = $basisStore instanceof Par2DiskMatrix ? true : $row;
                 ksort($basis, SORT_NUMERIC);
                 $selected[(int) $exponent] = $descriptor;
                 if (count($selected) === $m)
@@ -621,20 +795,53 @@ final class Par2Recovery
                     break;
                 }
             }
+            unset($basis);
+            if ($basisStore instanceof Par2DiskMatrix)
+            {
+                $basisStore->close();
+                $basisStore = null;
+            }
             if (count($selected) !== $m)
             {
                 throw new RuntimeException('Not enough independent PAR2 recovery equations.');
             }
-            $matrix = [];
-            foreach ($selected as $power => $descriptor)
+            if ($diskMatrix)
             {
-                $matrix[] = array_map(static fn (int $index): int =>
-                    Par2Galois::power($constants[$index], (int) $power), $missing);
+                $selectedPowers = array_keys($selected);
+                $inverseStore = Par2Galois::inversePackedToDisk($m,
+                    static function (int $equation) use ($selectedPowers, $missing, $constants): string {
+                        $row = '';
+                        foreach ($missing as $index)
+                        {
+                            $row .= pack('v', Par2Galois::power($constants[$index], (int) $selectedPowers[$equation]));
+                        }
+                        return $row;
+                    },
+                    $scratchDirectory,
+                    static function (int $done, int $total) use ($progress): void {
+                        $progress(31 + (int) (8 * $done / $total),
+                            'Solving disk-backed PAR2 equations: ' . $done . '/' . $total);
+                    }
+                );
+                $inverse = null;
             }
-            $inverse = Par2Galois::inverseMatrix($matrix);
-
-            $changedFiles = array_values(array_unique(array_map(
-                static fn (int $index): int => $blocks[$index]['file'], $missing)));
+            else
+            {
+                $matrix = [];
+                foreach ($selected as $power => $descriptor)
+                {
+                    $row = '';
+                    foreach ($missing as $index)
+                    {
+                        $row .= pack('v', Par2Galois::power($constants[$index], (int) $power));
+                    }
+                    $matrix[] = $row;
+                }
+                $inverse = Par2Galois::inversePacked($matrix);
+                unset($matrix);
+            }
+            $progress(39, 'Ready to stage ' . count($changedFiles) .
+                ' complete replacement file(s); damaged originals will be preserved');
             foreach ($changedFiles as $fileIndex)
             {
                 $stages[$fileIndex] = self::stage(
@@ -649,24 +856,35 @@ final class Par2Recovery
             // buffers. Large slice sizes require many windows; redoing exponent
             // arithmetic inside every window wastes considerable CPU time.
             $knownFactors = [];
-            foreach ($known as $index)
+            $cacheFactors = count($known) * $m <= 16000000;
+            if ($cacheFactors)
             {
-                $packed = '';
-                foreach ($powers as $power)
+                foreach ($known as $index)
                 {
-                    $packed .= pack('v', Par2Galois::power($constants[$index], (int) $power));
+                    $packed = '';
+                    foreach ($powers as $power)
+                    {
+                        $packed .= pack('v', Par2Galois::power($constants[$index], (int) $power));
+                    }
+                    $knownFactors[$index] = $packed;
                 }
-                $knownFactors[$index] = $packed;
             }
+            // Multiple recovery slices may live in one volume. Use one file
+            // descriptor per volume, not per recovery slice, for large sets.
             foreach ($selected as $descriptor)
             {
-                $volume = $work->resolve($descriptor['relative'], 'file');
+                $relativeVolume = $descriptor['relative'];
+                if (isset($recoveryHandles[$relativeVolume]))
+                {
+                    continue;
+                }
+                $volume = $work->resolve($relativeVolume, 'file');
                 $fp = @fopen($volume, 'rb');
                 if (!is_resource($fp))
                 {
                     throw new RuntimeException('PAR2 recovery volume is no longer readable.');
                 }
-                $recoveryHandles[] = $fp;
+                $recoveryHandles[$relativeVolume] = $fp;
             }
             $hashes = [];
             foreach ($missing as $index)
@@ -676,14 +894,18 @@ final class Par2Recovery
 
             // Solve one horizontal 64 KiB window across ALL slices at a time.
             // Neither source files nor recovery slices are loaded in full.
+            // Dynamically shrink the streaming window when there are very
+            // many recovery equations; no fixed erasure count is imposed.
+            $window = max(4, min(self::CHUNK_BYTES,
+                4 * intdiv(intdiv(67108864, max(1, $m)), 4)));
             for ($offset = 0; $offset < $sliceSize;)
             {
-                $take = min(self::CHUNK_BYTES, $sliceSize - $offset);
+                $take = min($window, $sliceSize - $offset);
                 $syndromes = [];
                 $equation = 0;
                 foreach ($selected as $descriptor)
                 {
-                    $fp = $recoveryHandles[$equation];
+                    $fp = $recoveryHandles[$descriptor['relative']];
                     if (fseek($fp, $descriptor['offset'] + $offset) !== 0)
                     {
                         throw new RuntimeException('Cannot seek PAR2 recovery slice.');
@@ -705,10 +927,12 @@ final class Par2Recovery
                     }
                     $bytes = self::readExact($source, min($take, $block['length'] - $offset));
                     $bytes = str_pad($bytes, $take, "\0");
-                    $packed = $knownFactors[$index];
+                    $packed = $cacheFactors ? $knownFactors[$index] : null;
                     for ($equation = 0; $equation < $m; $equation++)
                     {
-                        $factor = ord($packed[$equation * 2]) | (ord($packed[$equation * 2 + 1]) << 8);
+                        $factor = $packed === null ?
+                            Par2Galois::power($constants[$index], (int) $powers[$equation]) :
+                            Par2Galois::coefficient($packed, $equation);
                         if ($factor !== 0)
                         {
                             $syndromes[$equation] ^= Par2Galois::multiplySlice($bytes, $factor);
@@ -719,12 +943,14 @@ final class Par2Recovery
                 foreach ($missing as $row => $index)
                 {
                     $recovered = str_repeat("\0", $take);
+                    $inverseRow = $inverseStore instanceof Par2DiskMatrix ?
+                        substr($inverseStore->read($row), 2 * $m) : $inverse[$row];
                     for ($equation = 0; $equation < $m; $equation++)
                     {
-                        if ($inverse[$row][$equation] !== 0)
+                        $factor = Par2Galois::coefficient($inverseRow, $equation);
+                        if ($factor !== 0)
                         {
-                            $recovered ^= Par2Galois::multiplySlice($syndromes[$equation],
-                                $inverse[$row][$equation]);
+                            $recovered ^= Par2Galois::multiplySlice($syndromes[$equation], $factor);
                         }
                     }
                     hash_update($hashes[$index]['md5'], $recovered);
@@ -890,6 +1116,14 @@ final class Par2Recovery
         }
         finally
         {
+            if ($basisStore instanceof Par2DiskMatrix)
+            {
+                $basisStore->close();
+            }
+            if ($inverseStore instanceof Par2DiskMatrix)
+            {
+                $inverseStore->close();
+            }
             foreach ($stages as $stage)
             {
                 if (is_resource($stage['handle']))

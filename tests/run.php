@@ -123,6 +123,7 @@ require __DIR__ . '/par2-native.php';
 require __DIR__ . '/par2-recovery.php';
 require __DIR__ . '/par2-large.php';
 require __DIR__ . '/par2-many.php';
+if (getenv('NZB_PAR2_LARGE_ERASURE_TEST') === '1') { require __DIR__ . '/par2-large-erasure.php'; }
 require __DIR__ . '/archive-multipart.php';
 require __DIR__ . '/tar-native.php';
 require __DIR__ . '/automation.php';
@@ -132,4 +133,5 @@ require __DIR__ . '/par2-archive-chain.php';
 require __DIR__ . '/background-jobs.php';
 require __DIR__ . '/folder-browser.php';
 require __DIR__ . '/managed-folders.php';
+require __DIR__ . '/file-delete.php';
 echo 'All ' . $checks . ' assertions passed.' . PHP_EOL;

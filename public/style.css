@@ -285,3 +285,13 @@ tr.integrity-suspect td { background: #fff8e9; }
 
 .par2-state-damaged { color: #b02330; font-weight: 700; }
 tr:has(.par2-state-damaged) [data-job-progress] { accent-color: #b02330; }
+
+/* Dense data lists only: retain full-size buttons and spacing elsewhere. */
+table.compact-file-list th, table.compact-segment-list th { padding: 8px 12px; }
+table.compact-file-list td, table.compact-segment-list td { padding: 5px 12px; }
+table.compact-file-list td .button { min-height: 28px; padding: 4px 9px; }
+table.compact-file-list .organizer-folder-actions > a,
+table.compact-file-list .organizer-folder-actions > form,
+table.compact-file-list .organizer-folder-actions > details { margin-top: 0; margin-bottom: 0; }
+table.compact-file-list .organizer-rename-details summary { padding-top: 3px; padding-bottom: 3px; }
+table.compact-file-list td.empty, table.compact-segment-list td.empty { padding: 22px 12px; }

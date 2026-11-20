@@ -62,6 +62,25 @@ final class FileOrganizerActions
                 $destination = $work->apply($plan);
                 \message('File safely renamed/moved to ' . $destination . '.');
             }
+            elseif ($action === 'organizer_file_delete_preview')
+            {
+                $source = $_POST['source'] ?? null;
+                if (!is_string($source))
+                {
+                    throw new RuntimeException('Select one file to delete.');
+                }
+                $plan = $work->planDelete($source);
+                $_SESSION['organizer_file_delete_preview'] = [
+                    'at' => time(), 'plan' => $plan, 'token' => bin2hex(random_bytes(16))
+                ];
+                \message('Deletion preview ready for ' . $plan['name'] . '. Confirm before removing the file.');
+            }
+            elseif ($action === 'organizer_file_delete_apply')
+            {
+                $plan = self::checkedPreview('organizer_file_delete_preview');
+                $deleted = $work->applyDelete($plan);
+                \message('Deleted workspace file: ' . $deleted . '. You can now delete its managed folder once empty.');
+            }
             elseif ($action === 'organizer_batch_preview')
             {
                 $selected = $_POST['items'] ?? null;

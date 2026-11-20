@@ -37,7 +37,7 @@ catch (\Throwable $error)
         <p>Native PHP supports ZIP/AES, raw .zip.001 volumes, and streamed TAR, TGZ, TAR.GZ and SPK. True multi-disk .z01 ZIP, RAR and 7z remain unsupported.</p></div>
         <?php if ($workspaceFolder !== ''): ?><a class="button secondary" href="index.php?module=unpack&amp;folder=<?= escape(rawurlencode(str_contains($workspaceFolder, '/') ? substr($workspaceFolder, 0, strrpos($workspaceFolder, '/')) : '')) ?>">Parent</a><?php endif; ?>
     </div>
-    <div class="table-scroll"><table data-sortable>
+    <div class="table-scroll"><table class="compact-file-list" data-sortable>
         <thead><tr><th>Archive/folder</th><th>Type</th><th>Size</th><th data-no-sort>Action</th></tr></thead>
         <tbody>
         <?php foreach ($workspaceEntries as $item): ?>
@@ -74,8 +74,8 @@ catch (\Throwable $error)
             <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
             <input type="hidden" name="action" value="archive_extract">
             <input type="hidden" name="archive" value="<?= escape($selectedArchive) ?>">
-            <?php if (!empty($archiveInfo['encrypted']) || !empty($archiveInfo['deferred'])): ?>
-            <label class="archive-password">ZIP password <input type="password" name="password" autocomplete="new-password" maxlength="1024" <?= !empty($archiveInfo['encrypted']) ? 'required' : '' ?> placeholder="<?= !empty($archiveInfo['encrypted']) ? 'Required for encrypted ZIP' : 'Only if split ZIP is encrypted' ?>"></label>
+            <?php if (!empty($archiveInfo['encrypted'])): ?>
+            <label class="archive-password">Encrypted ZIP password <input type="password" name="password" autocomplete="new-password" maxlength="1024" required placeholder="Password required"></label>
             <?php endif; ?>
             <div class="archive-collision-choice">
                 <label>Existing output folder
@@ -124,8 +124,10 @@ catch (\Throwable $error)
                         <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                         <input type="hidden" name="action" value="archive_rerun">
                         <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
-                        <input class="archive-job-password" type="password" name="password" autocomplete="new-password" maxlength="1024" placeholder="ZIP password (if needed)" aria-label="ZIP password for rerun">
-                        <button type="submit" class="button secondary">Rerun</button>
+                        <?php if (!empty($job['needs_password']) || str_contains(strtolower((string) ($job['message'] ?? '')), 'password-protected')): ?>
+                        <input class="archive-job-password" type="password" name="password" autocomplete="new-password" maxlength="1024" placeholder="Enter ZIP password" aria-label="ZIP password for rerun" required>
+                        <?php endif; ?>
+                        <button type="submit" class="button secondary"><?= !empty($job['needs_password']) || str_contains(strtolower((string) ($job['message'] ?? '')), 'password-protected') ? 'Retry with password' : 'Rerun' ?></button>
                     </form>
                     <form method="post" action="index.php?module=unpack&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Remove this finished job from history? Extracted or repaired files will not be deleted.">
                         <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">

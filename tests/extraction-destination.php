@@ -26,28 +26,28 @@ try
     $zip->addFromString('nested/file.txt', 'original archive file');
     $zip->close();
     $first = ArchiveTools::extract($work, 'example.zip');
-    check($first === 'example-extracted' &&
+    check($first === 'example' &&
         file_get_contents($destination . '/' . $first . '/nested/file.txt') === 'original archive file' &&
-        !is_dir($workspace . '/example-extracted'),
+        !is_dir($workspace . '/example'),
         'Configured default archive extraction destination is used instead of original download folder');
 
     $second = ArchiveTools::extract($work, 'example.zip');
-    check($second === 'example-extracted-1' &&
-        is_dir($destination . '/example-extracted-1'),
+    check($second === 'example-1' &&
+        is_dir($destination . '/example-1'),
         'Default collision behavior creates a numbered folder without touching older extraction');
     $zip->open($file, ZipArchive::CREATE | ZipArchive::OVERWRITE);
     $zip->addFromString('nested/file.txt', 'updated archive file');
     $zip->close();
     $replaced = ArchiveTools::extract($work, 'example.zip', null, null, 'replace');
-    $previous = glob($destination . '/example-extracted.previous-*') ?: [];
-    check($replaced === 'example-extracted' &&
-        file_get_contents($destination . '/example-extracted/nested/file.txt') === 'updated archive file' &&
+    $previous = glob($destination . '/example.previous-*') ?: [];
+    check($replaced === 'example' &&
+        file_get_contents($destination . '/example/nested/file.txt') === 'updated archive file' &&
         count($previous) === 1 &&
         file_get_contents($previous[0] . '/nested/file.txt') === 'original archive file',
         'Confirmed extraction replacement publishes new contents and preserves old extraction as .previous backup');
     expectFailure(static fn () => ArchiveTools::extract($work, 'example.zip', null, null, 'force-delete'),
         'Unknown extraction overwrite policies are rejected');
-    check(file_get_contents($destination . '/example-extracted-1/nested/file.txt') === 'original archive file',
+    check(file_get_contents($destination . '/example-1/nested/file.txt') === 'original archive file',
         'Replacing the primary output does not touch independently numbered prior outputs');
 }
 finally

@@ -9,6 +9,7 @@ require_once dirname(__DIR__) . '/src/Modules/ArchiveTools.php';
 require_once dirname(__DIR__) . '/src/Modules/Par2Jobs.php';
 require_once dirname(__DIR__) . '/src/Modules/Par2Reader.php';
 require_once dirname(__DIR__) . '/src/Modules/Par2Galois.php';
+require_once dirname(__DIR__) . '/src/Modules/Par2DiskMatrix.php';
 require_once dirname(__DIR__) . '/src/Modules/Par2Recovery.php';
 require_once dirname(__DIR__) . '/src/Modules/BackgroundJobs.php';
 
@@ -75,9 +76,9 @@ try
         check($preview['supported'] && $preview['count'] === 2, 'ZIP inspection lists validated members');
         check($preview['bytes'] === strlen('valid ZIP content') + strlen('extra'), 'ZIP inspection sums expanded member sizes');
         $output = ArchiveTools::extract($work, 'inbox/payload.zip');
-        check($output === 'payload-extracted' && file_get_contents($inbox . '/payload-extracted/nested/hello.txt') === 'valid ZIP content', 'ZIP extraction streams valid nested entries to a new folder');
+        check($output === 'payload' && file_get_contents($inbox . '/payload/nested/hello.txt') === 'valid ZIP content', 'ZIP extraction streams valid nested entries to a new folder');
         $second = ArchiveTools::extract($work, 'inbox/payload.zip');
-        check($second === 'payload-extracted-1' && is_file($inbox . '/payload-extracted-1/another.txt'), 'Repeated extraction never overwrites existing output');
+        check($second === 'payload-1' && is_file($inbox . '/payload-1/another.txt'), 'Repeated extraction never overwrites existing output');
         check(is_file($zipPath), 'ZIP extraction never deletes the original archive');
         $badZip = $inbox . '/traversal.zip';
         $bad = new \ZipArchive();

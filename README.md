@@ -31,16 +31,20 @@ are not yet certified.
 - Inspect suspect segment numbering; add, edit or delete NZB references into a new document;
   segment Article bytes are displayed as exact integer values
 - Browse a configured downloads workspace with the File Organizer module;
-  preview and confirm safe same-filesystem file renames/moves, create tracked
-  folders, rename those folders (preserving contents) and delete them when empty.
+  preview and confirm safe same-filesystem file renames/moves, delete individual
+  files after identity-checked confirmation, create tracked folders, rename
+  those folders (preserving contents) and delete them when empty.
   Pre-existing folders cannot be renamed or deleted through this module.
 - Inspect and extract normal ZIP, raw-split `.zip.001`/`.zip.002`, TAR, TGZ and SPK files,
   including password-protected ZIPs, via independent PHP CLI workers. The
-  browser prompts for encrypted ZIP passwords; the password is held in a
-  temporary private worker sidecar, never the job JSON, and discarded after use.
+  browser prompts only when ZIP encryption is detected. Encrypted split ZIPs
+  may first be detected by the background worker, which then offers Retry with
+  password. Secrets use one-use private sidecars, never the job JSON.
   Extraction uses 64 GiB compressed / 128 GiB expanded safeguards and 10,000
-  member limit. Finished jobs can be rerun or removed without deleting outputs.
-  True multi-disk `.z01` ZIP and compressed RAR/7z remain unsupported. Native PHP TAR, TGZ, TAR.GZ and SPK extraction is available.
+  member limit. Output folders use the archive's base name (`release.zip` ->
+  `release/`, then `release-1/` on collision), with no `-extracted` suffix.
+  Finished jobs can be rerun/removed without deleting outputs. True multi-disk
+  `.z01` ZIP and RAR/7z remain unsupported; native TAR/TGZ/TAR.GZ/SPK works.
 - Verify complete PAR2 2.0 sets natively in PHP: every matching recovery volume's packet MD5, protected-file MD5, first-16 KiB MD5, and slice MD5/CRC32 checksums. Results detail the protected files, checked data slices, recovery volumes and recovery slices separately. A protected ZIP counts as one file even if it contains many entries. The independent PHP worker reports progress and supports cancellation.
   An integrity check that finds any damaged/missing protected file finishes at 100% but is marked **Failed — Repair required**; a clean check displays **Verified — No repair needed**. Old verification history without complete results requests a rerun. PAR2 and archive job actions and Refresh links retain the currently browsed workspace folder.
 - Repair PAR2-protected files using PHP-only GF(2^16) Reed–Solomon arithmetic.
@@ -49,12 +53,14 @@ are not yet certified.
   `filename.ext.damaged`. A pre-existing `.damaged` file is never overwritten.
   Rerunning after a successful repair verifies the restored filename; no duplicate
   is published. Finished jobs may be removed from the monitor without deleting files.
-  File and recovery data are streamed in 64 KiB windows with no 64 MiB data
-  ceiling or 1 MiB slice restriction. PAR2 2.0 input slices are limited by
-  the format to 32,768; this PHP implementation currently solves up to 128
-  missing/damaged source-data slices per job. Recoverability also requires at
-  least the same number of independent recovery slices (e.g. 39 available
-  recovery slices can rebuild at most 39 damaged input slices). Failed Verify
+  File and recovery data use bounded streaming windows with no fixed total
+  data, slice-size or 128-erasure application cap. RAM use is estimated against
+  90% of currently available memory; larger GF16 matrices spill into private
+  on-disk scratch files. Preflight disk checks cover every complete replacement
+  file (damaged originals are preserved) plus matrix scratch. A 130-erasure
+  synthetic disk-backed test passed. PAR2 2.0 permits up to 32,768 input
+  slices, and the number of independent recovery slices always limits repair
+  (39 recovery slices can reconstruct at most 39 damaged source slices). Failed Verify
   jobs with confirmed damaged/missing files now offer a Repair button that
   starts a separate PHP job; the worker rechecks current files before modifying
   them, so a stale Verify failure cannot unnecessarily rename a healthy file.
@@ -63,6 +69,7 @@ are not yet certified.
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
 - Rename and delete imported NZBs without altering their XML content
+- Compact file listings in PAR2 Repair, Archive Extraction, File Organizer and Segment Viewer.
 - Responsive modern HTML/CSS/JS interface, without external front-end dependencies.
   Push To and Download Station are grouped under Modules; the sidebar logo and
   browser favicon reuse the original official DSM SPK application icon.
@@ -204,11 +211,11 @@ The application remains early alpha; see docs/DSM7-PACKAGING.md.
 
 ## Functions still requiring work
 
-The 2026 implementation includes native PHP PAR2 verification/repair (up to 128 erasures per job), ZIP/AES and raw-split ZIP extraction, streaming TAR/TGZ/SPK extraction, file/folder operations, and independent progress-monitored jobs. Batch file moves and recursive folder-content merges can skip collisions, retain both names, or explicitly replace a reviewed target with rollback support. A configurable extracted-files destination can replace an output directory only with explicit user confirmation; the previous folder is saved as a .previous backup.
+The 2026 implementation includes native PHP PAR2 verification/repair with adaptive RAM/disk matrices, ZIP/AES and raw-split ZIP extraction, streaming TAR/TGZ/SPK extraction, file/folder operations, and independent progress-monitored jobs. Batch file moves and recursive folder-content merges can skip collisions, retain both names, or explicitly replace a reviewed target with rollback support. A configurable extracted-files destination can replace an output directory only with explicit user confirmation; the previous folder is saved as a .previous backup.
 
 Automatic NZB inbox scanning/submission to Download Station and completed-download PAR2 scheduling are now available in Settings with 5-minute to daily intervals, **off by default**. Stable input checks and a conservative Download Station active-task gate prevent premature repair; finer-grained per-task file mapping remains uncertified. The detached PHP worker starts on enabling automation, and the next SPK carries service lifecycle startup so it can resume on reboot. The installed SPK is older than the live DSM web source.
 
-Still outstanding: real-world multi-GiB PAR2 coverage, recovery over 128 missing slices, complete multi-disk ZIP and RAR/7z decoders in PHP, untracked-folder renaming/deletion policy, authenticated live Download Station transfers, historical MySQL imports, and complete real-world automated-download certification. Torrent uploads are deliberately out of scope for this NZB-focused application.
+Still outstanding: real-world multi-GiB PAR2 certification beyond synthetic 130-slice tests, complete multi-disk ZIP and RAR/7z decoders in PHP, untracked-folder renaming/deletion policy, authenticated live Download Station transfers, historical MySQL imports, and complete real-world automated-download certification. Torrent uploads are deliberately out of scope for this NZB-focused application.
 
 ## Historical source and licensing
 

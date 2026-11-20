@@ -1,6 +1,6 @@
 <section class="page-header">
     <div><div class="eyebrow">DOWNLOADS WORKSPACE</div><h1>File Organizer</h1>
-        <p>Browse downloaded files, rename or move them, and rename or delete folders created with File Organizer. Existing folders are protected.</p>
+        <p>Browse downloaded files, rename, move or delete individual files, and rename or delete folders created with File Organizer. File deletion requires a confirmation preview; folder deletion requires an empty managed folder.</p>
     </div>
     <a class="button secondary" href="index.php?module=settings">Configure workspace</a>
 </section>
@@ -30,13 +30,13 @@ catch (\Throwable $problem)
 <?php else: ?>
 <section class="panel">
     <div class="panel-heading">
-        <div><h2>Contents</h2><p>Rename/Delete are enabled for folders created through File Organizer since tracking was introduced. Earlier/existing folders show disabled controls for safety.</p><p>Workspace: <?= escape(str_replace('\\', '/', $workspace->root())) ?><?= $workspaceFolder !== '' ? ' / ' . escape($workspaceFolder) : '' ?></p></div>
+        <div><h2>Contents</h2><p>Single files can be deleted after a confirmation preview. Folder Rename/Delete are available only for File Organizer-created folders; earlier folders remain protected.</p><p>Workspace: <?= escape(str_replace('\\', '/', $workspace->root())) ?><?= $workspaceFolder !== '' ? ' / ' . escape($workspaceFolder) : '' ?></p></div>
         <?php if ($workspaceFolder !== ''): ?>
         <a class="button subtle" href="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode(str_contains($workspaceFolder, '/') ? substr($workspaceFolder, 0, strrpos($workspaceFolder, '/')) : '')) ?>">Parent folder</a>
         <?php endif; ?>
     </div>
     <div class="table-scroll">
-            <table data-sortable>
+            <table class="compact-file-list" data-sortable>
                 <thead><tr><th data-no-sort>Select</th><th>Name</th><th>Type</th><th>Size</th><th data-no-sort>Actions</th></tr></thead>
                 <tbody>
                 <?php foreach ($workspaceEntries as $item): ?>
@@ -73,6 +73,13 @@ catch (\Throwable $problem)
                             <button type="button" class="button subtle" disabled title="Existing or previously created folders are protected from deletion">Delete</button>
                             <span class="organizer-existing-note">Untracked · protected</span>
                         <?php endif; ?>
+                    <?php else: ?>
+                        <form method="post" class="inline-form" action="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>">
+                            <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+                            <input type="hidden" name="action" value="organizer_file_delete_preview">
+                            <input type="hidden" name="source" value="<?= escape($item['relative']) ?>">
+                            <button type="submit" class="button subtle" title="Preview deleting this one file">Delete file</button>
+                        </form>
                     <?php endif; ?>
                     </td>
                 </tr>
@@ -149,6 +156,28 @@ if (is_array($batchPending) && is_array($batchPending['plan'] ?? null) &&
             <input type="hidden" name="action" value="organizer_batch_apply">
             <input type="hidden" name="token" value="<?= escape($batchPending['token']) ?>">
             <button type="submit" class="button primary">Confirm <?= $batchPlan['overwritten'] ? 'overwriting batch' : 'batch move / merge' ?></button>
+        </form>
+    </div>
+</section>
+<?php endif; ?>
+<?php
+$deletePending = $_SESSION['organizer_file_delete_preview'] ?? null;
+if (is_array($deletePending) && is_array($deletePending['plan'] ?? null) &&
+    is_int($deletePending['at'] ?? null) && $deletePending['at'] <= time() &&
+    time() - $deletePending['at'] <= 120):
+    $deletePlan = $deletePending['plan'];
+?>
+<section class="panel" id="file-delete-confirm">
+    <div class="panel-heading"><div><h2>Confirm file deletion</h2><p>This removes only the selected file, never its parent folder or other files. It cannot be undone through File Organizer.</p></div></div>
+    <div class="configuration-help">
+        <p><strong>File:</strong> <?= escape($deletePlan['source']) ?></p>
+        <p><strong>Size:</strong> <?= humanBytes((int) $deletePlan['bytes']) ?></p>
+        <p>Make sure no download or repair process is actively using this file. The file identity, size and modification time are rechecked before deletion.</p>
+        <form method="post" action="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Permanently delete this one file? This cannot be undone. No folder or other files will be removed.">
+            <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+            <input type="hidden" name="action" value="organizer_file_delete_apply">
+            <input type="hidden" name="token" value="<?= escape($deletePending['token']) ?>">
+            <button type="submit" class="button primary">Confirm delete file</button>
         </form>
     </div>
 </section>

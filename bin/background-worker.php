@@ -37,7 +37,10 @@ if (function_exists('posix_setsid'))
     @posix_setsid();
 }
 @set_time_limit(0);
-ini_set('memory_limit', '256M');
+// Large PAR2 sets use packed coefficient rows and bounded streaming windows.
+ // Resource exhaustion is still possible for exceptionally large recovery
+ // systems; do not impose an arbitrary 256 MiB PHP worker ceiling.
+ini_set('memory_limit', '-1');
 
 require dirname(__DIR__) . '/src/AppConfig.php';
 require dirname(__DIR__) . '/src/AppSettings.php';
@@ -47,6 +50,7 @@ require dirname(__DIR__) . '/src/Modules/ArchiveTools.php';
 require dirname(__DIR__) . '/src/Modules/Par2Jobs.php';
 require dirname(__DIR__) . '/src/Modules/Par2Reader.php';
 require dirname(__DIR__) . '/src/Modules/Par2Galois.php';
+require dirname(__DIR__) . '/src/Modules/Par2DiskMatrix.php';
 require dirname(__DIR__) . '/src/Modules/Par2Recovery.php';
 require dirname(__DIR__) . '/src/Modules/BackgroundJobs.php';
 

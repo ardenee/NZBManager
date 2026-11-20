@@ -27,14 +27,19 @@ password-free test site directly to the Internet.
   is recorded in the package-private managed-folder registry.
 - Rename tracked folders within their existing parent, preserving contents.
   The operation uses a short-lived preview, CSRF and collision checks.
+- Delete **individual regular workspace files** with preview, confirmation and
+  a second device/inode/size/mtime/ctime check before unlinking. Hidden files,
+  symlinks and Synology `@eaDir` paths are protected. This lets users empty
+  managed folders without recursive deletion.
 - Delete **empty tracked folders only**; never recursively delete the contents.
   Pre-existing, externally moved/replaced or untracked folders are protected.
 - Rename/Delete controls appear for tracked folders; earlier folders show
   disabled controls and an explanation. A folder created before tracking
   existed cannot safely be claimed as managed without an explicit adoption
   process, which is not implemented.
-- Batch moves, fragment merges and folder moves between parent directories
-  remain outstanding.
+- Batch file moves and recursive folder-content merges support previewed
+  skip, numbered rename or confirmed overwrite. Moving a whole folder between
+  parents remains outstanding.
 
 ## Archive Extraction
 
@@ -54,9 +59,11 @@ password-free test site directly to the Internet.
   and CRC32 verification; extraction publishes a **new folder** only after
   complete success, preserving the original archive.
 - Encrypted ZIPs use ZipArchive's native password decryption (including AES
-  where libzip supports it). The browser requests a password during extraction
-  or a rerun. Passwords are stored only in a private `0600` one-use worker file,
-  deleted after reading, never exposed in job status or persisted settings.
+  where libzip supports it). Password fields appear only when encryption is
+  known; raw split ZIPs may request a password on retry after worker inspection.
+  Secrets are private one-use `0600` worker files, deleted after reading.
+  Extracted folders use the archive base name with numbered collision suffixes,
+  never `-extracted`.
 - True multi-disk ZIP (`.z01`, `.z02`, `.zip`), RAR and 7z are
   recognized but **not** yet supported by extraction adapters; raw split ZIP
   is not the same as multi-disk ZIP. Multipart RAR and encrypted RAR/7z remain
@@ -97,10 +104,14 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
   in 64 KiB chunks; independent GF16 equations are solved over 64 KiB windows
   and patched into private staged files. Staged file MD5s are checked before
   atomic no-overwrite publication. Output requires free disk space.
-- **Remaining algorithmic bounds:** 128 missing/damaged **source-data** slices per repair job, 1024
-  recoverable input files, 3000 discovered recovery volumes and 32,768 input
-  slices (the PAR2 2.0 format limit). Large jobs can be CPU intensive; actual
-  multi-gigabyte recovery is **not yet certified**.
+- **Adaptive RAM/disk repair:** no fixed 128-erasure, 1024-file, 3000-volume or
+  256 MiB PHP worker cap. Packed GF16 matrices run in memory when their estimated
+  usage fits within 90% of available system RAM; otherwise private disk-backed
+  matrix rows preserve memory. Preflight checks free disk capacity for the
+  complete replacement files and private scratch. PAR2 2.0 still limits input
+  slices to 32,768; available recovery slices, CPU, disk and actual RAM also
+  constrain feasible work. Synthetic 130-erasure recovery passes; production
+  multi-gigabyte sets still require certification.
 - A cancelled job stops at the next callback. Published verified filenames and
   `.damaged` backups are not automatically removed. Rerunning a successful PAR2
   repair finds the originals verified and produces no duplicate outputs.
@@ -114,8 +125,8 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
   verify, it creates no .damaged copy or replacement. Generic worker failures
   and successful verifications cannot trigger this shortcut. Available
   *recovery* slices must be at least as numerous and independent as the
-  missing/damaged *original* slices; the current 128-damaged-slice limit
-  is a PHP solver safeguard rather than a PAR2 format limit.
+  missing/damaged *original* slices; no separate 128-slice application cap
+  remains in the PHP solver.
 
 ### Verification performed
 
@@ -152,7 +163,7 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
 
 **Remaining certification:** Real third-party recovery sets, unusual PAR2
 packets, multi-gigabyte repair performance, complex rename mappings and
-more than 128 erasures need broader validation. There is no arbitrary 64 MiB
+larger real-world recovery sets still need broader validation. There is no arbitrary 64 MiB
 size ceiling, but completion time, disk space and supported PAR2 features
 still matter.
 

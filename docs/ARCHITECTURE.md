@@ -101,20 +101,21 @@ execution of uploaded modules is deliberately prohibited.
   Repair publishes verified files under their original filenames and preserves
   existing corrupted sources under the `.damaged` suffix; backup collisions
   abort the operation without overwriting the prior backup.
-  The streaming recovery path scans packet headers and hashes, retains only
-  volume offsets for recovery data, validates input slices in chunks, solves
-  GF16 equations over fixed 64 KiB windows and patches private staged files.
-  No fixed total-data, 1 MiB slice or 256 MiB PAR-volume limit remains.
-  PAR2 2.0 provides at most 32,768 input slices; the current inverse matrix
-  supports 128 missing/damaged slices. Live web-to-independent PHP CLI repair
-  passed on DSM for 5 slices and 2 files; DEV stress tests repaired a 300 MiB file.
-  Real multi-gigabyte recovery workloads remain uncertified.
+  The streamed recovery path indexes packet offsets, hashes data in chunks and
+  reconstructs with bounded adaptive windows. Packed GF16 matrices use RAM only
+  within 90% of currently available memory, spilling to package-private disk
+  scratch otherwise. Full replacement-file and matrix-scratch capacity is
+  checked before staging; damaged originals remain preserved. No fixed
+  128-erasure application cap remains; PAR2 input slices are format-limited
+  to 32,768. DSM repaired 5 slices across 2 files; DEV tested a 300 MiB file
+  and 130 erasures. Production multi-gigabyte sets still need certification.
 - Archives: streamed ZIP extraction in independent PHP CLI workers, including
   AES/ZipCrypto password decryption when supported by libzip and raw split
   `.zip.001` volume assembly, with polling progress, cancellation and path
-  traversal/symlink checks. Passwords are one-use private worker sidecars,
-  never job JSON. True multi-disk `.z01` ZIP, solid and encrypted RAR, 7z and
-  Native TAR/TGZ/SPK extraction is implemented; RAR/7z and true multi-disk ZIP remain pending.
+  traversal/symlink checks. Passwords are requested only when known to be needed,
+  with retry after deferred split-ZIP inspection; one-use secrets never enter job
+  JSON. Output directories use archive base names. Native TAR/TGZ/SPK works;
+  RAR/7z and true multi-disk ZIP remain pending.
 - Settings: validated deployment configuration and integration settings,
   secret handling, storage migrations.
 - Legacy migration: read-only import of historic MySQL schema and NZB documents.

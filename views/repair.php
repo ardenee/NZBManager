@@ -45,7 +45,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
         <a class="button secondary" href="index.php?module=repair&amp;folder=<?= escape(rawurlencode(str_contains($par2Folder, '/') ? substr($par2Folder, 0, strrpos($par2Folder, '/')) : '')) ?>">Parent</a>
         <?php endif; ?>
     </div>
-    <div class="table-scroll"><table data-sortable>
+    <div class="table-scroll"><table class="compact-file-list" data-sortable>
         <thead><tr><th>PAR2 index / folder</th><th>Recovery set</th><th>Size</th><th data-no-sort>Actions</th></tr></thead>
         <tbody>
         <?php foreach ($par2Entries as $item): ?>

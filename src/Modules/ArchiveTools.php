@@ -392,7 +392,7 @@ final class ArchiveTools
             throw new RuntimeException('This PHP extractor supports standard ZIP and raw-split .zip.001 volumes; RAR/7z adapters are not yet installed.');
         }
         $baseName = preg_replace('/\.zip(?:\.001)?\z/i', '', basename($relative));
-        $location = self::destination($work, $archive, $baseName . '-extracted', $policy);
+        $location = self::destination($work, $archive, $baseName, $policy);
         $parent = $location['parent'];
         $destination = $location['destination'];
 

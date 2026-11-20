@@ -38,6 +38,7 @@ require dirname(__DIR__) . '/Modules/ArchiveActions.php';
 require dirname(__DIR__) . '/Modules/Par2Jobs.php';
 require dirname(__DIR__) . '/Modules/Par2Reader.php';
 require dirname(__DIR__) . '/Modules/Par2Galois.php';
+require dirname(__DIR__) . '/Modules/Par2DiskMatrix.php';
 require dirname(__DIR__) . '/Modules/Par2Recovery.php';
 require dirname(__DIR__) . '/Modules/BackgroundJobs.php';
 require dirname(__DIR__) . '/Modules/AutomationScheduler.php';
@@ -66,6 +67,7 @@ if (isset($_GET['job_status']))
             'status' => $job['status'], 'progress' => $job['progress'],
             'message' => $job['message'], 'outputs' => $job['outputs'] ?? [],
             'verification' => $job['verification'] ?? null,
+            'needs_password' => !empty($job['needs_password']),
         ], \NZB\Modules\BackgroundJobs::all($type));
         echo json_encode(['jobs' => $records], JSON_THROW_ON_ERROR);
     }
@@ -165,7 +167,7 @@ $actions = (new \NZB\Http\ActionRouter())
     ->register(['push_to'], [\NZB\Modules\PushToActions::class, 'dispatch'])
     ->register(['folder_import'], [\NZB\Modules\FolderImportActions::class, 'dispatch'])
     ->register(['segment_add', 'segment_replace', 'segment_delete'], [\NZB\Modules\SegmentActions::class, 'dispatch'])
-    ->register(['organizer_preview', 'organizer_apply', 'organizer_mkdir', 'organizer_folder_rename_preview', 'organizer_folder_rename_apply', 'organizer_folder_delete', 'organizer_batch_preview', 'organizer_batch_apply'], [\NZB\Modules\FileOrganizerActions::class, 'dispatch'])
+    ->register(['organizer_preview', 'organizer_apply', 'organizer_file_delete_preview', 'organizer_file_delete_apply', 'organizer_mkdir', 'organizer_folder_rename_preview', 'organizer_folder_rename_apply', 'organizer_folder_delete', 'organizer_batch_preview', 'organizer_batch_apply'], [\NZB\Modules\FileOrganizerActions::class, 'dispatch'])
     ->register(['archive_extract', 'archive_cancel', 'archive_rerun', 'archive_forget'], [\NZB\Modules\ArchiveActions::class, 'dispatch'])
     ->register(['par2_verify', 'par2_repair', 'par2_repair_from_verify', 'par2_cancel', 'par2_rerun', 'par2_forget'], [\NZB\Modules\Par2Actions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);

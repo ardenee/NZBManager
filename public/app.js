@@ -385,14 +385,15 @@ document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
                   input.value = value;
                   form.appendChild(input);
                 }
-                if (category === "archive_extract" && suffix === "rerun") {
+                if (category === "archive_extract" && suffix === "rerun" && job.needs_password) {
                   const password = document.createElement("input");
                   password.type = "password";
                   password.name = "password";
                   password.className = "archive-job-password";
                   password.autocomplete = "new-password";
                   password.maxLength = 1024;
-                  password.placeholder = "ZIP password (if needed)";
+                  password.placeholder = "Enter ZIP password";
+                  password.required = true;
                   password.setAttribute("aria-label", "ZIP password for rerun");
                   form.appendChild(password);
                 }
@@ -413,7 +414,8 @@ document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
                   "primary"));
               }
               actions.append(
-                actionForm("rerun", "Rerun", "Rerun this job? Existing output files will be preserved.", "secondary"),
+                actionForm("rerun", category === "archive_extract" && job.needs_password ? "Retry with password" : "Rerun",
+                  "Rerun this job? Existing output files will be preserved.", "secondary"),
                 actionForm("forget", "Remove", "Remove this finished job from history? Output files will be preserved.", "subtle")
               );
               cell.appendChild(actions);

@@ -64,6 +64,26 @@ try
         'Pure PHP PAR2 repairs 40 missing slices beyond the former 32-erasure limit');
     check(file_get_contents($folder . '/' . $name) === $data,
         'PAR2 finds enough independent equations from 41 recovery packets for 40 missing slices');
+    check(Par2Recovery::matrixMode(40, 20, 1048576) === 'disk' &&
+        Par2Recovery::matrixMode(40, 20, 1073741824) === 'memory',
+        'Adaptive PAR2 matrix uses disk when 90% available RAM is insufficient and memory otherwise');
+    $override = getenv('NZB_PAR2_DISK_MATRIX');
+    try
+    {
+        putenv('NZB_PAR2_DISK_MATRIX=1');
+        check(Par2Recovery::matrixMode(40, 20, 1073741824) === 'disk',
+            'PAR2 disk-matrix test override takes precedence over available RAM');
+        unlink($folder . '/' . $name);
+        $diskResult = Par2Recovery::repair($work, 'many.par2');
+        check($diskResult['recovered'] === 40 && file_get_contents($folder . '/' . $name) === $data,
+            'Private disk-backed PAR2 matrix reconstructs the same forty lost slices as RAM');
+        check((glob($folder . '/.nzbmanager-par2-matrix-*') ?: []) === [],
+            'Temporary PAR2 matrix files are removed after successful repair');
+    }
+    finally
+    {
+        putenv($override === false ? 'NZB_PAR2_DISK_MATRIX' : 'NZB_PAR2_DISK_MATRIX=' . $override);
+    }
     check(Par2Recovery::repair($work, 'many.par2')['recovered'] === 0,
         'Restored forty-slice file verifies intact on a repeat repair');
 }

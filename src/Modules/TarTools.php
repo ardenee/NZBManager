@@ -303,7 +303,7 @@ final class TarTools
         $progress ??= static function (int $percent, string $step): void {};
         $source = $work->resolve($relative, 'file');
         $preview = self::inspect($work, $relative);
-        $base = preg_replace('/\.(?:tar\.gz|tar|tgz|spk)\z/i', '', basename($relative)) . '-extracted';
+        $base = preg_replace('/\.(?:tar\.gz|tar|tgz|spk)\z/i', '', basename($relative));
         $location = ArchiveTools::destination($work, $source, $base, $policy);
         $parent = $location['parent'];
         $destination = $location['destination'];

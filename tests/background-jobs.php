@@ -35,7 +35,7 @@ try
     $jobs = BackgroundJobs::all('archive_extract');
     check($jobs[0]['status'] === 'completed' && $jobs[0]['progress'] === 100,
         'Async ZIP worker transitions to completed 100%');
-    check(file_get_contents($jobWorkspace . '/async-test-extracted/payload.txt') === 'PHP-only background extraction',
+    check(file_get_contents($jobWorkspace . '/async-test/payload.txt') === 'PHP-only background extraction',
         'Async ZIP worker produces the expected extracted contents');
     check(BackgroundJobs::all('par2') === [], 'PAR2 job monitor excludes archive jobs');
     expectFailure(static fn () => BackgroundJobs::rerun($id, 'par2', $work),
@@ -50,14 +50,14 @@ try
     expectFailure(static fn () => BackgroundJobs::rerun($rerun, 'archive_extract', $work),
         'Queued archive job cannot be rerun again before finishing');
     BackgroundJobs::run($rerun);
-    check(file_get_contents($jobWorkspace . '/async-test-extracted-1/payload.txt') === 'PHP-only background extraction',
+    check(file_get_contents($jobWorkspace . '/async-test-1/payload.txt') === 'PHP-only background extraction',
         'Rerunning archive extraction creates a new numbered folder and preserves the original');
     BackgroundJobs::forget($id, 'archive_extract');
     check(count(array_filter(BackgroundJobs::all('archive_extract'),
         static fn (array $job): bool => $job['id'] === $id)) === 0,
         'Remove clears only the finished archive job record');
-    check(is_file($jobWorkspace . '/async-test-extracted/payload.txt') &&
-        is_file($jobWorkspace . '/async-test-extracted-1/payload.txt'),
+    check(is_file($jobWorkspace . '/async-test/payload.txt') &&
+        is_file($jobWorkspace . '/async-test-1/payload.txt'),
         'Removing archive job history never deletes extracted output files');
     expectFailure(static fn () => BackgroundJobs::forget($id, 'archive_extract'),
         'Already removed job cannot be removed twice');
@@ -78,6 +78,9 @@ try
     $protectedId = BackgroundJobs::queue('archive_extract', $work, 'encrypted-async.zip', 'secret-for-test');
     check(!str_contains(json_encode(BackgroundJobs::all('archive_extract')), 'secret-for-test'),
         'Encrypted ZIP password never appears in background job status JSON');
+    check(!empty(array_values(array_filter(BackgroundJobs::all('archive_extract'),
+        static fn (array $job): bool => $job['id'] === $protectedId))[0]['needs_password']),
+        'Encrypted ZIP background job is marked as requiring a password without exposing the secret');
     BackgroundJobs::run($protectedId);
     $privateJobDir = (\NZB\AppConfig::privateDir() ?? dirname(\NZB\AppConfig::storageDir())) . '/jobs/background';
     check(!is_file($privateJobDir . '/' . $protectedId . '.password'),
@@ -86,7 +89,7 @@ try
         static fn (array $job): bool => $job['id'] === $protectedId));
     check(count($protectedState) === 1 && $protectedState[0]['status'] === 'completed',
         'Independent background worker can decrypt an AES ZIP with a private one-use password');
-    check(file_get_contents($jobWorkspace . '/encrypted-async-extracted/private.txt') === 'Encrypted ZIP worker output',
+    check(file_get_contents($jobWorkspace . '/encrypted-async/private.txt') === 'Encrypted ZIP worker output',
         'AES ZIP background worker writes the verified member');
     $failedPasswordId = BackgroundJobs::queue('archive_extract', $work, 'encrypted-async.zip', 'incorrect-value');
     BackgroundJobs::run($failedPasswordId);
@@ -97,13 +100,35 @@ try
     check(count($failedState) === 1 && $failedState[0]['status'] === 'failed' &&
         !str_contains($failedState[0]['message'], 'incorrect-value'),
         'Incorrect worker ZIP password fails securely without leaking its value');
+    $splitArchiveBytes = file_get_contents($passwordArchive);
+    $cut = intdiv(strlen($splitArchiveBytes), 2);
+    file_put_contents($jobWorkspace . '/encrypted-split.zip.001', substr($splitArchiveBytes, 0, $cut));
+    file_put_contents($jobWorkspace . '/encrypted-split.zip.002', substr($splitArchiveBytes, $cut));
+    $splitJob = BackgroundJobs::queue('archive_extract', $work, 'encrypted-split.zip.001');
+    $splitQueued = array_values(array_filter(BackgroundJobs::all('archive_extract'),
+        static fn (array $job): bool => $job['id'] === $splitJob));
+    check(empty($splitQueued[0]['needs_password']),
+        'Raw split ZIP does not request a password until encryption is actually detected');
+    BackgroundJobs::run($splitJob);
+    $splitFailed = array_values(array_filter(BackgroundJobs::all('archive_extract'),
+        static fn (array $job): bool => $job['id'] === $splitJob));
+    check(count($splitFailed) === 1 && $splitFailed[0]['status'] === 'failed' &&
+        !empty($splitFailed[0]['needs_password']),
+        'Encrypted split ZIP dynamically requests a password after its worker detects encryption');
+    $splitRetry = BackgroundJobs::rerun($splitJob, 'archive_extract', $work, 'secret-for-test');
+    BackgroundJobs::run($splitRetry);
+    $splitPassed = array_values(array_filter(BackgroundJobs::all('archive_extract'),
+        static fn (array $job): bool => $job['id'] === $splitRetry));
+    check(count($splitPassed) === 1 && $splitPassed[0]['status'] === 'completed' &&
+        file_get_contents($jobWorkspace . '/encrypted-split/private.txt') === 'Encrypted ZIP worker output',
+        'Password supplied on demand allows encrypted split ZIP extraction without an -extracted folder suffix');
     $retriedId = BackgroundJobs::rerun($failedPasswordId, 'archive_extract', $work, 'secret-for-test');
     BackgroundJobs::run($retriedId);
     $retried = array_values(array_filter(BackgroundJobs::all('archive_extract'),
         static fn (array $job): bool => $job['id'] === $retriedId));
     check(count($retried) === 1 && $retried[0]['status'] === 'completed',
         'Previously failed encrypted ZIP can be rerun with a newly supplied password');
-    check(file_get_contents($jobWorkspace . '/encrypted-async-extracted-1/private.txt') === 'Encrypted ZIP worker output',
+    check(file_get_contents($jobWorkspace . '/encrypted-async-1/private.txt') === 'Encrypted ZIP worker output',
         'Password-enabled rerun preserves previous extracted output and creates a new numbered folder');
 
     $cancelId = BackgroundJobs::queue('archive_extract', $work, 'async-test.zip');
@@ -113,7 +138,7 @@ try
         static fn (array $job): bool => $job['id'] === $cancelId));
     check(count($cancelled) === 1 && $cancelled[0]['status'] === 'cancelled',
         'Async ZIP worker respects cancellation before publishing output');
-    check(!is_file($jobWorkspace . '/async-test-extracted-2/payload.txt'),
+    check(!is_file($jobWorkspace . '/async-test-2/payload.txt'),
         'Cancelled ZIP job does not publish a new folder');
     expectFailure(static fn () => BackgroundJobs::requestCancel($cancelId),
         'Completed background jobs cannot be cancelled after publication');

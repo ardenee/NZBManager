@@ -113,9 +113,9 @@ final class Par2Galois
     public static function inverseMatrix(array $matrix): array
     {
         $n = count($matrix);
-        if ($n < 1 || $n > 128)
+        if ($n < 1)
         {
-            throw new RuntimeException('Native repair supports at most 128 missing slices per job.');
+            throw new RuntimeException('PAR2 coefficient matrix must not be empty.');
         }
         $rows = [];
         for ($i = 0; $i < $n; $i++)
@@ -161,6 +161,176 @@ final class Par2Galois
             }
         }
         return array_map(static fn (array $row): array => array_slice($row, $n), $rows);
+    }
+
+    /** Retrieve a 16-bit field element from a compact little-endian row. */
+    public static function coefficient(string $row, int $index): int
+    {
+        $offset = $index * 2;
+        return ord($row[$offset]) | (ord($row[$offset + 1]) << 8);
+    }
+
+    /** Update one 16-bit GF element without creating PHP integer arrays. */
+    public static function setCoefficient(string &$row, int $index, int $value): void
+    {
+        $offset = $index * 2;
+        $row[$offset] = chr($value & 255);
+        $row[$offset + 1] = chr($value >> 8);
+    }
+
+    /**
+     * Invert a square GF16 matrix stored as packed 16-bit rows. Unlike PHP
+     * integer arrays, memory scales at about 4*n*n bytes, and the matrix
+     * size is determined by the actual recoverable PAR2 data, not a 128-row
+     * application cap. CPU and physical RAM still determine feasibility.
+     *
+     * @param list<string> $matrix
+     * @return list<string>
+     */
+    public static function inversePacked(array $matrix): array
+    {
+        $n = count($matrix);
+        if ($n < 1)
+        {
+            throw new RuntimeException('PAR2 recovery matrix is empty.');
+        }
+        $columns = $n * 2;
+        $rows = [];
+        foreach ($matrix as $i => $packed)
+        {
+            if (strlen($packed) !== $n * 2)
+            {
+                throw new RuntimeException('PAR2 packed recovery matrix is not square.');
+            }
+            $row = $packed . str_repeat("\0", $n * 2);
+            self::setCoefficient($row, $n + $i, 1);
+            $rows[] = $row;
+        }
+        for ($col = 0; $col < $n; $col++)
+        {
+            $pivot = $col;
+            while ($pivot < $n && self::coefficient($rows[$pivot], $col) === 0)
+            {
+                $pivot++;
+            }
+            if ($pivot === $n)
+            {
+                throw new RuntimeException('Insufficient linearly independent PAR2 recovery slices.');
+            }
+            if ($pivot !== $col)
+            {
+                [$rows[$col], $rows[$pivot]] = [$rows[$pivot], $rows[$col]];
+            }
+            $inversePivot = self::inverse(self::coefficient($rows[$col], $col));
+            for ($j = $col; $j < $columns; $j++)
+            {
+                self::setCoefficient($rows[$col], $j,
+                    self::multiply(self::coefficient($rows[$col], $j), $inversePivot));
+            }
+            for ($rowIndex = 0; $rowIndex < $n; $rowIndex++)
+            {
+                if ($rowIndex === $col)
+                {
+                    continue;
+                }
+                $factor = self::coefficient($rows[$rowIndex], $col);
+                if ($factor === 0)
+                {
+                    continue;
+                }
+                for ($j = $col; $j < $columns; $j++)
+                {
+                    self::setCoefficient($rows[$rowIndex], $j,
+                        self::coefficient($rows[$rowIndex], $j) ^
+                        self::multiply($factor, self::coefficient($rows[$col], $j)));
+                }
+            }
+        }
+        return array_map(static fn (string $row): string => substr($row, $n * 2), $rows);
+    }
+
+    /**
+     * Disk-spooled Gauss-Jordan inversion. The augmented matrix lives in a
+     * private scratch file, not a PHP array. Uses exactly one row buffer plus
+     * one pivot row; the returned matrix retains its inverse in the right half.
+     */
+    public static function inversePackedToDisk(int $n, callable $rowFactory,
+        string $directory, ?callable $progress = null): Par2DiskMatrix
+    {
+        if ($n < 1)
+        {
+            throw new RuntimeException('PAR2 recovery matrix is empty.');
+        }
+        $matrix = new Par2DiskMatrix($directory, 4 * $n);
+        try
+        {
+            for ($row = 0; $row < $n; $row++)
+            {
+                $left = $rowFactory($row);
+                if (!is_string($left) || strlen($left) !== 2 * $n)
+                {
+                    throw new RuntimeException('Invalid recovery matrix row.');
+                }
+                $full = $left . str_repeat("\0", 2 * $n);
+                self::setCoefficient($full, $n + $row, 1);
+                $matrix->write($row, $full);
+            }
+            for ($col = 0; $col < $n; $col++)
+            {
+                $pivotIndex = $col;
+                $pivotRow = $matrix->read($pivotIndex);
+                while (self::coefficient($pivotRow, $col) === 0)
+                {
+                    $pivotIndex++;
+                    if ($pivotIndex === $n)
+                    {
+                        throw new RuntimeException('Insufficient independent PAR2 recovery equations.');
+                    }
+                    $pivotRow = $matrix->read($pivotIndex);
+                }
+                if ($pivotIndex !== $col)
+                {
+                    $matrix->write($pivotIndex, $matrix->read($col));
+                }
+                $inversePivot = self::inverse(self::coefficient($pivotRow, $col));
+                for ($j = $col; $j < 2 * $n; $j++)
+                {
+                    self::setCoefficient($pivotRow, $j,
+                        self::multiply(self::coefficient($pivotRow, $j), $inversePivot));
+                }
+                $matrix->write($col, $pivotRow);
+                for ($other = 0; $other < $n; $other++)
+                {
+                    if ($other === $col)
+                    {
+                        continue;
+                    }
+                    $target = $matrix->read($other);
+                    $factor = self::coefficient($target, $col);
+                    if ($factor === 0)
+                    {
+                        continue;
+                    }
+                    for ($j = $col; $j < 2 * $n; $j++)
+                    {
+                        self::setCoefficient($target, $j,
+                            self::coefficient($target, $j) ^
+                            self::multiply($factor, self::coefficient($pivotRow, $j)));
+                    }
+                    $matrix->write($other, $target);
+                }
+                if ($progress !== null && ($col % max(1, intdiv($n, 100)) === 0 || $col + 1 === $n))
+                {
+                    $progress($col + 1, $n);
+                }
+            }
+            return $matrix;
+        }
+        catch (\Throwable $error)
+        {
+            $matrix->close();
+            throw $error;
+        }
     }
 
     /**

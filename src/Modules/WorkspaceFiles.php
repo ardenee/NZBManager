@@ -169,6 +169,97 @@ final class WorkspaceFiles
         return $items;
     }
 
+    /** Preview deleting exactly one ordinary workspace file; never a folder. */
+    public function planDelete(string $relative): array
+    {
+        $relative = self::relative($relative);
+        if ($relative === '')
+        {
+            throw new RuntimeException('Choose a file to delete; the workspace root cannot be removed.');
+        }
+        foreach (explode('/', $relative) as $part)
+        {
+            if (str_starts_with($part, '.') || strcasecmp($part, '@eaDir') === 0)
+            {
+                throw new RuntimeException('Hidden and Synology system files cannot be deleted using File Organizer.');
+            }
+        }
+        $path = $this->resolve($relative, 'file');
+        $info = @lstat($path);
+        if (is_link($path) || !is_array($info) || !is_file($path))
+        {
+            throw new RuntimeException('Only an ordinary workspace file can be deleted.');
+        }
+        $parent = dirname($path);
+        if (!is_writable($parent))
+        {
+            throw new RuntimeException('The containing folder is not writable.');
+        }
+        return ['source' => $relative, 'name' => basename($relative),
+            'bytes' => (int) $info['size'], 'modified' => (int) $info['mtime'],
+            'changed' => (int) $info['ctime'], 'dev' => (int) $info['dev'],
+            'ino' => (int) $info['ino']];
+    }
+
+    /**
+     * Delete one previously previewed file after checking source identity.
+     * No recursive deletion. The original file is not moved to a hidden
+     * temporary name that could later be mistaken for a safe backup.
+     */
+    public function applyDelete(array $plan): string
+    {
+        $source = $plan['source'] ?? null;
+        if (!is_string($source))
+        {
+            throw new RuntimeException('Malformed file deletion plan.');
+        }
+        $now = $this->planDelete($source);
+        foreach (['source', 'bytes', 'modified', 'changed', 'dev', 'ino'] as $key)
+        {
+            if (!array_key_exists($key, $plan) || $now[$key] !== $plan[$key])
+            {
+                throw new RuntimeException('File changed after deletion preview; refresh and review it again.');
+            }
+        }
+        $path = $this->resolve($source, 'file');
+        $handle = @fopen($path, 'rb');
+        if (!is_resource($handle))
+        {
+            throw new RuntimeException('Could not open selected file for deletion verification.');
+        }
+        try
+        {
+            if (!@flock($handle, LOCK_EX | LOCK_NB))
+            {
+                throw new RuntimeException('The selected file is locked and may still be in use.');
+            }
+            $opened = @fstat($handle);
+            $current = @lstat($path);
+            if (!is_array($opened) || !is_array($current) ||
+                (int) $opened['ino'] !== $now['ino'] ||
+                (int) $opened['dev'] !== $now['dev'] ||
+                (int) $current['ino'] !== $now['ino'] ||
+                (int) $current['dev'] !== $now['dev'] ||
+                (int) $current['size'] !== $now['bytes'] ||
+                (int) $current['mtime'] !== $now['modified'] ||
+                (int) $current['ctime'] !== $now['changed'] ||
+                is_link($path))
+            {
+                throw new RuntimeException('File changed while confirming deletion.');
+            }
+            if (!@unlink($path))
+            {
+                throw new RuntimeException('Unable to delete the selected file. Check folder permissions or active downloads.');
+            }
+            return $source;
+        }
+        finally
+        {
+            @flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+    }
+
     /** Preview a same-workspace file rename/move without touching disk. */
     public function plan(string $source, string $destinationFolder, string $newName): array
     {
