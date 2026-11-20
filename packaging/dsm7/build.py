@@ -101,7 +101,7 @@ def main() -> None:
         add_bytes(inner, "ui/nzb_64.png", (PACK / "PACKAGE_ICON.PNG").read_bytes())
         add_bytes(inner, "ui/nzb_256.png", (PACK / "PACKAGE_ICON_256.PNG").read_bytes())
         add_dir(inner, "webapp")
-        for folder in ("public", "src", "views"):
+        for folder in ("public", "src", "views", "bin"):
             base = ROOT / folder
             if not base.is_dir():
                 raise RuntimeError(f"Missing {folder}/")
@@ -151,7 +151,11 @@ def main() -> None:
                 "webapp/public/index.php",
                 "webapp/src/AppConfig.php",
                 "webapp/src/WebSecurity.php",
-                "webapp/views/layout.php"
+                "webapp/views/layout.php",
+                "webapp/views/repair.php",
+                "webapp/views/unpack.php",
+                "webapp/views/file-organizer.php",
+                "webapp/bin/par2-worker.php"
             }
             required.update({"ui/nzb_64.png", "ui/nzb_256.png", "original-icons/PACKAGE_ICON.PNG", "original-icons/PACKAGE_ICON_120.PNG"})
             if not required.issubset(names) or any(name.startswith("webapp/current/") for name in names):

@@ -32,7 +32,10 @@ not expose the password-free test package to the public internet.
 - HTTPS is recommended even on the local network
 
 The Web Station service uses nginx_php and PHP profile backend ID **11** for
-PHP 8.2. Version 0.3.0-0001 also grants the PHP profile open_basedir access
+PHP 8.2. The 0.4.0-0001 SPK also includes the ZIP PHP extension, module
+workspace access to /volume1–/volume4 and the CLI-only PAR2 worker inside
+webapp/bin. The worker requires a separate DSM scheduler and par2cmdline.
+This revision has not yet been installed/validated on a real NAS. Version 0.3.0-0001 also grants the PHP profile open_basedir access
 to /volume1 through /volume4, allowing folder imports and monitored-folder
 outputs when the package execution user has the necessary share permissions.
 The version can be read from /etc.defaults/VERSION on supported DSM hosts. The earlier NZB test packages incorrectly used backend 10, and the
@@ -62,7 +65,7 @@ From the repository root:
 
 Output:
 
-    dist/NZB-Manager-DSM7-0.3.0-0001-noauth-test.spk
+    dist/NZB-Manager-DSM7-0.4.0-0001-noauth-test.spk
 
 The builder validates the resource configuration, PHP profile, privilege
 policy, icons, lifecycle scripts, absence of an installation wizard, and
@@ -71,7 +74,7 @@ preserved byte-for-byte as original-icons/ files inside package.tgz.
 Their artwork also supplies DSM 7's required 64x64 and 256x256 package icons,
 as well as the Web Station service icons under ui/. The SPK outer archive is a plain tar. It contains
 INFO, package.tgz, scripts/, conf/, and the required package icons. The
-inner package.tgz contains the application public/, src/, and views/ trees,
+inner package.tgz contains the application public/, src/, views/ and bin/ trees,
 the original 2013 icons, and the service icons under ui/.
 
 ## Install for testing
@@ -102,7 +105,9 @@ correctly or that the PHP profile and permissions work on the NAS.
 - PHP 8.2 execution and extension availability on the NAS
 - Web Station service/portal and filesystem permission verification
 - Download Station real API discovery/login/task upload
-- Remaining PAR2, extraction and file-management parity
+- Live PAR2 executable/worker and repair certification
+- Full RAR/7z/TAR archive extraction, batch moves and payload merging
+- Bounded ZIP extraction and file organizer permissions on the actual NAS
 
 Official references:
 - https://help.synology.com/developer-guide/synology_package/introduction.html

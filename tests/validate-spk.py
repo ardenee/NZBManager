@@ -8,7 +8,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SPK = ROOT / "dist/NZB-Manager-DSM7-0.3.0-0001-noauth-test.spk"
+SPK = ROOT / "dist/NZB-Manager-DSM7-0.4.0-0001-noauth-test.spk"
 assert SPK.is_file(), f"SPK missing: {SPK}"
 
 with tarfile.open(SPK, "r:") as package:
@@ -27,6 +27,8 @@ with tarfile.open(SPK, "r:") as package:
     service = resource["webservice"]["services"][0]
     assert service["root"] == "nzbmanager/public"
     assert service["php"]["backend"] == 11, "PHP 8.2 backend must match the working DUP DSM7 SPK"
+    assert "zip" in service["php"]["extensions"], "ZIP extraction needs the PHP zip extension"
+    assert "/opt/bin" in service["php"]["open_basedir"], "PAR2 binary lookup needs the /opt/bin tool path"
     assert service["php"]["user"] == "nzbmanager"
     assert service["type"] == "nginx_php"
     assert service["support_server"] is False
@@ -59,6 +61,13 @@ with tarfile.open(SPK, "r:") as package:
         assert "webapp/src/WebSecurity.php" in paths
         assert "webapp/src/AppConfig.php" in paths
         assert "webapp/views/download-station.php" in paths
+        assert "webapp/views/repair.php" in paths
+        assert "webapp/views/unpack.php" in paths
+        assert "webapp/views/file-organizer.php" in paths
+        assert "webapp/bin/par2-worker.php" in paths
+        worker = app.extractfile("webapp/bin/par2-worker.php").read().decode("utf-8")
+        assert "PHP_SAPI !== 'cli'" in worker
+        assert "Par2Jobs::runOne()" in worker
         for name in ("PACKAGE_ICON.PNG", "PACKAGE_ICON_120.PNG"):
             original = (ROOT / "current" / "spk" / name).read_bytes()
             saved = app.extractfile("original-icons/" + name)

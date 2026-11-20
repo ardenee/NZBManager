@@ -14,6 +14,7 @@
     <div class="nav-heading">WORKSPACE</div>
     <nav aria-label="Main">
     <?php foreach ($registry->all() as $module): ?>
+    <?php if (in_array($module->id(), ['repair', 'unpack', 'file-manager'], true)) continue; ?>
     <?php $route = $module->route($entry['id'] ?? null); ?>
     <?php if ($route !== null): ?>
         <a class="nav-link <?= $activeModule->id() === $module->id() ? 'active' : '' ?>" href="<?= escape($route) ?>"><?= escape($module->label()) ?></a>
@@ -21,11 +22,19 @@
     <?php endforeach; ?>
     </nav>
     <div class="nav-heading upcoming-heading">MODULES</div>
+    <nav aria-label="Modules" class="module-nav">
+    <?php foreach ($registry->all() as $module): ?>
+    <?php if (!in_array($module->id(), ['repair', 'unpack', 'file-manager'], true)) continue; ?>
+        <a class="nav-link <?= $activeModule->id() === $module->id() ? 'active' : '' ?>" href="<?= escape($module->route()) ?>"><?= escape($module->label()) ?></a>
+    <?php endforeach; ?>
+    </nav>
+    <?php if ($registry->planned() !== []): ?>
     <div class="upcoming-list">
     <?php foreach ($registry->planned() as $module): ?>
-        <div class="upcoming-module" title="<?= escape($module->description()) ?>"><span><?= escape($module->label()) ?></span><small>Planned</small></div>
+        <div class="upcoming-module" title="<?= escape($module->description()) ?>"><span><?= escape($module->label()) ?></span><small>Unavailable</small></div>
     <?php endforeach; ?>
     </div>
+    <?php endif; ?>
     <div class="sidebar-bottom"><a class="nav-link <?= $moduleName === 'settings' ? 'active' : '' ?>" href="index.php?module=settings">Settings</a></div>
 </aside>
 <main class="main">

@@ -26,16 +26,20 @@ with temporary records removed afterward. Other NAS devices remain untested.
 | Push To monitored NZB folder | Push To | **Working on DEV** | Atomic copy, no overwrite; NAS share permission tests pending |
 | Settings page size/folder controls | Settings | **Implemented** | Private on-disk settings |
 | Optional DSM Download Station API | Download Station | **Mock-tested, optional** | Disabled without API; live task submission pending |
-| DSM 7 package and original icons | Packaging | **Built, deployed on test NAS** | Existing SPK 0003; new app changes need repackaging |
+| DSM 7 package and original icons | Packaging | **Built; earlier revision tested on NAS** | 0.4.0-0001 includes CLI worker and PHP ZIP profile; new SPK install still pending |
 | Torrent uploads | Import | Not ported | Historical feature |
-| PAR2 scan/repair | Repair | Not ported | Secure background work required |
-| RAR/ZIP/tar extraction | Unpack | Not ported | Safe directory/worker architecture required |
-| Download payload rename/move/merge/delete | File organizer | Not ported | Limited roots and preview required |
+| PAR2 set browser and packet inspection | PAR2 Repair | **Working, DEV-tested** | Recognizes PAR2 packet headers in approved workspace |
+| PAR2 verification job queue/CLI worker | PAR2 Repair | **Worker lifecycle DEV-tested** | Requires compatible par2cmdline and scheduled worker; live NAS parity not verified |
+| PAR2 repair of downloaded payloads | PAR2 Repair | **Opt-in CLI worker, not live-certified** | Off by default; par2cmdline and worker are external prerequisites |
+| ZIP preview and bounded extraction | Archive Extraction | **Working, DEV-tested** | Max 250 entries, 32 MiB archive/64 MiB output; safe new folder only |
+| RAR/7z/TAR archive extraction | Archive Extraction | **Recognized; not extracted** | Separate safe adapters needed |
+| Workspace file preview, rename/move and create subfolder | File Organizer | **Working, DEV-tested** | Approved workspace only, preview/confirm, no overwrite |
+| Batch move/folder merge/payload joining | File Organizer | **Not ported** | Requires deeper operation queue and collision safeguards |
 | Historical MySQL catalogue import | Migration | Not ported | Read-only migration tool required |
 
 ## Test coverage
 
-- 165 PHP assertions on DEV
+- 196 PHP assertions on DEV
 - HTTP smoke tests on DEV
 - DSM HTTP: upload, duplicate suppression, view segments, add missing segment,
   produce revised NZB and remove both temporary records
@@ -47,5 +51,5 @@ with temporary records removed afterward. Other NAS devices remain untested.
 ## Outstanding release gates
 
 Real third-party Newznab requests and live Download Station submissions
-remain unverified. PAR2, extraction and advanced file organization remain
-incomplete. Do not expose the password-free DSM site to the public internet.
+remain unverified. Actual PAR2 verification/repair on a NAS, RAR/7z/TAR extraction, and
+advanced batch/folder file organization remain incomplete. Do not expose the password-free DSM site to the public internet.

@@ -41,7 +41,7 @@ document.querySelectorAll("[data-select]").forEach((button) => {
     refresh();
   });
 });
-document.querySelectorAll("[data-confirm]").forEach((form) => {
+document.querySelectorAll("form[data-confirm]").forEach((form) => {
   form.addEventListener("submit", (event) => {
     if (!window.confirm(form.dataset.confirm)) event.preventDefault();
   });
@@ -147,5 +147,11 @@ document.querySelectorAll("table[data-sortable]").forEach((table) => {
       });
       rows.forEach((row) => body.appendChild(row));
     });
+  });
+});
+
+document.querySelectorAll("button[data-confirm]").forEach((button) => {
+  button.addEventListener("click", (event) => {
+    if (!window.confirm(button.dataset.confirm)) event.preventDefault();
   });
 });

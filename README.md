@@ -25,6 +25,12 @@ are not yet certified.
 - Suppress duplicate NZBs across all import methods using SHA-256 content hashes
 - Push up to 25 NZBs to a monitored download folder or to a restricted HTTPS upload endpoint
 - Inspect suspect segment numbering; add, edit or delete NZB references into a new document
+- Browse a configured downloads workspace with the File Organizer module;
+  preview and confirm safe same-filesystem renames/moves and create subfolders
+- Inspect small ZIP archives and extract their validated members into new
+  directories without overwriting the original files (PHP zip extension)
+- Browse PAR2 recovery indexes and queue verification for a separate CLI worker;
+  repair requires explicit administrator opt-in and an installed par2cmdline tool
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
@@ -39,7 +45,8 @@ nodes. Metadata from additional NZBs is not yet merged.
 
 ## Requirements
 
-- PHP 8.2+ with cURL, DOM, libxml, JSON, mbstring and session extensions
+- PHP 8.2+ with cURL, DOM, libxml, JSON, mbstring and session extensions;
+  ZIP extraction additionally requires the zip extension
   (PHP 8.5 target), and a trusted TLS certificate-authority bundle
 - Linux web server with PHP-FPM (nginx or Apache) and TLS
 - Writable private storage directory outside the public web root
@@ -126,6 +133,7 @@ The HTML interface can change; see docs/BINSEARCH.md for limits and testing.
 | --- | --- |
 | public/ | Only web-served files |
 | src/ | Parser, storage, security, module registry and request handlers |
+| bin/ | CLI-only PAR2 job worker, never part of the public web root |
 | views/ | Shared layout and modular feature templates |
 | tests/ | PHP regression tests and HTTP smoke tests |
 | deploy/ | Linux web-server example |
@@ -141,7 +149,7 @@ A password-free **test SPK** can now be built from this same application source:
 
     python packaging/dsm7/build.py
 
-Install `dist/NZB-Manager-DSM7-0.3.0-0001-noauth-test.spk` through Package
+Install `dist/NZB-Manager-DSM7-0.4.0-0001-noauth-test.spk` through Package
 Center > Manual Install. Web Station and PHP 8.2 must be available. The
 application registers an alias portal at `/nzbmanager/` through Web Station.
 There is **no installation wizard, application password or login prompt**.
@@ -153,23 +161,28 @@ sites. Anyone who can reach this portal can use NZB Manager. Keep it on a
 trusted local network using NAS firewall/reverse-proxy access controls; do not
 publish this password-free test instance to the internet.
 
-The SPK has been installed and its PHP profile tested on the development NAS.
-It remains an early alpha with important legacy workflows missing, not a
-production-certified release. The current active DSM website contains newer
-code than the last packaged SPK; rebuild before deploying those changes. See docs/DSM7-PACKAGING.md.
+An earlier SPK was installed and its PHP profile tested on the development NAS.
+The latest 0.4.0 test SPK includes the modules, CLI worker and PHP zip
+configuration, but its installation and archive/PAR2 execution on a NAS
+have not yet been certified. The application remains an early alpha,
+not a production-ready release. See docs/DSM7-PACKAGING.md.
 
 ## Functions not yet ported
 
 The historical application also had torrent uploads, continuous folder
 monitoring, PAR2 repair, archive unpacking and filesystem operations to
-rename/merge/move downloaded content. Those features are **not currently
-available** in the modern application. Bounded, manual NZB-folder importing
-and monitored-folder NZB output are implemented. Optional Download Station submission has a mocked API-tested
+rename/merge/move downloaded content. **Selected capabilities** are now
+available as separate modules: bounded ZIP extraction, controlled file
+renames/moves and a PAR2 CLI job queue. Full RAR/7z/TAR extraction, payload
+merging, batch file operations and automatic PAR2 worker scheduling are
+**not yet implemented**. Bounded manual NZB-folder importing and
+monitored-folder NZB output are also implemented. Optional Download Station submission has a mocked API-tested
 adapter, but still requires connection settings and actual DSM validation. Indexer search and
 import are implemented but require live-provider verification. Old MySQL databases
 are not automatically imported. See docs/FEATURE-MATRIX.md for the
 complete parity checklist, docs/ARCHITECTURE.md for extension points,
 docs/DOWNLOAD-STATION.md for the optional DSM service activation policy,
+and docs/MODULES.md for module setup, limits and CLI worker instructions,
 and AUDIT.md for the security risks in the archived PHP.
 
 ## Historical source and licensing

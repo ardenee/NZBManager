@@ -54,9 +54,9 @@ final class ModuleRegistry
         $registry->register(new ViewModule('binsearch', 'Binsearch', 'Search and generate NZBs from Binsearch.info', 'binsearch', 'index.php?module=binsearch'));
         $registry->register(new ViewModule('push-to', 'Push To', 'Deliver NZBs to a monitored folder or public HTTPS endpoint', 'push-to', 'index.php?module=push-to'));
         $registry->register(new ViewModule('download-client', 'Download Station', 'Optional Synology Download Station submission', $downloadStationAvailable ? 'download-station' : null, $downloadStationAvailable ? 'index.php?module=download-client' : ''));
-        $registry->register(new ViewModule('repair', 'PAR2 Repair', 'Verify and repair downloaded files', null, ''));
-        $registry->register(new ViewModule('unpack', 'Archive Extraction', 'Extract RAR, ZIP and tar archives', null, ''));
-        $registry->register(new ViewModule('file-manager', 'File Organizer', 'Rename, move and merge downloaded files or folders', null, ''));
+        $registry->register(new ViewModule('repair', 'PAR2 Repair', 'Inspect PAR2 sets and queue verification or repair through a CLI worker', 'repair', 'index.php?module=repair'));
+        $registry->register(new ViewModule('unpack', 'Archive Extraction', 'Inspect archives and safely extract bounded ZIP files', 'unpack', 'index.php?module=unpack'));
+        $registry->register(new ViewModule('file-manager', 'File Organizer', 'Preview, rename and move files inside the downloads workspace', 'file-organizer', 'index.php?module=file-manager'));
         return $registry;
     }
 }

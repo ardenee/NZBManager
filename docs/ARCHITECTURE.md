@@ -83,24 +83,33 @@ execution of uploaded modules is deliberately prohibited.
   mocked discovery, login, upload and logout tests. It remains unavailable
   unless DSM discovery advertises the required API; an actual NAS must still
   certify task submission and lifecycle. This is independent of the SPK build.
-- File organization: allowlisted source/destination roots, preview/dry-run,
-  collision policy, audit records, symlink boundaries, explicit confirmations.
-- PAR2 and archive tools: background job queue, fixed executable allowlist,
-  argv-based launch (not concatenated shell commands), time/resource limits,
-  archive traversal and symlink safety, captured logs.
+- File organization: a bounded workspace browser, file rename/move preview,
+  explicit confirmation and no-overwrite hard-link moves are implemented;
+  batch operations, payload merges and persistent audit records are pending.
+- PAR2: private queue and CLI-only worker with fixed executable allowlist,
+  argv-based launch (not concatenated shell commands), time limit and bounded
+  logs. Requires external par2cmdline and CLI scheduler; live DSM repair
+  certification remains outstanding.
+- Archives: bounded ZIP streaming extraction with traversal and symlink
+  prevention; solid, encrypted, RAR, 7z and TAR adapters remain pending.
 - Settings: validated deployment configuration and integration settings,
   secret handling, storage migrations.
 - Legacy migration: read-only import of historic MySQL schema and NZB documents.
+  MySQL is not needed by the modern runtime; SQL storage remains optional future work.
 
-Do not implement repair/unpack/move as synchronous PHP web requests with
-user-controlled command strings.
+Do not implement long-running PAR2 repairs, unlimited archive extraction,
+or unbounded bulk filesystem operations as synchronous PHP web requests.
+Bounded ZIP streaming extraction and a single confirmed atomic file move
+are explicitly limited to the configured workspace and do not invoke a shell.
 
 ## Data and security
 
 Private storage defaults to var/nzb and should be relocated outside the code
-directory in production via NZB_STORAGE_DIR. The application rejects requests
-when NZB_ADMIN_PASSWORD_HASH or NZB_ADMIN_PASSWORD is missing. Use HTTPS for
-password authentication. No database or service manager is required yet.
+directory in production via NZB_STORAGE_DIR. Linux installations require
+NZB_ADMIN_PASSWORD_HASH or NZB_ADMIN_PASSWORD unless explicitly configured
+otherwise. The DSM alpha SPK deliberately bypasses the app login using its
+package-private marker; it must be restricted to a trusted network. No
+MySQL database is required by the modern application.
 
 The storage index is JSON sidecars. SHA-256 hashes and a lock around imports
 prevent duplicate NZBs even from different import sources. Broader transaction

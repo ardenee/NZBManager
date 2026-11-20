@@ -31,6 +31,11 @@
                 <option value="<?= $count ?>" <?= $appSettings['inspector_page_size'] === $count ? 'selected' : '' ?>><?= $count ?></option>
                 <?php endforeach; ?>
             </select>
+            <label for="setting-workspace">Downloaded-files workspace</label>
+            <div class="settings-input-help">
+                <input id="setting-workspace" name="workspace_path" maxlength="240" value="<?= escape($appSettings['workspace_path']) ?>" placeholder="/volume1/downloads">
+                <small>PAR2, Archive Extraction, and File Organizer operate only within this folder. Use a dedicated shared folder, not a volume root.</small>
+            </div>
             <label for="setting-import-folder">NZB folder import location</label>
             <div class="settings-input-help">
                 <input id="setting-import-folder" name="folder_import_path" maxlength="240" value="<?= escape($appSettings['folder_import_path']) ?>" placeholder="/volume1/downloads/nzb-inbox">
@@ -114,6 +119,7 @@
         <div class="settings-status-row"><dt>Binsearch.info</dt><dd>Enabled · Public search · No API key required</dd></div>
         <div class="settings-status-row"><dt>Synology Download Station</dt><dd><?= $downloadStationAvailable ? 'API detected and available' : 'Not configured or unavailable' ?></dd></div>
         <div class="settings-status-row"><dt>Private data</dt><dd><?= \NZB\AppConfig::privateDir() !== null ? 'DSM package-private storage' : 'Configured Linux storage' ?></dd></div>
+        <div class="settings-status-row"><dt>Downloads workspace</dt><dd><?= $appSettings['workspace_path'] === '' ? 'Not configured' : 'Configured' ?></dd></div>
         <div class="settings-status-row"><dt>Folder import</dt><dd><?= $appSettings['folder_import_path'] === '' ? 'Not configured' : 'Configured' ?></dd></div>
         <div class="settings-status-row"><dt>Monitored-folder output</dt><dd><?= $appSettings['push_folder_path'] === '' ? 'Not configured' : 'Configured' ?></dd></div>
     </dl>

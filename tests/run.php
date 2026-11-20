@@ -92,6 +92,7 @@ finally
     {
         unlink($file);
     }
+    @unlink($directory . '/.import.lock');
     rmdir($directory);
 }
 require dirname(__DIR__) . '/src/Modules/ModuleInterface.php';
@@ -100,9 +101,11 @@ require dirname(__DIR__) . '/src/Modules/ModuleRegistry.php';
 $registry = \NZB\Modules\ModuleRegistry::standard();
 check($registry->get('library')->route() === 'index.php', 'Library route from module registry');
 check($registry->get('inspector')->route('abc') === 'index.php?view=abc', 'Inspector module route');
-check($registry->get('repair')->route() === null, 'Unfinished modules cannot be opened');
+check($registry->get('repair')->route() === 'index.php?module=repair', 'PAR2 module is available');
+check($registry->get('unpack')->route() === 'index.php?module=unpack', 'Archive Extraction module is available');
+check($registry->get('file-manager')->route() === 'index.php?module=file-manager', 'File Organizer module is available');
 check($registry->get('indexer')->route() === 'index.php?module=indexer', 'Indexer module is routed');
-check(count($registry->planned()) === 4, 'Four unfinished parity modules tracked');
+check(count($registry->planned()) === 1, 'Download Station stays unavailable without an installed configured API');
 check($registry->get('push-to')->route() === 'index.php?module=push-to', 'Push To is enabled as a module');
 expectFailure(static fn () => $registry->get('settings'), 'Settings is global navigation, not a module');
 expectFailure(static fn () => $registry->register(new \NZB\Modules\ViewModule('library', 'Duplicate', '', null, '')), 'Duplicate module IDs rejected');
@@ -115,4 +118,5 @@ require __DIR__ . '/providers.php';
 require __DIR__ . '/binsearch.php';
 require __DIR__ . '/download-station.php';
 require __DIR__ . '/new-features.php';
+require __DIR__ . '/modules.php';
 echo 'All ' . $checks . ' assertions passed.' . PHP_EOL;

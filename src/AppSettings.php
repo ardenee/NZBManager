@@ -18,6 +18,7 @@ final class AppSettings
         'folder_import_path' => '',
         'push_folder_path' => '',
         'inspector_page_size' => 50,
+        'workspace_path' => '',
     ];
 
     public static function path(): string
@@ -60,7 +61,7 @@ final class AppSettings
         foreach (self::DEFAULTS as $key => $default)
         {
             $raw = $input[$key] ?? $default;
-            if ($key === 'folder_import_path' || $key === 'push_folder_path')
+            if ($key === 'folder_import_path' || $key === 'push_folder_path' || $key === 'workspace_path')
             {
                 if (!is_string($raw))
                 {

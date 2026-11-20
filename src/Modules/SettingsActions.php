@@ -18,7 +18,7 @@ final class SettingsActions
             $action = $_POST['action'] ?? '';
             if ($action === 'settings_save')
             {
-                $keys = ['binsearch_page_size', 'library_page_size', 'inspector_page_size', 'folder_import_path', 'push_folder_path'];
+                $keys = ['binsearch_page_size', 'library_page_size', 'inspector_page_size', 'folder_import_path', 'push_folder_path', 'workspace_path'];
                 $values = [];
                 foreach ($keys as $key)
                 {

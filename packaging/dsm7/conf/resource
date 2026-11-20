@@ -16,10 +16,11 @@
           "profile_name": "NZB Manager PHP 8.2",
           "profile_desc": "Package PHP 8.2 profile for NZB Manager",
           "backend": 11,
-          "open_basedir": "/var/services/web_packages/nzbmanager:/var/packages/nzbmanager/var:/volume1:/volume2:/volume3:/volume4:/etc.defaults:/tmp:/var/services/tmp",
+          "open_basedir": "/var/services/web_packages/nzbmanager:/var/packages/nzbmanager/var:/volume1:/volume2:/volume3:/volume4:/opt/bin:/usr/bin:/etc.defaults:/tmp:/var/services/tmp",
           "extensions": [
             "curl",
-            "mbstring"
+            "mbstring",
+            "zip"
           ],
           "user": "nzbmanager",
           "group": "http"

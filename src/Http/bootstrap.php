@@ -26,6 +26,12 @@ require dirname(__DIR__) . '/Modules/SettingsActions.php';
 require dirname(__DIR__) . '/Modules/PushToActions.php';
 require dirname(__DIR__) . '/Modules/FolderImportActions.php';
 require dirname(__DIR__) . '/Modules/SegmentActions.php';
+require dirname(__DIR__) . '/Modules/WorkspaceFiles.php';
+require dirname(__DIR__) . '/Modules/FileOrganizerActions.php';
+require dirname(__DIR__) . '/Modules/ArchiveTools.php';
+require dirname(__DIR__) . '/Modules/ArchiveActions.php';
+require dirname(__DIR__) . '/Modules/Par2Jobs.php';
+require dirname(__DIR__) . '/Modules/Par2Actions.php';
 
 
 use NZB\NzbDocument;
@@ -97,7 +103,10 @@ $actions = (new \NZB\Http\ActionRouter())
     ->register(['settings_save', 'indexer_add', 'indexer_remove'], [\NZB\Modules\SettingsActions::class, 'dispatch'])
     ->register(['push_to'], [\NZB\Modules\PushToActions::class, 'dispatch'])
     ->register(['folder_import'], [\NZB\Modules\FolderImportActions::class, 'dispatch'])
-    ->register(['segment_add', 'segment_replace', 'segment_delete'], [\NZB\Modules\SegmentActions::class, 'dispatch']);
+    ->register(['segment_add', 'segment_replace', 'segment_delete'], [\NZB\Modules\SegmentActions::class, 'dispatch'])
+    ->register(['organizer_preview', 'organizer_apply', 'organizer_mkdir'], [\NZB\Modules\FileOrganizerActions::class, 'dispatch'])
+    ->register(['archive_extract'], [\NZB\Modules\ArchiveActions::class, 'dispatch'])
+    ->register(['par2_verify', 'par2_repair'], [\NZB\Modules\Par2Actions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);
 
 if (($_GET['download'] ?? '') !== '')
@@ -185,7 +194,7 @@ if ($indexerSearch !== null && !in_array($indexerSearch['source'] ?? 'default', 
     $indexerSearch = null;
 }
 $requestedModule = $_GET['module'] ?? '';
-$allowedModules = ['indexer', 'binsearch', 'settings', 'push-to'];
+$allowedModules = ['indexer', 'binsearch', 'settings', 'push-to', 'repair', 'unpack', 'file-manager'];
 if ($downloadStationAvailable)
 {
     $allowedModules[] = 'download-client';
