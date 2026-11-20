@@ -4,17 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= escape($entry ? $entry['name'] . ' — NZB Manager' : 'NZB Manager') ?></title>
+<link rel="icon" type="image/png" href="app-icon.png?v=<?= escape(substr((string) (@hash_file('sha256', __DIR__ . '/../public/app-icon.png') ?: 'missing'), 0, 16)) ?>">
 <link rel="stylesheet" href="style.css?v=<?= escape(substr((string) (@hash_file('sha256', __DIR__ . '/../public/style.css') ?: 'missing'), 0, 16)) ?>">
 <script src="app.js?v=<?= escape(substr((string) (@hash_file('sha256', __DIR__ . '/../public/app.js') ?: 'missing'), 0, 16)) ?>" defer></script>
 </head>
 <body>
 <div class="app-shell">
 <aside class="sidebar">
-    <a class="brand" href="index.php"><span class="brand-icon">N</span><span>NZB <small>MANAGER</small></span></a>
+    <a class="brand" href="index.php"><img class="brand-icon" src="app-icon.png?v=<?= escape(substr((string) (@hash_file('sha256', __DIR__ . '/../public/app-icon.png') ?: 'missing'), 0, 16)) ?>" alt="" width="41" height="41"><span>NZB <small>MANAGER</small></span></a>
+    <?php $moduleIds = ['push-to', 'download-client', 'repair', 'unpack', 'file-manager']; ?>
     <div class="nav-heading">WORKSPACE</div>
     <nav aria-label="Main">
     <?php foreach ($registry->all() as $module): ?>
-    <?php if (in_array($module->id(), ['repair', 'unpack', 'file-manager'], true)) continue; ?>
+    <?php if (in_array($module->id(), $moduleIds, true)) continue; ?>
     <?php $route = $module->route($entry['id'] ?? null); ?>
     <?php if ($route !== null): ?>
         <a class="nav-link <?= $activeModule->id() === $module->id() ? 'active' : '' ?>" href="<?= escape($route) ?>"><?= escape($module->label()) ?></a>
@@ -24,8 +26,9 @@
     <div class="nav-heading upcoming-heading">MODULES</div>
     <nav aria-label="Modules" class="module-nav">
     <?php foreach ($registry->all() as $module): ?>
-    <?php if (!in_array($module->id(), ['repair', 'unpack', 'file-manager'], true)) continue; ?>
-        <a class="nav-link <?= $activeModule->id() === $module->id() ? 'active' : '' ?>" href="<?= escape($module->route()) ?>"><?= escape($module->label()) ?></a>
+    <?php if (!in_array($module->id(), $moduleIds, true)) continue; ?>
+    <?php $route = $module->route(); if ($route === null) continue; ?>
+        <a class="nav-link <?= $activeModule->id() === $module->id() ? 'active' : '' ?>" href="<?= escape($route) ?>"><?= escape($module->label()) ?></a>
     <?php endforeach; ?>
     </nav>
     <?php if ($registry->planned() !== []): ?>

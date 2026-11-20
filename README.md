@@ -35,11 +35,14 @@ are not yet certified.
   folders, rename those folders (preserving contents) and delete them when empty.
   Pre-existing folders cannot be renamed or deleted through this module.
 - Inspect small ZIP archives and extract their validated members into new
-  directories via background PHP workers with progress and cancellation
+  directories via background PHP workers with progress and cancellation.
+  Finished jobs can be rerun or removed from history without deleting outputs.
 - Verify PAR2 2.0 packet integrity and protected-file/slice checksums natively
   in PHP, with an independent worker, live job monitor, progress and cancellation
 - Repair PAR2-protected files using PHP-only GF(2^16) Reed–Solomon arithmetic,
   writing fully checksum-verified `.repaired` outputs without overwriting originals.
+  PAR2 jobs can be rerun or removed from history; repeated repairs receive
+  numbered `.repaired-1`, `.repaired-2` output filenames to prevent overwrites.
   File and recovery data are streamed in 64 KiB windows with no 64 MiB data
   ceiling or 1 MiB slice restriction. PAR2 2.0 input slices are limited by
   the format to 32,768; this PHP implementation currently solves up to 32
@@ -48,7 +51,9 @@ are not yet certified.
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
 - Rename and delete imported NZBs without altering their XML content
-- Responsive modern HTML/CSS/JS interface, without external front-end dependencies
+- Responsive modern HTML/CSS/JS interface, without external front-end dependencies.
+  Push To and Download Station are grouped under Modules; the sidebar logo and
+  browser favicon reuse the original official DSM SPK application icon.
 - Linux HTTP Basic authentication (optional on other deployments), CSRF protection and constrained XML parsing
 - DSM 7.2+ test package runs **without an application password**; restrict its web portal to a trusted network
 

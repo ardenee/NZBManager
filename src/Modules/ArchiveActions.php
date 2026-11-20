@@ -29,6 +29,33 @@ final class ArchiveActions
                 BackgroundJobs::requestCancel($id);
                 \message('Archive extraction cancellation requested.');
             }
+            elseif ($action === 'archive_rerun' || $action === 'archive_forget')
+            {
+                $jobId = $_POST['job_id'] ?? null;
+                if (!is_string($jobId))
+                {
+                    throw new RuntimeException('Invalid archive extraction job identifier.');
+                }
+                if ($action === 'archive_forget')
+                {
+                    BackgroundJobs::forget($jobId, 'archive_extract');
+                    \message('Finished archive extraction job removed from history. Output files were not deleted.');
+                }
+                else
+                {
+                    $newId = BackgroundJobs::rerun($jobId, 'archive_extract', WorkspaceFiles::fromSettings());
+                    try
+                    {
+                        BackgroundJobs::start($newId);
+                    }
+                    catch (Throwable $launchError)
+                    {
+                        BackgroundJobs::failLaunch($newId, $launchError->getMessage());
+                        throw $launchError;
+                    }
+                    \message('archive extraction rerun started in a new PHP background job: ' . $newId . '.');
+                }
+            }
             elseif ($action === 'archive_extract')
             {
                 $relative = $_POST['archive'] ?? null;

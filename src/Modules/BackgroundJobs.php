@@ -234,6 +234,93 @@ final class BackgroundJobs
         }
     }
 
+    /** A completed, failed or cancelled job can be queued again from its original input. */
+    public static function rerun(string $id, string $category, WorkspaceFiles $work): string
+    {
+        $job = self::read($id);
+        self::assertCategory($job, $category);
+        if (!in_array($job['status'] ?? '', ['completed', 'failed', 'cancelled'], true))
+        {
+            throw new RuntimeException('Only finished jobs can be rerun.');
+        }
+        $type = $job['type'] ?? null;
+        $relative = $job['relative'] ?? null;
+        if (!is_string($type) || !is_string($relative))
+        {
+            throw new RuntimeException('Job is missing its original operation or input path.');
+        }
+        return self::queue($type, $work, $relative);
+    }
+
+    private static function assertCategory(array $job, string $category): void
+    {
+        $type = $job['type'] ?? '';
+        if (($category === 'par2' && !in_array($type, ['par2_verify', 'par2_repair'], true)) ||
+            ($category === 'archive_extract' && $type !== 'archive_extract') ||
+            !in_array($category, ['par2', 'archive_extract'], true))
+        {
+            throw new RuntimeException('This job belongs to another module.');
+        }
+    }
+
+    /** Remove only a terminal job record/log, never the job's source or output files. */
+    public static function forget(string $id, string $category): void
+    {
+        $job = self::read($id);
+        self::assertCategory($job, $category);
+        $dir = self::directory();
+        $lockPath = $dir . '/' . $id . '.lock';
+        if (is_link($lockPath))
+        {
+            throw new RuntimeException('Invalid background job lock.');
+        }
+        $lock = @fopen($lockPath, 'c+b');
+        if (!is_resource($lock))
+        {
+            throw new RuntimeException('Could not check the background job lock.');
+        }
+        try
+        {
+            if (!flock($lock, LOCK_EX | LOCK_NB))
+            {
+                throw new RuntimeException('Job worker is still active. Try again after it finishes.');
+            }
+            $job = self::read($id);
+            self::assertCategory($job, $category);
+            if (!in_array($job['status'] ?? '', ['completed', 'failed', 'cancelled'], true))
+            {
+                throw new RuntimeException('Only completed, failed or cancelled jobs can be removed.');
+            }
+            $log = $dir . '/' . $id . '.log';
+            if (is_link($log))
+            {
+                throw new RuntimeException('Job log symlink is forbidden.');
+            }
+            if (is_file($log) && !@unlink($log))
+            {
+                throw new RuntimeException('Could not remove the job log.');
+            }
+            if (!@unlink(self::path($id)))
+            {
+                throw new RuntimeException('Could not remove the job record.');
+            }
+        }
+        finally
+        {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+        if (is_file($lockPath) && !is_link($lockPath))
+        {
+            @unlink($lockPath);
+        }
+        $cancel = $dir . '/' . $id . '.cancel';
+        if (is_file($cancel) && !is_link($cancel))
+        {
+            @unlink($cancel);
+        }
+    }
+
     public static function run(string $id): void
     {
         if (PHP_SAPI !== 'cli')

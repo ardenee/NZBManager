@@ -87,7 +87,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
 </section>
 <?php endif; ?>
 <section class="panel" data-background-monitor="par2">
-    <div class="panel-heading"><div><h2>PAR2 background jobs</h2><p>Progress, errors and recovered file names update automatically while PHP workers run.</p></div>
+    <div class="panel-heading"><div><h2>PAR2 background jobs</h2><p>Progress updates automatically. Finished jobs can be rerun or removed from history without deleting repaired files.</p></div>
         <a class="button subtle" href="index.php?module=repair">Refresh</a></div>
     <div class="table-scroll"><table data-sortable>
         <thead><tr><th>Created (UTC)</th><th>PAR2 set</th><th>Operation</th><th>Status / progress</th><th>Details</th><th data-no-sort>Action</th></tr></thead><tbody>
@@ -107,6 +107,21 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
                     <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
                     <button type="submit" class="button subtle">Cancel</button>
                 </form>
+            <?php else: ?>
+                <div class="job-actions">
+                    <form method="post" action="index.php?module=repair" data-confirm="Rerun this job using the original input? Previous results will be preserved.">
+                        <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+                        <input type="hidden" name="action" value="par2_rerun">
+                        <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
+                        <button type="submit" class="button secondary">Rerun</button>
+                    </form>
+                    <form method="post" action="index.php?module=repair" data-confirm="Remove this finished job from history? Extracted or repaired files will not be deleted.">
+                        <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+                        <input type="hidden" name="action" value="par2_forget">
+                        <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
+                        <button type="submit" class="button subtle">Remove</button>
+                    </form>
+                </div>
             <?php endif; ?></td>
         </tr>
         <?php endforeach; ?>

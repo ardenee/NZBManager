@@ -85,7 +85,7 @@ catch (\Throwable $error)
 <?php $archiveJobs = \NZB\Modules\BackgroundJobs::all('archive_extract'); ?>
 <section class="panel" data-background-monitor="archive_extract">
     <div class="panel-heading"><div><h2>Archive extraction jobs</h2>
-        <p>Each ZIP is extracted by an independent PHP CLI process. The progress bar updates automatically.</p></div>
+        <p>Each ZIP is extracted by an independent PHP CLI process. Finished jobs can be rerun or removed from history without deleting extracted files.</p></div>
         <a class="button subtle" href="index.php?module=unpack">Refresh</a>
     </div>
     <div class="table-scroll"><table data-sortable>
@@ -105,6 +105,21 @@ catch (\Throwable $error)
                     <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
                     <button type="submit" class="button subtle">Cancel</button>
                 </form>
+            <?php else: ?>
+                <div class="job-actions">
+                    <form method="post" action="index.php?module=unpack" data-confirm="Rerun this job using the original input? Previous results will be preserved.">
+                        <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+                        <input type="hidden" name="action" value="archive_rerun">
+                        <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
+                        <button type="submit" class="button secondary">Rerun</button>
+                    </form>
+                    <form method="post" action="index.php?module=unpack" data-confirm="Remove this finished job from history? Extracted or repaired files will not be deleted.">
+                        <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+                        <input type="hidden" name="action" value="archive_forget">
+                        <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
+                        <button type="submit" class="button subtle">Remove</button>
+                    </form>
+                </div>
             <?php endif; ?></td>
         </tr>
         <?php endforeach; ?>

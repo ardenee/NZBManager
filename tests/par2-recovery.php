@@ -100,7 +100,15 @@ try
         'Pure PHP PAR2 never overwrites existing damaged files or restores missing files under original names');
     check($events !== [] && $events[array_key_last($events)][0] === 100,
         'PAR2 repair emits completed percentage updates to job monitor callbacks');
-    expectFailure(static fn () => Par2Recovery::repair($work, 'recovery.par2'), 'PAR2 refuses to overwrite previously published .repaired files');
+    $second = Par2Recovery::repair($work, 'recovery.par2');
+    check($second['recovered'] === 5 && count($second['outputs']) === 2 &&
+        in_array('alpha.bin.repaired-1', $second['outputs'], true) &&
+        in_array('beta.bin.repaired-1', $second['outputs'], true),
+        'Rerunning PAR2 repair publishes new numbered outputs rather than colliding with existing repairs');
+    check(file_get_contents($workRoot . '/alpha.bin.repaired-1') === $sourceFiles['alpha.bin'] &&
+        file_get_contents($workRoot . '/beta.bin.repaired-1') === $sourceFiles['beta.bin'] &&
+        file_get_contents($workRoot . '/alpha.bin.repaired') === $sourceFiles['alpha.bin'],
+        'PAR2 reruns preserve earlier verified repaired outputs unchanged');
     $bad = file_get_contents($workRoot . '/recovery.vol00+06.par2');
     file_put_contents($workRoot . '/recovery.vol00+06.par2', substr_replace($bad, 'X', 90, 1));
     expectFailure(static fn () => Par2Recovery::repair($work, 'recovery.par2'),

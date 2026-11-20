@@ -38,6 +38,31 @@ try
     check(file_get_contents($jobWorkspace . '/async-test-extracted/payload.txt') === 'PHP-only background extraction',
         'Async ZIP worker produces the expected extracted contents');
     check(BackgroundJobs::all('par2') === [], 'PAR2 job monitor excludes archive jobs');
+    expectFailure(static fn () => BackgroundJobs::rerun($id, 'par2', $work),
+        'Archive job cannot be rerun from the PAR2 module');
+    expectFailure(static fn () => BackgroundJobs::forget($id, 'par2'),
+        'Archive job cannot be removed from the PAR2 module');
+    $rerun = BackgroundJobs::rerun($id, 'archive_extract', $work);
+    check($rerun !== $id && preg_match('/\A[a-f0-9]{32}\z/D', $rerun) === 1,
+        'Finished archive job can be rerun as an independent queued job');
+    expectFailure(static fn () => BackgroundJobs::forget($rerun, 'archive_extract'),
+        'Queued archive job cannot be removed while still active');
+    expectFailure(static fn () => BackgroundJobs::rerun($rerun, 'archive_extract', $work),
+        'Queued archive job cannot be rerun again before finishing');
+    BackgroundJobs::run($rerun);
+    check(file_get_contents($jobWorkspace . '/async-test-extracted-1/payload.txt') === 'PHP-only background extraction',
+        'Rerunning archive extraction creates a new numbered folder and preserves the original');
+    BackgroundJobs::forget($id, 'archive_extract');
+    check(count(array_filter(BackgroundJobs::all('archive_extract'),
+        static fn (array $job): bool => $job['id'] === $id)) === 0,
+        'Remove clears only the finished archive job record');
+    check(is_file($jobWorkspace . '/async-test-extracted/payload.txt') &&
+        is_file($jobWorkspace . '/async-test-extracted-1/payload.txt'),
+        'Removing archive job history never deletes extracted output files');
+    expectFailure(static fn () => BackgroundJobs::forget($id, 'archive_extract'),
+        'Already removed job cannot be removed twice');
+    BackgroundJobs::forget($rerun, 'archive_extract');
+    check(BackgroundJobs::all('archive_extract') === [], 'Rerun history is independently removable');
 
     $cancelId = BackgroundJobs::queue('archive_extract', $work, 'async-test.zip');
     BackgroundJobs::requestCancel($cancelId);
@@ -46,9 +71,9 @@ try
         static fn (array $job): bool => $job['id'] === $cancelId));
     check(count($cancelled) === 1 && $cancelled[0]['status'] === 'cancelled',
         'Async ZIP worker respects cancellation before publishing output');
-    check(!is_file($jobWorkspace . '/async-test-extracted-1/payload.txt'),
+    check(!is_file($jobWorkspace . '/async-test-extracted-2/payload.txt'),
         'Cancelled ZIP job does not publish a new folder');
-    expectFailure(static fn () => BackgroundJobs::requestCancel($id),
+    expectFailure(static fn () => BackgroundJobs::requestCancel($cancelId),
         'Completed background jobs cannot be cancelled after publication');
     expectFailure(static fn () => BackgroundJobs::queue('delete_workspace', $work, 'async-test.zip'),
         'Background queue only accepts allowlisted operations');

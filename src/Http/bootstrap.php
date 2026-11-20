@@ -162,8 +162,8 @@ $actions = (new \NZB\Http\ActionRouter())
     ->register(['folder_import'], [\NZB\Modules\FolderImportActions::class, 'dispatch'])
     ->register(['segment_add', 'segment_replace', 'segment_delete'], [\NZB\Modules\SegmentActions::class, 'dispatch'])
     ->register(['organizer_preview', 'organizer_apply', 'organizer_mkdir', 'organizer_folder_rename_preview', 'organizer_folder_rename_apply', 'organizer_folder_delete'], [\NZB\Modules\FileOrganizerActions::class, 'dispatch'])
-    ->register(['archive_extract', 'archive_cancel'], [\NZB\Modules\ArchiveActions::class, 'dispatch'])
-    ->register(['par2_verify', 'par2_repair', 'par2_cancel'], [\NZB\Modules\Par2Actions::class, 'dispatch']);
+    ->register(['archive_extract', 'archive_cancel', 'archive_rerun', 'archive_forget'], [\NZB\Modules\ArchiveActions::class, 'dispatch'])
+    ->register(['par2_verify', 'par2_repair', 'par2_cancel', 'par2_rerun', 'par2_forget'], [\NZB\Modules\Par2Actions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);
 
 if (($_GET['download'] ?? '') !== '')

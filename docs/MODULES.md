@@ -69,8 +69,11 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
   missing originals are not silently created under their original names.
 - **BackgroundJobs.php:** Private, bounded JSON queue, separate PHP CLI
   worker, cancellation flag, percent+step callbacks and automatic polling
-  from the browser. No cron or DSM Task Scheduler is required when the
-  Web Station account can launch the PHP CLI.
+  from the browser. Finished jobs (completed, failed, cancelled) can be rerun
+  as independent new jobs or removed from the private JSON/log history.
+  Removal never deletes source or output files. Active jobs cannot be removed
+  or rerun; use Cancel and wait for the job to stop first. No cron or DSM
+  Task Scheduler is required when Web Station can launch the PHP CLI.
 - **Worker:** bin/background-worker.php uses CLI pcntl_fork to detach, not
   a background PHP-FPM web request. The DSM test NAS has php82, proc_open,
   pcntl and posix features available. No par2cmdline or other parity-tool
@@ -85,8 +88,11 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
   recoverable input files, 300 discovered recovery volumes and 32,768 input
   slices (the PAR2 2.0 format limit). Large jobs can be CPU intensive; actual
   multi-gigabyte recovery is **not yet certified**.
-- A cancelled job stops at the next callback. Already published .repaired
-  outputs are not automatically removed.
+- A cancelled job stops at the next callback. Already published `.repaired`
+  outputs are not automatically removed. Rerunning a previously completed
+  PAR2 repair chooses `.repaired-1`, `.repaired-2`, and so on if earlier
+  repaired outputs exist; rerunning ZIP creates another numbered extraction
+  directory. Rerun does not overwrite or delete previous outputs.
 
 ### Verification performed
 

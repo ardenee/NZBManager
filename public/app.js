@@ -291,7 +291,44 @@ document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
         if (message) message.textContent = job.message || "";
         if (["completed", "failed", "cancelled"].includes(job.status)) {
           const cancelForm = row.querySelector('form:has(input[value$="_cancel"])');
-          if (cancelForm) cancelForm.remove();
+          if (cancelForm) {
+            const token = cancelForm.querySelector('input[name="_csrf"]')?.value || "";
+            const cell = cancelForm.parentElement;
+            cancelForm.remove();
+            if (token && cell) {
+              const actions = document.createElement("div");
+              actions.className = "job-actions";
+              const prefix = category === "par2" ? "par2" : "archive";
+              const endpoint = category === "par2" ? "repair" : "unpack";
+              const actionForm = (suffix, title, confirmText, className) => {
+                const form = document.createElement("form");
+                form.method = "post";
+                form.action = "index.php?module=" + endpoint;
+                form.dataset.confirm = confirmText;
+                for (const [name, value] of Object.entries({ _csrf: token, action: prefix + "_" + suffix, job_id: job.id })) {
+                  const input = document.createElement("input");
+                  input.type = "hidden";
+                  input.name = name;
+                  input.value = value;
+                  form.appendChild(input);
+                }
+                const button = document.createElement("button");
+                button.type = "submit";
+                button.className = "button " + className;
+                button.textContent = title;
+                form.appendChild(button);
+                form.addEventListener("submit", (event) => {
+                  if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+                });
+                return form;
+              };
+              actions.append(
+                actionForm("rerun", "Rerun", "Rerun this job? Existing output files will be preserved.", "secondary"),
+                actionForm("forget", "Remove", "Remove this finished job from history? Output files will be preserved.", "subtle")
+              );
+              cell.appendChild(actions);
+            }
+          }
         }
       }
     } catch (error) {

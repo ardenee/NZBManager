@@ -27,20 +27,20 @@ has newer source than the last published SPK; no package is being built now.
 | Submit NZB / list/pause/resume/remove DSM tasks | Download Station | **Mock-tested** | Authenticated tasks on user's NAS not yet tested |
 | Native PHP PAR2 packet & slice verification | PAR2 Repair | **DEV-tested** | MD5/CRC, checks protected files; independent PHP worker |
 | Pure PHP Reed-Solomon repair | PAR2 Repair | **DSM small-case / DEV 300 MiB tested** | Streaming 64 KiB windows, no total-data/slice-size/volume-byte cap; GF16 repair of up to 32 erasures, 32,768 input slices; originals preserved |
-| PAR2 background progress and cancellation | PAR2 Repair | **Working** | Independent PHP CLI worker and JSON status monitor; 64 KiB streamed recovery, 32-erasure limit |
+| PAR2 background progress, cancellation, rerun and removal | PAR2 Repair | **DEV-tested; DSM UI updated** | Completed/failed/cancelled jobs can rerun or be removed; numbered `.repaired-N` outputs protect earlier repair results |
 | ZIP archive inspection | Archive Extraction | **Working** | Max 32 MiB ZIP, 250 entries, 64 MiB expanded |
-| ZIP extraction in independent PHP worker | Archive Extraction | **DSM end-to-end tested** | Live progress to 100%, cancellation, new folder, no overwrite |
+| ZIP extraction in independent PHP worker | Archive Extraction | **DSM end-to-end tested; rerun/removal DEV-tested** | Finished jobs can rerun into a numbered folder or be removed from history; originals and extracted files remain |
 | RAR/7z/TAR extraction | Archive Extraction | **Not yet implemented** | Recognized, not extracted |
 | Preview file rename/move, create folders | File Organizer | **DSM-tested** | Workspace-only, no overwrite, preview & confirmation |
 | Rename/delete created folders | File Organizer | **DSM HTTP/Chrome tested** | Tracked folders only; delete empty only; older folders protected |
 | Batch file moves/payload merging | File Organizer | Not ported | Requires expanded job queue |
 | Torrent uploads | Import | Not ported | Historical feature |
 | Historical MySQL data migration | Migration | Not ported | MySQL not needed at modern runtime |
-| DSM 7 test SPK with original icons | Packaging | **Earlier revision built and tested** | Current source changes deliberately un-packaged until release testing |
+| DSM 7 test SPK with original icons | Packaging | **Earlier revision built and tested** | Original 256px SPK icon now reused as web logo and favicon; no new SPK installation for this source update |
 
 ## Tests and live checks
 
-- **291 PHP assertions on DEV**, covering metadata, parity, workspace
+- **309 PHP assertions on DEV**, covering metadata, parity, workspace
   protection, 68 MiB standard / 300 MiB stress PAR2 reconstruction, 5 GiB metadata, managed
   folders, asynchronous ZIP jobs, Download Station mock API contracts, etc.
 - DEV HTTP smoke tests for indexer/security/asset-cache routes.

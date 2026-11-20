@@ -393,10 +393,20 @@ final class Par2Recovery
         {
             throw new RuntimeException('Repaired output directory is not writable.');
         }
-        $target = $directory . DIRECTORY_SEPARATOR . basename($file['name']) . '.repaired';
-        if (file_exists($target) || is_link($target))
+        $target = '';
+        $base = basename($file['name']) . '.repaired';
+        for ($suffix = 0; $suffix < 100; $suffix++)
         {
-            throw new RuntimeException('Repaired output already exists: ' . basename($target));
+            $candidate = $directory . DIRECTORY_SEPARATOR . $base . ($suffix ? '-' . $suffix : '');
+            if (!file_exists($candidate) && !is_link($candidate))
+            {
+                $target = $candidate;
+                break;
+            }
+        }
+        if ($target === '')
+        {
+            throw new RuntimeException('No free repaired filename is available; existing output files are protected.');
         }
         $stage = $directory . DIRECTORY_SEPARATOR . '.nzbmanager-par2-' . bin2hex(random_bytes(10));
         $out = @fopen($stage, 'x+b');

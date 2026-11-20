@@ -39,6 +39,20 @@ try
     $cssVersion = (Get-FileHash (Join-Path $repo 'public/style.css') -Algorithm SHA256).Hash.Substring(0, 16).ToLowerInvariant()
     if ($page -notmatch ('app\.js\?v=' + $jsVersion) -or $page -notmatch ('style\.css\?v=' + $cssVersion)) { throw 'Browser asset URLs do not match source content hashes' }
     Write-Output 'PASS CSS and JavaScript use content-hash cache versions'
+    $icon = Join-Path $repo 'public/app-icon.png'
+    $officialIcon = Join-Path $repo 'packaging/dsm7/PACKAGE_ICON_256.PNG'
+    if (!(Test-Path $icon) -or (Get-FileHash $icon -Algorithm SHA256).Hash -ne (Get-FileHash $officialIcon -Algorithm SHA256).Hash) { throw 'Web logo differs from the official SPK icon' }
+    $iconVersion = (Get-FileHash $icon -Algorithm SHA256).Hash.Substring(0, 16).ToLowerInvariant()
+    if ($page -notmatch ('<img class="brand-icon" src="app-icon\.png\?v=' + $iconVersion) -or
+        $page -notmatch ('rel="icon" type="image/png" href="app-icon\.png\?v=' + $iconVersion)) { throw 'SPK icon or favicon was not rendered with content-hash cache busting' }
+    $iconStatus = & curl.exe -s -o NUL -w '%{http_code}' ($url + 'app-icon.png')
+    if ($iconStatus -ne '200') { throw 'Official application icon was not served' }
+    Write-Output 'PASS Official SPK icon is the app logo and favicon'
+    $mainNav = [regex]::Match($page, '(?s)<nav aria-label="Main">(.*?)</nav>').Groups[1].Value
+    $moduleNav = [regex]::Match($page, '(?s)<nav aria-label="Modules" class="module-nav">(.*?)</nav>').Groups[1].Value
+    if ($mainNav -match 'Push To|Download Station' -or $moduleNav -notmatch 'Push To' -or
+        $page -notmatch 'MODULES' -or $page -notmatch 'Download Station') { throw 'Sidebar modules are not grouped correctly' }
+    Write-Output 'PASS Push To and Download Station are grouped under Modules'
     $indexerPage = (& curl.exe -s -u $password -c $cookie -b $cookie ($url + '?module=indexer')) -join "`n"
     if ($indexerPage -notmatch 'Connect an indexer' -or $indexerPage -notmatch 'NZB_INDEXER_API_KEY') { throw 'Indexer configuration view missing' }
     Write-Output 'PASS Unconfigured indexer displays safe setup guidance'

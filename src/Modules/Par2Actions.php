@@ -29,6 +29,33 @@ final class Par2Actions
                 BackgroundJobs::requestCancel($id);
                 \message('PAR2 background job cancellation requested.');
             }
+            elseif ($action === 'par2_rerun' || $action === 'par2_forget')
+            {
+                $jobId = $_POST['job_id'] ?? null;
+                if (!is_string($jobId))
+                {
+                    throw new RuntimeException('Invalid PAR2 job identifier.');
+                }
+                if ($action === 'par2_forget')
+                {
+                    BackgroundJobs::forget($jobId, 'par2');
+                    \message('Finished PAR2 job removed from history. Output files were not deleted.');
+                }
+                else
+                {
+                    $newId = BackgroundJobs::rerun($jobId, 'par2', WorkspaceFiles::fromSettings());
+                    try
+                    {
+                        BackgroundJobs::start($newId);
+                    }
+                    catch (Throwable $launchError)
+                    {
+                        BackgroundJobs::failLaunch($newId, $launchError->getMessage());
+                        throw $launchError;
+                    }
+                    \message('PAR2 rerun started in a new PHP background job: ' . $newId . '.');
+                }
+            }
             elseif ($action === 'par2_verify' || $action === 'par2_repair')
             {
                 $relative = $_POST['par2_file'] ?? null;

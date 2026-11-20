@@ -83,6 +83,27 @@ try
             str_contains($jobs[0]['message'], '1 protected file(s), 0 damaged or missing'),
             'Native PHP verification records a verified result in private job metadata');
         check(Par2Jobs::runOne() === false, 'Native verifier does not rerun completed job');
+        expectFailure(static fn () => \NZB\Modules\BackgroundJobs::rerun($queued, 'archive_extract', $work),
+            'PAR2 job cannot be rerun from Archive Extraction');
+        expectFailure(static fn () => \NZB\Modules\BackgroundJobs::forget($queued, 'archive_extract'),
+            'PAR2 job cannot be removed from Archive Extraction');
+        $par2Rerun = \NZB\Modules\BackgroundJobs::rerun($queued, 'par2', $work);
+        check($par2Rerun !== $queued && preg_match('/\A[a-f0-9]{32}\z/D', $par2Rerun) === 1,
+            'Finished PAR2 Verify job can be rerun with a new private job ID');
+        expectFailure(static fn () => \NZB\Modules\BackgroundJobs::forget($par2Rerun, 'par2'),
+            'Active PAR2 rerun cannot be removed');
+        \NZB\Modules\BackgroundJobs::run($par2Rerun);
+        $par2RerunRecord = array_values(array_filter(\NZB\Modules\BackgroundJobs::all('par2'),
+            static fn (array $item): bool => $item['id'] === $par2Rerun));
+        check(count($par2RerunRecord) === 1 && $par2RerunRecord[0]['status'] === 'completed',
+            'Rerun PAR2 verification completes independently of the original job');
+        \NZB\Modules\BackgroundJobs::forget($queued, 'par2');
+        check(count(array_filter(\NZB\Modules\BackgroundJobs::all('par2'),
+            static fn (array $item): bool => $item['id'] === $queued)) === 0,
+            'Remove clears the finished PAR2 job without touching its source file');
+        check(file_get_contents($par2TestRoot . '/payload.dat') === $contents,
+            'Removing PAR2 verification history preserves protected data');
+        \NZB\Modules\BackgroundJobs::forget($par2Rerun, 'par2');
     }
     $launchJob = \NZB\Modules\BackgroundJobs::queue('par2_verify', $work, 'valid.par2');
     \NZB\Modules\BackgroundJobs::failLaunch($launchJob, 'test simulated unavailable PHP CLI');

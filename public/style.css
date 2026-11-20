@@ -20,7 +20,7 @@ button { cursor: pointer; }
 .brand { display: flex; gap: 12px; align-items: center; margin: 0 8px 49px; color: #fff; font-size: 21px; font-weight: 750; letter-spacing: -.5px; }
 .brand:hover { text-decoration: none; }
 .brand small { display: block; font-size: 10px; letter-spacing: 2px; font-weight: 650; color: #93a3bf; }
-.brand-icon { display: grid; place-items: center; width: 41px; height: 41px; border-radius: 12px; background: #4565f4; color: #fff; font-size: 27px; font-weight: 750; }
+.brand-icon { display: block; flex: none; width: 41px; height: 41px; object-fit: contain; border-radius: 8px; }
 .nav-heading { margin: 0 13px 13px; color: #8292af; letter-spacing: 1.3px; font-size: 10px; font-weight: 750; }
 nav { display: grid; gap: 5px; }
 .nav-link { color: #aab9d1; display: block; padding: 11px 14px; border-radius: 9px; font-weight: 650; }
@@ -266,3 +266,7 @@ tr.integrity-suspect td { background: #fff8e9; }
 [data-background-monitor] [data-job-state] { text-transform: capitalize; font-size: 12px; }
 [data-background-monitor] [data-job-message] { max-width: 410px; overflow-wrap: anywhere; font-size: 12px; }
 [data-background-monitor] [data-job-percent] { color: #758aa1; font-variant-numeric: tabular-nums; font-size: 11px; }
+
+/* Finished background job actions keep rerun and history removal separate. */
+.job-actions { display: inline-flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+.job-actions form { margin: 0; }
