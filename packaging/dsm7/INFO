@@ -1,5 +1,5 @@
 package="nzbmanager"
-displayname="NZB Manager (Test)"
+displayname="NZB Manager"
 version="0.4.4-0001"
 arch="noarch"
 os_min_ver="7.2-64570"

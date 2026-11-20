@@ -282,7 +282,7 @@ def build(version: str | None, output_dir: Path) -> Path:
     payload = inner_tar_bytes(app, assets)
     outer = outer_files(info, payload)
     output_dir.mkdir(parents=True, exist_ok=True)
-    output = output_dir / f"NZB-Manager-DSM7-{metadata_version(info)}-noauth-test.spk"
+    output = output_dir / f"NZB-Manager-DSM7-{metadata_version(info)}.spk"
     # Validate the temporary SPK before publishing it to dist/.
     with tempfile.NamedTemporaryFile(prefix=".nzbmanager-", suffix=".spk.tmp",
                                      dir=output_dir, delete=False) as staging:
