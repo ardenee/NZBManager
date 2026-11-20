@@ -75,18 +75,28 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
   a background PHP-FPM web request. The DSM test NAS has php82, proc_open,
   pcntl and posix features available. No par2cmdline or other parity-tool
   executable is used.
-- **Initial bounded repair limits:** 64 MiB total protected data, 256 input
-  slices, up to **8 missing/damaged slices**, at most 1 MiB per slice and
-  80 PAR2 volumes per operation. Larger recovery sets fail explicitly;
-  arbitrary full-size PAR2 recovery is **not yet certified**.
+- **Streamed native repair:** There is no fixed total-file-size cap, 1 MiB
+  slice-size cap or 256 MiB parity-volume cap. Recovery packet bodies are
+  indexed by offsets rather than read into memory. Known slices are hashed
+  in 64 KiB chunks; independent GF16 equations are solved over 64 KiB windows
+  and patched into private staged files. Staged file MD5s are checked before
+  atomic no-overwrite publication. Output requires free disk space.
+- **Remaining algorithmic bounds:** 32 missing/damaged slices per job, 128
+  recoverable input files, 300 discovered recovery volumes and 32,768 input
+  slices (the PAR2 2.0 format limit). Large jobs can be CPU intensive; actual
+  multi-gigabyte recovery is **not yet certified**.
 - A cancelled job stops at the next callback. Already published .repaired
   outputs are not automatically removed.
 
 ### Verification performed
 
 1. On DEV, specification-conformant synthetic PAR2 volume fixtures recover
-   five missing/damaged input slices spanning multiple source files. All
-   reconstructed data are validated against original bytes and hashes.
+   five missing/damaged input slices spanning multiple source files. A 68 MiB
+   protected file with one damaged 4 MiB slice was independently reconstructed,
+   verified by full-file MD5, and its original was preserved. The same fixture
+   also passed a 300 MiB DEV stress run. A 5 GiB FileDesc
+   with 512 MiB slice definitions was parsed without size rejection (not a
+   completed 5 GiB repair).
 2. On the actual DSM website, a POST to the PAR2 Repair module started a
    separate PHP CLI process. The monitor reported **100%** and **two verified
    .repaired outputs** after reconstructing five damaged/missing slices.
@@ -96,9 +106,10 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
    extracted contents validated and temporary data removed.
 
 **Remaining certification:** Real third-party recovery sets, unusual PAR2
-packets, huge sets, complex rename mappings and expanded erasure counts
-need broader validation. Current repair coverage should not be described
-as general unlimited PAR2 repair.
+packets, multi-gigabyte repair performance, complex rename mappings and
+more than 32 erasures need broader validation. There is no arbitrary 64 MiB
+size ceiling, but completion time, disk space and supported PAR2 features
+still matter.
 
 ## PHP extensions and installer policy
 

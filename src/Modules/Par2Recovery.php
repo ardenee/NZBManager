@@ -4,65 +4,87 @@ declare(strict_types=1);
 namespace NZB\Modules;
 
 use RuntimeException;
+use Throwable;
 
 /**
- * Pure-PHP PAR2 2.0 Reed-Solomon erasure recovery.
- * This is deliberately bounded and publishes only verified *.repaired files.
- * The source/damaged files and PAR2 volumes are never overwritten/deleted.
+ * Native PHP PAR2 2.0 Reed–Solomon recovery with bounded working memory.
+ * Handles large files/slices by indexing packets, then streaming 64 KiB windows.
+ * Only verified .repaired files are published; originals are never overwritten.
  */
 final class Par2Recovery
 {
-    private const MAX_PARTS = 80;
-    private const MAX_PACKETS = 5000;
-    private const MAX_RECOVER_BYTES = 67108864;
-    private const MAX_SLICE_BYTES = 1048576;
-    private const MAX_TOTAL_BYTES = 67108864;
-    private const MAX_SLICES = 256;
-    private const MAX_ERASURES = 8;
+    private const CHUNK_BYTES = 65536;
+    private const MAX_PARTS = 300;
+    private const MAX_PACKETS = 200000;
+    private const MAX_METADATA_BODY = 4194304;
+    private const MAX_FILES = 128;
+    private const MAX_SLICES = 32768;
+    private const MAX_ERASURES = 32;
 
-    private static function uint32(string $data): int
+    private static function uint32(string $bytes): int
     {
-        return (int) unpack('V', $data)[1];
-    }
-
-    private static function uint64(string $data): int
-    {
-        $parts = unpack('V2', $data);
-        if ($parts[2] !== 0)
+        if (strlen($bytes) !== 4)
         {
-            throw new RuntimeException('PAR2 recovery exceeds the supported integer size.');
+            throw new RuntimeException('Truncated PAR2 32-bit field.');
         }
-        return (int) $parts[1];
+        return (int) unpack('V', $bytes)[1];
     }
 
-    private static function readExact($handle, int $length): string
+    private static function uint64(string $bytes): int
     {
-        $result = '';
-        while (strlen($result) < $length)
+        if (strlen($bytes) !== 8)
         {
-            $chunk = fread($handle, min(65536, $length - strlen($result)));
-            if (!is_string($chunk) || $chunk === '')
+            throw new RuntimeException('Truncated PAR2 64-bit field.');
+        }
+        $parts = unpack('V2', $bytes);
+        if ($parts[2] > 0x7fffffff)
+        {
+            throw new RuntimeException('PAR2 length exceeds the signed 64-bit PHP file offset range.');
+        }
+        return (int) ($parts[2] * 4294967296 + $parts[1]);
+    }
+
+    private static function readExact($handle, int $bytes): string
+    {
+        $value = '';
+        while (strlen($value) < $bytes)
+        {
+            $part = fread($handle, min(self::CHUNK_BYTES, $bytes - strlen($value)));
+            if (!is_string($part) || $part === '')
             {
-                throw new RuntimeException('PAR2 volume is truncated or unreadable.');
+                throw new RuntimeException('PAR2 packet or protected file was truncated.');
             }
-            $result .= $chunk;
+            $value .= $part;
         }
-        return $result;
+        return $value;
+    }
+
+    private static function writeExact($handle, string $bytes): void
+    {
+        for ($at = 0, $size = strlen($bytes); $at < $size;)
+        {
+            $count = fwrite($handle, substr($bytes, $at));
+            if (!is_int($count) || $count < 1)
+            {
+                throw new RuntimeException('Could not write a repaired file chunk.');
+            }
+            $at += $count;
+        }
     }
 
     /**
-     * Collect independently checked packet data from the selected PAR2 and its
-     * sibling volumes with the same 16-byte recovery-set identity.
+     * Scan a complete recovery set, validating every packet MD5 without
+     * retaining recovery bytes in memory. Recovery descriptors hold only
+     * a volume path, an on-disk offset and a packet hash.
      */
-    private static function collect(WorkspaceFiles $work, string $relative): array
+    private static function collect(WorkspaceFiles $work, string $relative, callable $progress): array
     {
         if (!str_ends_with(strtolower($relative), '.par2'))
         {
-            throw new RuntimeException('Choose a PAR2 index or volume file.');
+            throw new RuntimeException('Choose a PAR2 index or recovery volume.');
         }
         $selected = $work->resolve($relative, 'file');
         $parent = str_contains($relative, '/') ? substr($relative, 0, strrpos($relative, '/')) : '';
-        $dir = $work->resolve($parent, 'dir');
         $candidates = [$relative];
         foreach ($work->list($parent) as $entry)
         {
@@ -72,38 +94,39 @@ final class Par2Recovery
             }
             if (count($candidates) > self::MAX_PARTS)
             {
-                throw new RuntimeException('Too many PAR2 volumes in one directory.');
+                throw new RuntimeException('Too many recovery volumes in the selected folder.');
             }
         }
         $selectedFp = @fopen($selected, 'rb');
         if (!is_resource($selectedFp))
         {
-            throw new RuntimeException('Selected PAR2 cannot be opened.');
+            throw new RuntimeException('Selected PAR2 file could not be opened.');
         }
         try
         {
-            $head = self::readExact($selectedFp, 64);
-            if (substr($head, 0, 8) !== "PAR2\0PKT")
+            $header = self::readExact($selectedFp, 64);
+            if (substr($header, 0, 8) !== "PAR2\0PKT")
             {
-                throw new RuntimeException('Selected PAR2 does not begin with a valid packet.');
+                throw new RuntimeException('Selected PAR2 file has no packet header.');
             }
-            $setId = substr($head, 32, 16);
+            $setId = substr($header, 32, 16);
         }
         finally
         {
             fclose($selectedFp);
         }
+
         $main = null;
-        $desc = [];
-        $checks = [];
+        $descriptions = [];
+        $checksums = [];
         $recovery = [];
-        $seen = 0;
-        $recoveryBytes = 0;
+        $packetCount = 0;
+        $scannedBytes = 0;
         foreach ($candidates as $candidate)
         {
             $path = $work->resolve($candidate, 'file');
             $size = @filesize($path);
-            if (!is_int($size) || $size < 64 || $size > 268435456)
+            if (!is_int($size) || $size < 64)
             {
                 continue;
             }
@@ -114,81 +137,121 @@ final class Par2Recovery
             }
             try
             {
-                $first = self::readExact($fp, 64);
-                if (substr($first, 0, 8) !== "PAR2\0PKT" ||
-                    !hash_equals(substr($first, 32, 16), $setId))
+                $header = self::readExact($fp, 64);
+                if (substr($header, 0, 8) !== "PAR2\0PKT" ||
+                    !hash_equals(substr($header, 32, 16), $setId))
                 {
                     continue;
                 }
                 rewind($fp);
                 for ($at = 0; $at < $size;)
                 {
-                    if (++$seen > self::MAX_PACKETS)
+                    if (++$packetCount > self::MAX_PACKETS)
                     {
-                        throw new RuntimeException('PAR2 recovery contains too many packets.');
+                        throw new RuntimeException('Too many PAR2 packets to index.');
                     }
-                    $head = self::readExact($fp, 64);
-                    $length = self::uint64(substr($head, 8, 8));
-                    if (substr($head, 0, 8) !== "PAR2\0PKT" ||
-                        !hash_equals(substr($head, 32, 16), $setId) ||
-                        $length < 64 || $length % 4 !== 0 || $length > $size - $at)
+                    $header = self::readExact($fp, 64);
+                    $length = self::uint64(substr($header, 8, 8));
+                    if (substr($header, 0, 8) !== "PAR2\0PKT" ||
+                        !hash_equals(substr($header, 32, 16), $setId) ||
+                        $length < 64 || ($length % 4) !== 0 || $length > $size - $at)
                     {
-                        throw new RuntimeException('PAR2 volume contains malformed or mixed-set packets.');
+                        throw new RuntimeException('Malformed or mixed-set PAR2 packet.');
                     }
-                    $at += $length;
-                    $type = substr($head, 48, 16);
+                    $type = substr($header, 48, 16);
                     $bodySize = $length - 64;
                     $mainType = "PAR 2.0\0Main\0\0\0\0";
                     $descType = "PAR 2.0\0FileDesc";
-                    $ifscType = "PAR 2.0\0IFSC\0\0\0\0";
+                    $checkType = "PAR 2.0\0IFSC\0\0\0\0";
                     $recvType = "PAR 2.0\0RecvSlic";
-                    $wanted = in_array($type, [$mainType, $descType, $ifscType, $recvType], true);
-                    if ($wanted && $bodySize > 4 * 1048576)
+                    $metadata = in_array($type, [$mainType, $descType, $checkType], true);
+                    if ($metadata && $bodySize > self::MAX_METADATA_BODY)
                     {
-                        throw new RuntimeException('PAR2 metadata or recovery packet exceeds its safety limit.');
+                        throw new RuntimeException('PAR2 metadata packet exceeds the 4 MiB parser limit.');
                     }
-                    $md5 = hash_init('md5');
-                    hash_update($md5, substr($head, 32, 32));
+                    $hash = hash_init('md5');
+                    hash_update($hash, substr($header, 32, 32));
                     $body = '';
-                    for ($rem = $bodySize; $rem > 0;)
+                    $exponent = null;
+                    $dataOffset = 0;
+                    $remaining = $bodySize;
+                    if ($type === $recvType)
                     {
-                        $chunk = self::readExact($fp, min($rem, 65536));
-                        hash_update($md5, $chunk);
-                        if ($wanted)
+                        if ($remaining < 8)
+                        {
+                            throw new RuntimeException('PAR2 recovery packet has no complete data word.');
+                        }
+                        $exponentBytes = self::readExact($fp, 4);
+                        hash_update($hash, $exponentBytes);
+                        $exponent = self::uint32($exponentBytes);
+                        $dataOffset = $at + 68;
+                        $remaining -= 4;
+                    }
+                    while ($remaining > 0)
+                    {
+                        $chunk = self::readExact($fp, min(self::CHUNK_BYTES, $remaining));
+                        hash_update($hash, $chunk);
+                        if ($metadata)
                         {
                             $body .= $chunk;
                         }
-                        $rem -= strlen($chunk);
+                        $remaining -= strlen($chunk);
+                        $scannedBytes += strlen($chunk);
+                        if ($scannedBytes >= 33554432)
+                        {
+                            $progress(4, 'Validating PAR2 recovery packet checksums (streaming)');
+                            $scannedBytes = 0;
+                        }
                     }
-                    if (!hash_equals(substr($head, 16, 16), hash_final($md5, true)))
+                    $digest = hash_final($hash, true);
+                    if (!hash_equals(substr($header, 16, 16), $digest))
                     {
                         throw new RuntimeException('Corrupt PAR2 packet MD5 detected.');
                     }
-                    if ($type === $mainType)
+                    $at += $length;
+                    if ($type === $recvType)
+                    {
+                        if ($exponent > 65534)
+                        {
+                            throw new RuntimeException('Recovery exponent exceeds the GF16 range.');
+                        }
+                        if (isset($recovery[$exponent]))
+                        {
+                            if (!hash_equals($recovery[$exponent]['hash'], $digest))
+                            {
+                                throw new RuntimeException('Conflicting PAR2 recovery packets for one exponent.');
+                            }
+                        }
+                        else
+                        {
+                            $recovery[$exponent] = ['relative' => $candidate, 'offset' => $dataOffset,
+                                'length' => $bodySize - 4, 'hash' => $digest];
+                        }
+                    }
+                    elseif ($type === $mainType)
                     {
                         if ($bodySize < 28 || ($bodySize - 12) % 16 !== 0)
                         {
                             throw new RuntimeException('Malformed PAR2 Main packet.');
                         }
                         $sliceSize = self::uint64(substr($body, 0, 8));
-                        $count = self::uint32(substr($body, 8, 4));
-                        if ($count < 1 || $count > 128 || $count > ($bodySize - 12) / 16 ||
-                            $sliceSize < 4 || $sliceSize > self::MAX_SLICE_BYTES ||
-                            $sliceSize % 4 !== 0)
+                        $fileCount = self::uint32(substr($body, 8, 4));
+                        if ($fileCount < 1 || $fileCount > self::MAX_FILES ||
+                            $fileCount > ($bodySize - 12) / 16 || $sliceSize < 4 || ($sliceSize % 4) !== 0)
                         {
-                            throw new RuntimeException('Unsupported PAR2 input file count or slice size.');
+                            throw new RuntimeException('Invalid PAR2 Main file count or slice size.');
                         }
                         $ids = [];
-                        for ($i = 0; $i < $count; $i++)
+                        for ($i = 0; $i < $fileCount; $i++)
                         {
                             $ids[] = bin2hex(substr($body, 12 + $i * 16, 16));
                         }
-                        $parsed = ['ids' => $ids, 'slice_size' => $sliceSize];
-                        if ($main !== null && $main !== $parsed)
+                        $record = ['ids' => $ids, 'slice_size' => $sliceSize];
+                        if ($main !== null && $main !== $record)
                         {
-                            throw new RuntimeException('Conflicting PAR2 Main metadata.');
+                            throw new RuntimeException('Conflicting PAR2 Main packets.');
                         }
-                        $main = $parsed;
+                        $main = $record;
                     }
                     elseif ($type === $descType)
                     {
@@ -198,20 +261,21 @@ final class Par2Recovery
                         }
                         $id = bin2hex(substr($body, 0, 16));
                         $filename = rtrim(substr($body, 56), "\0");
+                        if ($filename === '' || strlen($filename) > 500 || str_contains($filename, "\0"))
+                        {
+                            throw new RuntimeException('Invalid PAR2 protected filename.');
+                        }
                         WorkspaceFiles::relative($filename);
-                        if ($filename === '')
+                        $record = ['name' => $filename, 'size' => self::uint64(substr($body, 48, 8)),
+                            'md5' => bin2hex(substr($body, 16, 16)),
+                            'first_md5' => bin2hex(substr($body, 32, 16))];
+                        if (isset($descriptions[$id]) && $descriptions[$id] !== $record)
                         {
-                            throw new RuntimeException('PAR2 protected filename is empty.');
+                            throw new RuntimeException('Conflicting PAR2 file descriptions.');
                         }
-                        $item = ['name' => $filename, 'size' => self::uint64(substr($body, 48, 8)),
-                            'md5' => bin2hex(substr($body, 16, 16)), 'first_md5' => bin2hex(substr($body, 32, 16))];
-                        if (isset($desc[$id]) && $desc[$id] !== $item)
-                        {
-                            throw new RuntimeException('Conflicting PAR2 file description.');
-                        }
-                        $desc[$id] = $item;
+                        $descriptions[$id] = $record;
                     }
-                    elseif ($type === $ifscType)
+                    elseif ($type === $checkType)
                     {
                         if ($bodySize < 16 || ($bodySize - 16) % 20 !== 0)
                         {
@@ -224,37 +288,11 @@ final class Par2Recovery
                             $sums[] = [bin2hex(substr($body, $i, 16)),
                                 sprintf('%08x', self::uint32(substr($body, $i + 16, 4)))];
                         }
-                        if (isset($checks[$id]) && $checks[$id] !== $sums)
+                        if (isset($checksums[$id]) && $checksums[$id] !== $sums)
                         {
-                            throw new RuntimeException('Conflicting PAR2 slice checksums.');
+                            throw new RuntimeException('Conflicting PAR2 slice checksum packets.');
                         }
-                        $checks[$id] = $sums;
-                    }
-                    elseif ($type === $recvType)
-                    {
-                        if ($bodySize < 8)
-                        {
-                            throw new RuntimeException('Malformed recovery packet.');
-                        }
-                        $exponent = self::uint32(substr($body, 0, 4));
-                        if ($exponent > 65534)
-                        {
-                            throw new RuntimeException('PAR2 recovery exponent exceeds the GF16 range.');
-                        }
-                        $data = substr($body, 4);
-                        if (isset($recovery[$exponent]) && $recovery[$exponent] !== $data)
-                        {
-                            throw new RuntimeException('Conflicting recovery slices for the same exponent.');
-                        }
-                        if (!isset($recovery[$exponent]))
-                        {
-                            $recoveryBytes += strlen($data);
-                            if ($recoveryBytes > self::MAX_RECOVER_BYTES)
-                            {
-                                throw new RuntimeException('Recovery data exceeds 64 MiB.');
-                            }
-                        }
-                        $recovery[$exponent] = $data;
+                        $checksums[$id] = $sums;
                     }
                 }
             }
@@ -265,90 +303,139 @@ final class Par2Recovery
         }
         if ($main === null)
         {
-            throw new RuntimeException('No PAR2 Main metadata found in the selected recovery set.');
+            throw new RuntimeException('PAR2 Main metadata is missing.');
         }
         $files = [];
         $blocks = [];
-        $total = 0;
+        $names = [];
         foreach ($main['ids'] as $id)
         {
-            $info = $desc[$id] ?? null;
-            if (!is_array($info) || !isset($checks[$id]))
+            $info = $descriptions[$id] ?? null;
+            if (!is_array($info) || !isset($checksums[$id]))
             {
-                throw new RuntimeException('PAR2 lacks file description or per-slice checksums for protected files.');
+                throw new RuntimeException('PAR2 lacks a required FileDesc or slice checksum packet.');
             }
-            $total += $info['size'];
-            if ($total > self::MAX_TOTAL_BYTES)
+            if (isset($names[strtolower($info['name'])]))
             {
-                throw new RuntimeException('Native PHP repair is limited to 64 MiB of protected data per job.');
+                throw new RuntimeException('PAR2 contains duplicate or case-colliding protected filenames.');
             }
-            $n = (int) ceil($info['size'] / $main['slice_size']);
-            if ($n !== count($checks[$id]))
+            $names[strtolower($info['name'])] = true;
+            $sliceSize = $main['slice_size'];
+            $count = $info['size'] === 0 ? 0 : intdiv($info['size'] - 1, $sliceSize) + 1;
+            if ($count !== count($checksums[$id]))
             {
-                throw new RuntimeException('PAR2 IFSC slice count does not match the protected file size.');
+                throw new RuntimeException('PAR2 slice checksums do not match the protected file size.');
             }
-            $index = count($files);
+            if ($count > self::MAX_SLICES - count($blocks))
+            {
+                throw new RuntimeException('PAR2 2.0 permits at most 32768 recoverable input slices.');
+            }
+            $fileIndex = count($files);
             $files[] = ['id' => $id] + $info;
-            for ($j = 0; $j < $n; $j++)
+            for ($j = 0; $j < $count; $j++)
             {
-                $blocks[] = ['file' => $index, 'slice' => $j, 'length' => min($main['slice_size'],
-                    $info['size'] - $j * $main['slice_size']), 'hash' => $checks[$id][$j][0],
-                    'crc32' => $checks[$id][$j][1]];
-                if (count($blocks) > self::MAX_SLICES)
-                {
-                    throw new RuntimeException('More than 256 protected slices; native bounded repair not available.');
-                }
+                $blocks[] = ['file' => $fileIndex, 'slice' => $j,
+                    'length' => min($sliceSize, $info['size'] - $j * $sliceSize),
+                    'hash' => $checksums[$id][$j][0], 'crc32' => $checksums[$id][$j][1]];
             }
         }
-        foreach ($recovery as $exponent => $data)
+        foreach ($recovery as $entry)
         {
-            if (strlen($data) !== $main['slice_size'])
+            if ($entry['length'] !== $main['slice_size'])
             {
-                throw new RuntimeException('PAR2 recovery slice length does not match Main metadata.');
+                throw new RuntimeException('PAR2 recovery packet length does not match the Main slice size.');
             }
         }
-        return ['set' => bin2hex($setId), 'parent' => $parent, 'slice_size' => $main['slice_size'],
+        return ['parent' => $parent, 'slice_size' => $main['slice_size'],
             'files' => $files, 'blocks' => $blocks, 'recovery' => $recovery];
     }
 
-    private static function readBlock(WorkspaceFiles $work, string $parent, array $file, array $block, int $size): ?string
+    /** Verify an original slice in fixed-size reads, including PAR2 zero padding. */
+    private static function verifiedBlock($handle, array $block, int $sliceSize): bool
     {
-        $relative = ($parent !== '' ? $parent . '/' : '') . $file['name'];
+        if (fseek($handle, $block['slice'] * $sliceSize) !== 0)
+        {
+            return false;
+        }
+        $md5 = hash_init('md5');
+        $crc = hash_init('crc32b');
+        $remaining = $block['length'];
+        while ($remaining > 0)
+        {
+            $part = fread($handle, min(self::CHUNK_BYTES, $remaining));
+            if (!is_string($part) || $part === '')
+            {
+                return false;
+            }
+            hash_update($md5, $part);
+            hash_update($crc, $part);
+            $remaining -= strlen($part);
+        }
+        $remaining = $sliceSize - $block['length'];
+        while ($remaining > 0)
+        {
+            $zeroes = str_repeat("\0", min(self::CHUNK_BYTES, $remaining));
+            hash_update($md5, $zeroes);
+            hash_update($crc, $zeroes);
+            $remaining -= strlen($zeroes);
+        }
+        return hash_equals($block['hash'], hash_final($md5)) &&
+            hash_equals($block['crc32'], hash_final($crc));
+    }
+
+    /** Safely create a staging file for a damaged original, without replacing it. */
+    private static function stage(WorkspaceFiles $work, string $parent, array $file, $source, callable $progress): array
+    {
+        $relative = ($parent === '' ? '' : $parent . '/') . $file['name'];
+        $relativeParent = str_contains($relative, '/') ? substr($relative, 0, strrpos($relative, '/')) : '';
+        $directory = $work->resolve($relativeParent, 'dir');
+        if (!is_writable($directory))
+        {
+            throw new RuntimeException('Repaired output directory is not writable.');
+        }
+        $target = $directory . DIRECTORY_SEPARATOR . basename($file['name']) . '.repaired';
+        if (file_exists($target) || is_link($target))
+        {
+            throw new RuntimeException('Repaired output already exists: ' . basename($target));
+        }
+        $stage = $directory . DIRECTORY_SEPARATOR . '.nzbmanager-par2-' . bin2hex(random_bytes(10));
+        $out = @fopen($stage, 'x+b');
+        if (!is_resource($out))
+        {
+            throw new RuntimeException('Could not create PAR2 staging file.');
+        }
         try
         {
-            $path = $work->resolve($relative, 'file');
-            if (@filesize($path) !== $file['size'] || !is_readable($path))
+            if (is_resource($source))
             {
-                return null;
-            }
-            $fp = @fopen($path, 'rb');
-            if (!is_resource($fp))
-            {
-                return null;
-            }
-            try
-            {
-                if (fseek($fp, $block['slice'] * $size) !== 0)
+                if (rewind($source) === false)
                 {
-                    return null;
+                    throw new RuntimeException('Could not read original protected file for reconstruction.');
                 }
-                $data = self::readExact($fp, $block['length']);
+                $copied = 0;
+                while ($copied < $file['size'])
+                {
+                    $chunk = self::readExact($source, min(self::CHUNK_BYTES, $file['size'] - $copied));
+                    self::writeExact($out, $chunk);
+                    $copied += strlen($chunk);
+                    if ($copied % 33554432 < self::CHUNK_BYTES)
+                    {
+                        $progress(35, 'Copying verified source data into private recovery staging');
+                    }
+                }
             }
-            finally
+            elseif (!ftruncate($out, $file['size']))
             {
-                fclose($fp);
+                throw new RuntimeException('Could not size a missing protected file for reconstruction.');
             }
-            $padded = str_pad($data, $size, "\0");
-            if (!hash_equals($block['hash'], md5($padded)) ||
-                !hash_equals($block['crc32'], hash('crc32b', $padded)))
-            {
-                return null;
-            }
-            return $padded;
+            return ['path' => $stage, 'target' => $target, 'relative' =>
+                ($relativeParent !== '' ? $relativeParent . '/' : '') . basename($target), 'handle' => $out];
         }
-        catch (\Throwable)
+        catch (Throwable $error)
         {
-            return null;
+            fclose($out);
+            @unlink($stage);
+            throw $error;
         }
     }
 
@@ -358,196 +445,296 @@ final class Par2Recovery
      */
     public static function repair(WorkspaceFiles $work, string $relative, ?callable $progress = null): array
     {
-        $progress ??= static function (int $percent, string $step): void {};
-        $progress(2, 'Scanning recovery volumes and validating PAR2 packet checksums');
-        $catalog = self::collect($work, $relative);
-        $size = $catalog['slice_size'];
+        $progress ??= static function (int $percent, string $message): void {};
+        $progress(2, 'Reading and validating PAR2 recovery volume packets');
+        $catalog = self::collect($work, $relative, $progress);
+        $sliceSize = $catalog['slice_size'];
         $blocks = $catalog['blocks'];
-        $known = [];
-        $missing = [];
-        foreach ($blocks as $i => $block)
-        {
-            $file = $catalog['files'][$block['file']];
-            $slice = self::readBlock($work, $catalog['parent'], $file, $block, $size);
-            if ($slice === null)
-            {
-                $missing[] = $i;
-            }
-            else
-            {
-                $known[$i] = $slice;
-            }
-        }
-        $progress(20, count($missing) . ' missing or damaged input slice(s)');
-        if ($missing === [])
-        {
-            return ['outputs' => [], 'recovered' => 0, 'verified' => count($catalog['files'])];
-        }
-        $m = count($missing);
-        if ($m > self::MAX_ERASURES)
-        {
-            throw new RuntimeException('Native PHP repair currently supports up to eight missing/damaged slices per job.');
-        }
-        if (count($catalog['recovery']) < $m)
-        {
-            throw new RuntimeException('Insufficient PAR2 recovery slices: need ' . $m .
-                ', have ' . count($catalog['recovery']) . '.');
-        }
-        $constants = Par2Galois::inputConstants(count($blocks));
-        $selected = [];
-        $inverse = null;
-        foreach ($catalog['recovery'] as $exponent => $data)
-        {
-            $selected[$exponent] = $data;
-            if (count($selected) < $m)
-            {
-                continue;
-            }
-            $matrix = [];
-            foreach ($selected as $power => $value)
-            {
-                $matrix[] = array_map(static fn (int $index): int =>
-                    Par2Galois::power($constants[$index], (int) $power), $missing);
-            }
-            try
-            {
-                $inverse = Par2Galois::inverseMatrix($matrix);
-                break;
-            }
-            catch (RuntimeException)
-            {
-                unset($selected[$exponent]);
-            }
-        }
-        if ($inverse === null)
-        {
-            throw new RuntimeException('Not enough independent PAR2 recovery equations.');
-        }
-        $syndromes = [];
-        $rowNumber = 0;
-        foreach ($selected as $power => $data)
-        {
-            $value = $data;
-            foreach ($known as $i => $slice)
-            {
-                $coefficient = Par2Galois::power($constants[$i], (int) $power);
-                if ($coefficient !== 0)
-                {
-                    $value ^= Par2Galois::multiplySlice($slice, $coefficient);
-                }
-            }
-            $syndromes[] = $value;
-            $rowNumber++;
-            $progress(20 + (int) (30 * $rowNumber / $m), 'Solving recovery equation ' . $rowNumber . '/' . $m);
-        }
-        $reconstructed = [];
-        foreach ($missing as $x => $index)
-        {
-            $out = str_repeat("\0", $size);
-            for ($row = 0; $row < $m; $row++)
-            {
-                if ($inverse[$x][$row] !== 0)
-                {
-                    $out ^= Par2Galois::multiplySlice($syndromes[$row], $inverse[$x][$row]);
-                }
-            }
-            if (!hash_equals($blocks[$index]['hash'], md5($out)) ||
-                !hash_equals($blocks[$index]['crc32'], hash('crc32b', $out)))
-            {
-                throw new RuntimeException('Reconstructed slice failed PAR2 checksum verification; no files were changed.');
-            }
-            $reconstructed[$index] = $out;
-            $progress(50 + (int) (25 * count($reconstructed) / $m), 'Verified recovered slice ' .
-                count($reconstructed) . '/' . $m);
-        }
+        $files = $catalog['files'];
+        $sources = [];
+        $stages = [];
+        $recoveryHandles = [];
         $outputs = [];
-        $staged = [];
         try
         {
-            $fileToBlocks = [];
-            foreach ($blocks as $i => $block)
+            foreach ($files as $fileIndex => $file)
             {
-                $fileToBlocks[$block['file']][$block['slice']] = $i;
-            }
-            $changedFiles = array_values(array_unique(array_map(
-                static fn (int $i): int => $blocks[$i]['file'], $missing)));
-            foreach ($changedFiles as $fileIndex)
-            {
-                $file = $catalog['files'][$fileIndex];
-                $name = $file['name'];
-                $relativeFile = ($catalog['parent'] !== '' ? $catalog['parent'] . '/' : '') . $name;
-                $fileParent = str_contains($relativeFile, '/')
-                    ? substr($relativeFile, 0, strrpos($relativeFile, '/')) : '';
-                $parent = $work->resolve($fileParent, 'dir');
-                if (!is_writable($parent))
-                {
-                    throw new RuntimeException('Cannot publish repaired data in a read-only workspace folder.');
-                }
-                $stage = $parent . '/.nzbmanager-par2-' . bin2hex(random_bytes(10));
-                $target = $parent . '/' . basename($name) . '.repaired';
-                if (file_exists($target) || is_link($target))
-                {
-                    throw new RuntimeException('Repaired output already exists; refusing to overwrite: ' . basename($target));
-                }
-                $fp = @fopen($stage, 'xb');
-                if (!is_resource($fp))
-                {
-                    throw new RuntimeException('Cannot create private PAR2 recovery staging file.');
-                }
-                $staged[] = $stage;
-                $wholeMd5 = hash_init('md5');
-                $first16k = '';
+                $sources[$fileIndex] = null;
+                $filename = ($catalog['parent'] === '' ? '' : $catalog['parent'] . '/') . $file['name'];
                 try
                 {
-                    foreach ($fileToBlocks[$fileIndex] as $sliceIndex => $blockIndex)
+                    $path = $work->resolve($filename, 'file');
+                    if (@filesize($path) === $file['size'] && is_readable($path))
                     {
-                        $data = $reconstructed[$blockIndex] ?? $known[$blockIndex] ?? null;
-                        if (!is_string($data))
+                        $opened = @fopen($path, 'rb');
+                        if (is_resource($opened))
                         {
-                            throw new RuntimeException('A required input slice was unavailable for publishing.');
-                        }
-                        $chunk = substr($data, 0, $blocks[$blockIndex]['length']);
-                        if (fwrite($fp, $chunk) !== strlen($chunk))
-                        {
-                            throw new RuntimeException('PAR2 recovered output could not be written.');
-                        }
-                        hash_update($wholeMd5, $chunk);
-                        if (strlen($first16k) < 16384)
-                        {
-                            $first16k .= substr($chunk, 0, 16384 - strlen($first16k));
+                            $sources[$fileIndex] = $opened;
                         }
                     }
+                }
+                catch (RuntimeException)
+                {
+                    // A missing source file is expected during erasure recovery.
+                }
+            }
+
+            $known = [];
+            $missing = [];
+            foreach ($blocks as $i => $block)
+            {
+                $source = $sources[$block['file']] ?? null;
+                if (!is_resource($source) || !self::verifiedBlock($source, $block, $sliceSize))
+                {
+                    $missing[] = $i;
+                    if (count($missing) > self::MAX_ERASURES)
+                    {
+                        throw new RuntimeException('Recovery currently supports up to ' .
+                            self::MAX_ERASURES . ' missing/damaged slices per job (PAR2 files are unchanged).');
+                    }
+                }
+                else
+                {
+                    $known[] = $i;
+                }
+                if ($i % 16 === 0 || $i === count($blocks) - 1)
+                {
+                    $progress(10 + (int) (20 * ($i + 1) / max(1, count($blocks))),
+                        'Checked ' . ($i + 1) . '/' . count($blocks) . ' input slices');
+                }
+            }
+            $progress(30, count($missing) . ' missing or damaged input slice(s)');
+            if ($missing === [])
+            {
+                return ['outputs' => [], 'recovered' => 0, 'verified' => count($files)];
+            }
+            $m = count($missing);
+            if (count($catalog['recovery']) < $m)
+            {
+                throw new RuntimeException('Insufficient recovery slices: need ' . $m .
+                    ', found ' . count($catalog['recovery']) . '.');
+            }
+            $constants = Par2Galois::inputConstants(count($blocks));
+            $selected = [];
+            $inverse = null;
+            foreach ($catalog['recovery'] as $exponent => $descriptor)
+            {
+                $selected[(int) $exponent] = $descriptor;
+                if (count($selected) < $m)
+                {
+                    continue;
+                }
+                $matrix = [];
+                foreach ($selected as $power => $value)
+                {
+                    $matrix[] = array_map(static fn (int $index): int =>
+                        Par2Galois::power($constants[$index], (int) $power), $missing);
+                }
+                try
+                {
+                    $inverse = Par2Galois::inverseMatrix($matrix);
+                    break;
+                }
+                catch (RuntimeException)
+                {
+                    unset($selected[$exponent]);
+                }
+            }
+            if ($inverse === null)
+            {
+                throw new RuntimeException('Not enough independent PAR2 recovery equations.');
+            }
+
+            $changedFiles = array_values(array_unique(array_map(
+                static fn (int $index): int => $blocks[$index]['file'], $missing)));
+            foreach ($changedFiles as $fileIndex)
+            {
+                $stages[$fileIndex] = self::stage(
+                    $work, $catalog['parent'], $files[$fileIndex], $sources[$fileIndex] ?? null, $progress
+                );
+                $progress(30 + (int) (10 * count($stages) / count($changedFiles)),
+                    'Prepared staged output for ' . $files[$fileIndex]['name']);
+            }
+
+            $powers = array_keys($selected);
+            foreach ($selected as $descriptor)
+            {
+                $volume = $work->resolve($descriptor['relative'], 'file');
+                $fp = @fopen($volume, 'rb');
+                if (!is_resource($fp))
+                {
+                    throw new RuntimeException('PAR2 recovery volume is no longer readable.');
+                }
+                $recoveryHandles[] = $fp;
+            }
+            $hashes = [];
+            foreach ($missing as $index)
+            {
+                $hashes[$index] = ['md5' => hash_init('md5'), 'crc' => hash_init('crc32b')];
+            }
+
+            // Solve one horizontal 64 KiB window across ALL slices at a time.
+            // Neither source files nor recovery slices are loaded in full.
+            for ($offset = 0; $offset < $sliceSize;)
+            {
+                $take = min(self::CHUNK_BYTES, $sliceSize - $offset);
+                $syndromes = [];
+                $equation = 0;
+                foreach ($selected as $descriptor)
+                {
+                    $fp = $recoveryHandles[$equation];
+                    if (fseek($fp, $descriptor['offset'] + $offset) !== 0)
+                    {
+                        throw new RuntimeException('Cannot seek PAR2 recovery slice.');
+                    }
+                    $syndromes[$equation] = self::readExact($fp, $take);
+                    $equation++;
+                }
+                foreach ($known as $index)
+                {
+                    $block = $blocks[$index];
+                    if ($offset >= $block['length'])
+                    {
+                        continue;
+                    }
+                    $source = $sources[$block['file']];
+                    if (fseek($source, $block['slice'] * $sliceSize + $offset) !== 0)
+                    {
+                        throw new RuntimeException('Cannot seek a known source slice.');
+                    }
+                    $bytes = self::readExact($source, min($take, $block['length'] - $offset));
+                    $bytes = str_pad($bytes, $take, "\0");
+                    foreach ($powers as $equation => $power)
+                    {
+                        $factor = Par2Galois::power($constants[$index], (int) $power);
+                        if ($factor !== 0)
+                        {
+                            $syndromes[$equation] ^= Par2Galois::multiplySlice($bytes, $factor);
+                        }
+                    }
+                }
+
+                foreach ($missing as $row => $index)
+                {
+                    $recovered = str_repeat("\0", $take);
+                    for ($equation = 0; $equation < $m; $equation++)
+                    {
+                        if ($inverse[$row][$equation] !== 0)
+                        {
+                            $recovered ^= Par2Galois::multiplySlice($syndromes[$equation],
+                                $inverse[$row][$equation]);
+                        }
+                    }
+                    hash_update($hashes[$index]['md5'], $recovered);
+                    hash_update($hashes[$index]['crc'], $recovered);
+                    $block = $blocks[$index];
+                    $write = min($take, max(0, $block['length'] - $offset));
+                    if ($write !== 0)
+                    {
+                        $stage = $stages[$block['file']]['handle'];
+                        if (fseek($stage, $block['slice'] * $sliceSize + $offset) !== 0)
+                        {
+                            throw new RuntimeException('Cannot seek staged recovered file.');
+                        }
+                        self::writeExact($stage, substr($recovered, 0, $write));
+                    }
+                }
+                $offset += $take;
+                $progress(40 + (int) (45 * $offset / $sliceSize),
+                    'Reconstructing ' . $m . ' slice(s): ' . $offset . '/' . $sliceSize . ' bytes per slice');
+            }
+            foreach ($missing as $index)
+            {
+                $block = $blocks[$index];
+                if (!hash_equals($block['hash'], hash_final($hashes[$index]['md5'])) ||
+                    !hash_equals($block['crc32'], hash_final($hashes[$index]['crc'])))
+                {
+                    throw new RuntimeException('Reconstructed PAR2 slice failed MD5/CRC validation; no files published.');
+                }
+            }
+            $progress(87, 'Every recovered slice passed MD5 and CRC32 verification');
+
+            // Verify *all* staged files before publishing any of them.
+            foreach ($stages as $fileIndex => &$stage)
+            {
+                if (!fflush($stage['handle']))
+                {
+                    throw new RuntimeException('Could not flush PAR2 staging output.');
+                }
+                fclose($stage['handle']);
+                $stage['handle'] = null;
+                clearstatcache(true, $stage['path']);
+                $size = @filesize($stage['path']);
+                $actualMd5 = @hash_file('md5', $stage['path']);
+                $fp = @fopen($stage['path'], 'rb');
+                if (!is_resource($fp))
+                {
+                    throw new RuntimeException('Could not reread staged PAR2 file for validation.');
+                }
+                try
+                {
+                    $first16k = stream_get_contents($fp, 16384);
                 }
                 finally
                 {
                     fclose($fp);
                 }
-                if ((int) @filesize($stage) !== $file['size'] ||
-                    !hash_equals($file['md5'], hash_final($wholeMd5)) ||
-                    !hash_equals($file['first_md5'], md5($first16k)))
+                $info = $files[$fileIndex];
+                if ($size !== $info['size'] || !is_string($actualMd5) ||
+                    !is_string($first16k) || !hash_equals($info['md5'], $actualMd5) ||
+                    !hash_equals($info['first_md5'], md5($first16k)))
                 {
-                    throw new RuntimeException('Final PAR2 file digest mismatch; original files preserved.');
+                    throw new RuntimeException('Staged PAR2 file checksum failed; original files remain unchanged.');
                 }
-                if (!@link($stage, $target))
-                {
-                    throw new RuntimeException('Failed to safely publish verified repaired file without overwrite.');
-                }
-                @unlink($stage);
-                $outputs[] = ($fileParent !== '' ? $fileParent . '/' : '') . basename($target);
-                $progress(75 + (int) (25 * count($outputs) / count($changedFiles)),
-                    'Published verified recovered file ' . basename($target));
+                $progress(87 + (int) (10 * (array_search($fileIndex, $changedFiles, true) + 1) / count($changedFiles)),
+                    'Verified complete repaired file ' . $info['name']);
             }
+            unset($stage);
+
+            foreach ($stages as $stage)
+            {
+                if (file_exists($stage['target']) || is_link($stage['target']) ||
+                    !@link($stage['path'], $stage['target']))
+                {
+                    foreach ($outputs as $output)
+                    {
+                        $outputPath = $work->resolve($output, 'file');
+                        @unlink($outputPath);
+                    }
+                    throw new RuntimeException('Could not publish repaired file without overwriting an existing path.');
+                }
+                $outputs[] = $stage['relative'];
+            }
+            $progress(100, 'Published ' . count($outputs) . ' independently verified repaired file(s)');
+            return ['outputs' => $outputs, 'recovered' => count($missing), 'verified' => count($files)];
         }
         finally
         {
-            foreach ($staged as $stage)
+            foreach ($stages as $stage)
             {
-                if (is_file($stage))
+                if (is_resource($stage['handle']))
                 {
-                    @unlink($stage);
+                    fclose($stage['handle']);
+                }
+                if (is_file($stage['path']) && !is_link($stage['path']))
+                {
+                    @unlink($stage['path']);
+                }
+            }
+            foreach ($recoveryHandles as $handle)
+            {
+                if (is_resource($handle))
+                {
+                    fclose($handle);
+                }
+            }
+            foreach ($sources as $handle)
+            {
+                if (is_resource($handle))
+                {
+                    fclose($handle);
                 }
             }
         }
-        return ['outputs' => $outputs, 'recovered' => count($reconstructed), 'verified' => count($catalog['files'])];
     }
 }

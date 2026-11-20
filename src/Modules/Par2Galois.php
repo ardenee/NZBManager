@@ -181,11 +181,19 @@ final class Par2Galois
         {
             throw new RuntimeException('PAR2 recovery slices must contain complete 16-bit words.');
         }
+        // GF addition is XOR, so precompute the low/high byte contributions
+        // once per window instead of doing a log/modulo lookup for every word.
+        $low = [];
+        $high = [];
+        for ($value = 0; $value < 256; $value++)
+        {
+            $low[$value] = self::multiply($value, $factor);
+            $high[$value] = self::multiply($value << 8, $factor);
+        }
         $out = str_repeat("\0", strlen($slice));
         for ($i = 0, $n = strlen($slice); $i < $n; $i += 2)
         {
-            $word = ord($slice[$i]) | (ord($slice[$i + 1]) << 8);
-            $product = self::multiply($word, $factor);
+            $product = $low[ord($slice[$i])] ^ $high[ord($slice[$i + 1])];
             $out[$i] = chr($product & 255);
             $out[$i + 1] = chr($product >> 8);
         }

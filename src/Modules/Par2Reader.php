@@ -9,15 +9,12 @@ use RuntimeException;
  * Native PHP PAR2 2.0 packet, protected file and per-slice verifier.
  *
  * Specification: https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
- * This class NEVER modifies files. It is intentionally not a Reed-Solomon repairer.
- * Supported input is bounded to protect a shared PHP hosting/CLI installation.
+ * This class NEVER modifies files. Verification uses streaming file and packet hashes.
+ * Only the standard metadata and packet-count safeguards remain bounded.
  */
 final class Par2Reader
 {
-    public const MAX_PAR_BYTES = 268435456;
-    public const MAX_FILE_BYTES = 134217728;
-    public const MAX_DATA_BYTES = 268435456;
-    private const MAX_PACKETS = 5000;
+    private const MAX_PACKETS = 200000;
     private const MAX_METADATA_BODY = 4194304;
 
     private static function uint32(string $bytes): int
@@ -38,9 +35,9 @@ final class Par2Reader
         }
         $lo = self::uint32(substr($bytes, 0, 4));
         $hi = self::uint32(substr($bytes, 4, 4));
-        if ($hi > 2097151)
+        if ($hi > 0x7fffffff)
         {
-            throw new RuntimeException('PAR2 integer exceeds safe PHP bounds.');
+            throw new RuntimeException('PAR2 integer exceeds the signed 64-bit PHP file offset range.');
         }
         return $hi * 4294967296 + $lo;
     }
@@ -54,9 +51,9 @@ final class Par2Reader
         $progress(2, 'Reading and validating PAR2 packets');
         $source = $work->resolve($relative, 'file');
         $fileBytes = @filesize($source);
-        if (!is_int($fileBytes) || $fileBytes < 64 || $fileBytes > self::MAX_PAR_BYTES)
+        if (!is_int($fileBytes) || $fileBytes < 64)
         {
-            throw new RuntimeException('PAR2 file is empty or exceeds the 256 MiB metadata processing limit.');
+            throw new RuntimeException('PAR2 file does not contain a complete packet header.');
         }
         $handle = @fopen($source, 'rb');
         if (!is_resource($handle))
@@ -138,7 +135,7 @@ final class Par2Reader
                     $bytes = self::uint64(substr($body, 0, 8));
                     $count = self::uint32(substr($body, 8, 4));
                     $total = (strlen($body) - 12) / 16;
-                    if ($bytes < 4 || $bytes > self::MAX_FILE_BYTES || $bytes % 4 !== 0 || $count < 1 || $count > 1000 || $count > $total)
+                    if ($bytes < 4 || $bytes % 4 !== 0 || $count < 1 || $count > 128 || $count > $total)
                     {
                         throw new RuntimeException('Invalid PAR2 slice size or file list.');
                     }
@@ -217,7 +214,6 @@ final class Par2Reader
         }
         $parent = str_contains($relative, '/') ? substr($relative, 0, strrpos($relative, '/')) : '';
         $files = [];
-        $totalBytes = 0;
         foreach ($mainIds as $id)
         {
             if (!isset($descriptions[$id]))
@@ -225,10 +221,9 @@ final class Par2Reader
                 throw new RuntimeException('PAR2 is missing a FileDesc packet required for verification.');
             }
             $entry = $descriptions[$id];
-            $totalBytes += $entry['bytes'];
-            if ($totalBytes > self::MAX_DATA_BYTES || count($files) >= 128)
+            if (count($files) >= 128)
             {
-                throw new RuntimeException('Protected PAR2 data exceeds the native 256 MiB/128-file verification limit.');
+                throw new RuntimeException('PAR2 verification supports at most 128 protected files per set.');
             }
             $fileIndex = count($files);
             $fileCount = count($mainIds);
@@ -269,17 +264,6 @@ final class Par2Reader
             $entry['status'] = 'wrong size';
             return $entry;
         }
-        if ($bytes > self::MAX_FILE_BYTES)
-        {
-            $entry['status'] = 'too large';
-            return $entry;
-        }
-        $actualHash = @hash_file('md5', $file);
-        if (!is_string($actualHash))
-        {
-            $entry['status'] = 'unreadable';
-            return $entry;
-        }
         $handle = @fopen($file, 'rb');
         if (!is_resource($handle))
         {
@@ -288,6 +272,26 @@ final class Par2Reader
         }
         try
         {
+            $fullHash = hash_init('md5');
+            $hashed = 0;
+            while ($hashed < $bytes)
+            {
+                $chunk = fread($handle, min(65536, $bytes - $hashed));
+                if (!is_string($chunk) || $chunk === '')
+                {
+                    $entry['status'] = 'unreadable';
+                    return $entry;
+                }
+                hash_update($fullHash, $chunk);
+                $hashed += strlen($chunk);
+                if (($hashed % 8388608) < 65536 || $hashed === $bytes)
+                {
+                    $progress((int) (25 * $hashed / max(1, $bytes)),
+                        'Streaming full-file checksum: ' . $description['name']);
+                }
+            }
+            $actualHash = hash_final($fullHash);
+            rewind($handle);
             $first = fread($handle, 16384);
             if (!is_string($first))
             {
@@ -309,7 +313,7 @@ final class Par2Reader
             }
             if ($ifsc !== null)
             {
-                $expected = (int) ceil($bytes / $sliceSize);
+                $expected = $bytes === 0 ? 0 : intdiv($bytes - 1, $sliceSize) + 1;
                 if (count($ifsc) !== $expected)
                 {
                     $entry['status'] = 'slice checksum list mismatch';
@@ -343,7 +347,8 @@ final class Par2Reader
                     }
                     if (($index % 8) === 0 || $index === count($ifsc) - 1)
                     {
-                        $progress((int) (100 * ($index + 1) / count($ifsc)), 'Checking slices in ' . $description['name']);
+                        $progress(25 + (int) (75 * ($index + 1) / count($ifsc)),
+                            'Checking slices in ' . $description['name']);
                     }
                     if (!hash_equals($check['md5'], hash_final($sliceMd5)) ||
                         !hash_equals($check['crc32'], hash_final($sliceCrc)))

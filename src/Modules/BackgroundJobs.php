@@ -288,7 +288,7 @@ final class BackgroundJobs
                 }
                 elseif ($record['type'] === 'par2_verify')
                 {
-                    $report(10, 'Validating PAR2 packet and protected file checksums');
+                    $report(2, 'Validating PAR2 packet and protected file checksums');
                     $result = Par2Reader::verify($work, $record['relative'], $report);
                     $errors = array_values(array_filter($result['files'],
                         static fn (array $item): bool => $item['status'] !== 'verified'));

@@ -29,7 +29,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
     </div>
     <div class="configuration-help">
         <p>Verify checksums without changing downloaded files, or select Repair to reconstruct damaged/missing slices from the PAR2 recovery volumes. Outputs are written as <code>filename.repaired</code> alongside the originals; existing files are never overwritten.</p>
-        <p>Safety limits for this initial native engine: 64 MiB total protected data, 256 input slices, 8 missing slices, 1 MiB per slice and 80 recovery volumes. Unsupported large recovery sets report a precise error instead of making risky filesystem changes.</p>
+        <p>Large files are handled in fixed 64 KiB stream windows: there is no 64 MiB total-data cap, 1 MiB slice cap or 256 MiB PAR2-volume cap. Current PAR2 2.0 safeguards allow up to 32 missing/damaged slices, 32,768 input slices and 300 recovery volumes. Large repairs may take substantial CPU time and require free disk space for new <code>.repaired</code> files.</p>
         <p>The job monitor updates automatically while the independent PHP CLI worker runs. Tasks can be cancelled; cancellation does not delete completed recovered outputs.</p>
     </div>
 </section>

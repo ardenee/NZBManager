@@ -121,6 +121,7 @@ require __DIR__ . '/new-features.php';
 require __DIR__ . '/modules.php';
 require __DIR__ . '/par2-native.php';
 require __DIR__ . '/par2-recovery.php';
+require __DIR__ . '/par2-large.php';
 require __DIR__ . '/background-jobs.php';
 require __DIR__ . '/folder-browser.php';
 require __DIR__ . '/managed-folders.php';

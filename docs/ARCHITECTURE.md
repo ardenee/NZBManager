@@ -99,9 +99,14 @@ execution of uploaded modules is deliberately prohibited.
 - PAR2: pure PHP packet verifier and pure PHP GF(2^16) Reed–Solomon
   reconstruction; no third-party PAR2 executable, FFI or system binary.
   Repair writes only checksum-verified .repaired outputs and preserves originals.
-  Initial bounds are 64 MiB protected data, 256 slices and 8 missing slices.
-  Live web-to-independent PHP CLI repair passed on DSM for 5 slices and 2 files.
-  Real larger PAR2 sets remain uncertified.
+  The streaming recovery path scans packet headers and hashes, retains only
+  volume offsets for recovery data, validates input slices in chunks, solves
+  GF16 equations over fixed 64 KiB windows and patches private staged files.
+  No fixed total-data, 1 MiB slice or 256 MiB PAR-volume limit remains.
+  PAR2 2.0 provides at most 32,768 input slices; the current inverse matrix
+  supports 32 missing/damaged slices. Live web-to-independent PHP CLI repair
+  passed on DSM for 5 slices and 2 files; DEV stress tests repaired a 300 MiB file.
+  Real multi-gigabyte recovery workloads remain uncertified.
 - Archives: bounded ZIP streaming extraction in an independent PHP CLI worker,
   with polling progress monitor, cancellation, path traversal/symlink checks.
   Solid, encrypted, RAR, 7z and TAR adapters remain pending.

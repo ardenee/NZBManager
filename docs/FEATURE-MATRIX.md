@@ -26,8 +26,8 @@ has newer source than the last published SPK; no package is being built now.
 | Configure Download Station credentials | Download Station | **Implemented** | Private DSM connection file; use a restricted account and HTTPS front end |
 | Submit NZB / list/pause/resume/remove DSM tasks | Download Station | **Mock-tested** | Authenticated tasks on user's NAS not yet tested |
 | Native PHP PAR2 packet & slice verification | PAR2 Repair | **DEV-tested** | MD5/CRC, checks protected files; independent PHP worker |
-| Pure PHP Reed-Solomon repair | PAR2 Repair | **DSM end-to-end tested** | 5 slices reconstructed, 2 verified .repaired outputs; originals preserved |
-| PAR2 background progress and cancellation | PAR2 Repair | **Working** | Independent PHP CLI worker and JSON status monitor; initial 8-slice/64MiB bounds |
+| Pure PHP Reed-Solomon repair | PAR2 Repair | **DSM small-case / DEV 300 MiB tested** | Streaming 64 KiB windows, no total-data/slice-size/volume-byte cap; GF16 repair of up to 32 erasures, 32,768 input slices; originals preserved |
+| PAR2 background progress and cancellation | PAR2 Repair | **Working** | Independent PHP CLI worker and JSON status monitor; 64 KiB streamed recovery, 32-erasure limit |
 | ZIP archive inspection | Archive Extraction | **Working** | Max 32 MiB ZIP, 250 entries, 64 MiB expanded |
 | ZIP extraction in independent PHP worker | Archive Extraction | **DSM end-to-end tested** | Live progress to 100%, cancellation, new folder, no overwrite |
 | RAR/7z/TAR extraction | Archive Extraction | **Not yet implemented** | Recognized, not extracted |
@@ -40,8 +40,8 @@ has newer source than the last published SPK; no package is being built now.
 
 ## Tests and live checks
 
-- **282 PHP assertions on DEV**, covering metadata, parity, workspace
-  protection, synthetic PAR2 reconstruction and recovery limits, managed
+- **291 PHP assertions on DEV**, covering metadata, parity, workspace
+  protection, 68 MiB standard / 300 MiB stress PAR2 reconstruction, 5 GiB metadata, managed
   folders, asynchronous ZIP jobs, Download Station mock API contracts, etc.
 - DEV HTTP smoke tests for indexer/security/asset-cache routes.
 - DSM real PHP-FPM 8.2.35 extensions and DSM package API discovery probed.
@@ -54,8 +54,8 @@ has newer source than the last published SPK; no package is being built now.
 
 ## Outstanding certification
 
-Real-world large PAR2 sets, more than eight missing slices, complex PAR2
-metadata, external Newznab search, authenticated Download Station tasks,
+Real-world multi-gigabyte PAR2 repair, more than 32 missing slices, complex
+PAR2 metadata, external Newznab search, authenticated Download Station tasks,
 RAR/7z/TAR extraction and multi-file organization require further work.
 The DSM alpha intentionally has no application login: keep it off the
 public Internet and protect any submitted DSM credentials.

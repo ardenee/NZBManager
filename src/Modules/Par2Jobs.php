@@ -21,9 +21,9 @@ final class Par2Jobs
             throw new RuntimeException('Select a readable PAR2 file.');
         }
         $size = (int) @filesize($path);
-        if ($size < 64 || $size > 268435456)
+        if ($size < 64)
         {
-            throw new RuntimeException('PAR2 file is too small or exceeds the 256 MiB limit.');
+            throw new RuntimeException('PAR2 file is too small.');
         }
         $fp = @fopen($path, 'rb');
         if (!is_resource($fp))

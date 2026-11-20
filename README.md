@@ -40,8 +40,10 @@ are not yet certified.
   in PHP, with an independent worker, live job monitor, progress and cancellation
 - Repair PAR2-protected files using PHP-only GF(2^16) Reed–Solomon arithmetic,
   writing fully checksum-verified `.repaired` outputs without overwriting originals.
-  Initial bounded implementation: 64 MiB of protected data, 256 slices,
-  eight erasures and 1 MiB per slice; large recovery sets are not supported yet
+  File and recovery data are streamed in 64 KiB windows with no 64 MiB data
+  ceiling or 1 MiB slice restriction. PAR2 2.0 input slices are limited by
+  the format to 32,768; this PHP implementation currently solves up to 32
+  missing/damaged slices per job. Large jobs can be CPU- and disk-intensive.
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
