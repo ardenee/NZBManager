@@ -8,23 +8,25 @@
         "support_server": true,
         "type": "nginx_php",
         "root": "nzbmanager/public",
-        "index": ["index.php"],
+        "index": [
+          "index.php"
+        ],
+        "icon": "ui/nzb_{0}.png",
         "php": {
-          "profile_name": "NZB Manager PHP",
-          "profile_desc": "PHP 8.2 profile for NZB Manager",
+          "profile_name": "NZB Manager PHP 8.2",
+          "profile_desc": "Package PHP 8.2 profile for NZB Manager",
           "backend": 10,
           "open_basedir": "/var/services/web_packages/nzbmanager:/var/packages/nzbmanager/var:/tmp:/var/services/tmp",
-          "extensions": ["curl", "mbstring", "openssl"],
-          "php_settings": {
-            "session.save_path": "/var/packages/nzbmanager/var/sessions",
-            "session.upload_progress.enabled": "0",
-            "upload_max_filesize": "32M",
-            "post_max_size": "70M",
-            "display_errors": "0"
-          },
+          "extensions": [
+            "curl",
+            "mbstring"
+          ],
           "user": "nzbmanager",
           "group": "http"
-        }
+        },
+        "connect_timeout": 30,
+        "read_timeout": 120,
+        "send_timeout": 30
       }
     ],
     "portals": [

@@ -59,8 +59,18 @@ def main() -> None:
     services = config.get("webservice", {}).get("services", [])
     if len(services) != 1 or services[0].get("type") != "nginx_php" or services[0].get("root") != "nzbmanager/public":
         raise RuntimeError("Web Station must serve only the public/ document root.")
-    if services[0].get("php", {}).get("backend") != 10:
-        raise RuntimeError("The first DSM test package requires the PHP 8.2 backend.")
+    php = services[0].get("php", {})
+    prepared = config.get("webservice", {}).get("pkg_dir_prepare", [])
+    if php.get("backend") != 10 or php.get("profile_name") != "NZB Manager PHP 8.2":
+        raise RuntimeError("A dedicated PHP 8.2 package-based profile is required.")
+    if len(prepared) != 1 or prepared[0].get("source") != "/var/packages/nzbmanager/target/webapp" or prepared[0].get("target") != "nzbmanager":
+        raise RuntimeError("Web Station app directory registration is incorrect.")
+    if php.get("user") != "nzbmanager" or php.get("group") != "http" or php.get("user") != prepared[0].get("user") or php.get("group") != prepared[0].get("group"):
+        raise RuntimeError("PHP-FPM identity and web-directory ownership must match.")
+    if services[0].get("icon") != "ui/nzb_{0}.png":
+        raise RuntimeError("Web Station must display the original NZB artwork.")
+    if "php_settings" in php:
+        raise RuntimeError("Test package requires a minimal PHP-FPM profile without experimental ini overrides.")
     if privilege.get("defaults", {}).get("run-as") != "package":
         raise RuntimeError("A restricted package user is required.")
     for script in ("postinst", "postupgrade"):
@@ -74,6 +84,18 @@ def main() -> None:
 
     compressed = io.BytesIO()
     with tarfile.open(fileobj=compressed, mode="w:gz", format=tarfile.USTAR_FORMAT) as inner:
+        # Preserve both historical icon files byte-for-byte inside the SPK.
+        originals = ROOT / "current" / "spk"
+        add_dir(inner, "original-icons")
+        for original in ("PACKAGE_ICON.PNG", "PACKAGE_ICON_120.PNG"):
+            source = originals / original
+            if not source.is_file():
+                raise RuntimeError(f"Historical NZB icon missing: {source}")
+            add_bytes(inner, "original-icons/" + original, source.read_bytes())
+        # Web Station's package-service icon resolves relative to package target.
+        add_dir(inner, "ui")
+        add_bytes(inner, "ui/nzb_64.png", (PACK / "PACKAGE_ICON.PNG").read_bytes())
+        add_bytes(inner, "ui/nzb_256.png", (PACK / "PACKAGE_ICON_256.PNG").read_bytes())
         add_dir(inner, "webapp")
         for folder in ("public", "src", "views"):
             base = ROOT / folder
@@ -127,8 +149,13 @@ def main() -> None:
                 "webapp/src/WebSecurity.php",
                 "webapp/views/layout.php"
             }
+            required.update({"ui/nzb_64.png", "ui/nzb_256.png", "original-icons/PACKAGE_ICON.PNG", "original-icons/PACKAGE_ICON_120.PNG"})
             if not required.issubset(names) or any(name.startswith("webapp/current/") for name in names):
                 raise RuntimeError("Invalid or incomplete application payload.")
+            for legacy in ("PACKAGE_ICON.PNG", "PACKAGE_ICON_120.PNG"):
+                payload = inner.extractfile("original-icons/" + legacy)
+                if payload is None or payload.read() != (ROOT / "current" / "spk" / legacy).read_bytes():
+                    raise RuntimeError(f"Historical NZB icon changed in SPK: {legacy}")
 
     print("PASS: password-free DSM7 test package:", dest)
     print("PASS: package size:", dest.stat().st_size)

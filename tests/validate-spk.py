@@ -8,7 +8,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SPK = ROOT / "dist/NZB-Manager-DSM7-0.2.1-0001-noauth-test.spk"
+SPK = ROOT / "dist/NZB-Manager-DSM7-0.2.1-0002-noauth-test.spk"
 assert SPK.is_file(), f"SPK missing: {SPK}"
 
 with tarfile.open(SPK, "r:") as package:
@@ -28,7 +28,12 @@ with tarfile.open(SPK, "r:") as package:
     assert service["root"] == "nzbmanager/public"
     assert service["php"]["backend"] == 10
     assert service["php"]["user"] == "nzbmanager"
-    assert "session.upload_progress.enabled" in service["php"]["php_settings"]
+    assert service["type"] == "nginx_php"
+    assert service["php"]["profile_name"] == "NZB Manager PHP 8.2"
+    assert service["php"]["group"] == resource["webservice"]["pkg_dir_prepare"][0]["group"]
+    assert service["php"]["user"] == resource["webservice"]["pkg_dir_prepare"][0]["user"]
+    assert "php_settings" not in service["php"], "Package PHP-FPM should use minimal settings"
+    assert service["icon"] == "ui/nzb_{0}.png"
 
     for name in ("postinst", "postupgrade"):
         script = package.extractfile("scripts/" + name).read().decode("utf-8")
@@ -50,6 +55,12 @@ with tarfile.open(SPK, "r:") as package:
         assert "webapp/src/WebSecurity.php" in paths
         assert "webapp/src/AppConfig.php" in paths
         assert "webapp/views/download-station.php" in paths
+        for name in ("PACKAGE_ICON.PNG", "PACKAGE_ICON_120.PNG"):
+            original = (ROOT / "current" / "spk" / name).read_bytes()
+            saved = app.extractfile("original-icons/" + name)
+            assert saved is not None and saved.read() == original, "Original icon altered: " + name
+        for size in (64, 256):
+            assert "ui/nzb_" + str(size) + ".png" in paths, "Missing Web Station icon size"
         assert not any(path.startswith(("webapp/current", "webapp/tests", "webapp/dist")) for path in paths)
         security = app.extractfile("webapp/src/WebSecurity.php").read().decode("utf-8")
         config = app.extractfile("webapp/src/AppConfig.php").read().decode("utf-8")
@@ -59,5 +70,5 @@ with tarfile.open(SPK, "r:") as package:
         assert "'/no-auth'" in config
 
 print("PASS DSM7 test package contains no installation wizard or application password.")
-print("PASS Web Station service, package-private no-login marker, icons and source layout.")
+print("PASS Web Station PHP 8.2 profile, original NZB icons, package-private no-login marker, and source layout.")
 print("Validated:", SPK, SPK.stat().st_size, "bytes")

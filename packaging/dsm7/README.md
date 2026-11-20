@@ -14,6 +14,15 @@ who can reach this portal can use NZB Manager. Keep it within your trusted
 LAN and restrict network access through the DSM firewall or another external
 access-control layer.
 
+The original 2013 icon files (72x72 and 120x120) are retained in
+package.tgz under original-icons/. DSM 7 icons and Web Station icons are
+resized from that exact original artwork. The new package also simplifies
+PHP-FPM profile configuration after a first-install 502/missing PHP profile.
+
+For an existing 0.2.1-0001 installation without the PHP profile, back up
+any private library data and uninstall the previous test SPK before installing
+0.2.1-0002. The Web Station service registration is not directly updatable.
+
 The package includes INFO, package.tgz, scripts/, conf/resource,
 conf/privilege and the required 64/256px PNG icons. The application payload
 contains the public, src and views trees, never the old 2013 PHP source.

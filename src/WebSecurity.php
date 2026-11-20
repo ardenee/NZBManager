@@ -50,6 +50,11 @@ final class WebSecurity
             exit('Authentication required.');
         }
 
+        $private = AppConfig::privateDir();
+        if ($private !== null && is_dir($private . '/sessions'))
+        {
+            ini_set('session.save_path', $private . '/sessions');
+        }
         session_name('NZBSESSID');
         session_set_cookie_params([
             'httponly' => true, 'samesite' => 'Strict', 'path' => '/',
