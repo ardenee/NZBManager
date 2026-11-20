@@ -8,7 +8,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SPK = ROOT / "dist/NZB-Manager-DSM7-0.2.1-0002-noauth-test.spk"
+SPK = ROOT / "dist/NZB-Manager-DSM7-0.2.1-0003-noauth-test.spk"
 assert SPK.is_file(), f"SPK missing: {SPK}"
 
 with tarfile.open(SPK, "r:") as package:
@@ -26,9 +26,13 @@ with tarfile.open(SPK, "r:") as package:
     resource = json.load(package.extractfile("conf/resource"))
     service = resource["webservice"]["services"][0]
     assert service["root"] == "nzbmanager/public"
-    assert service["php"]["backend"] == 10
+    assert service["php"]["backend"] == 11, "PHP 8.2 backend must match the working DUP DSM7 SPK"
     assert service["php"]["user"] == "nzbmanager"
     assert service["type"] == "nginx_php"
+    assert service["support_server"] is False
+    info = package.extractfile("INFO").read().decode("utf-8")
+    assert 'adminurl="nzbmanager/"' in info
+    assert 'startable="yes"' in info
     assert service["php"]["profile_name"] == "NZB Manager PHP 8.2"
     assert service["php"]["group"] == resource["webservice"]["pkg_dir_prepare"][0]["group"]
     assert service["php"]["user"] == resource["webservice"]["pkg_dir_prepare"][0]["user"]

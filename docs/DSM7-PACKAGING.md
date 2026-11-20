@@ -31,10 +31,14 @@ not expose the password-free test package to the public internet.
 - Correct permission support for package users and PHP-FPM
 - HTTPS is recommended even on the local network
 
-The Web Station service uses nginx_php and PHP profile backend ID 10 for
-PHP 8.2. Version 0.2.1-0002 removes nonessential PHP profile settings
-because the initial NAS installation registered the portal but did not create
-a package-based PHP profile, returning 502 for even a minimal PHP script.
+The Web Station service uses nginx_php and PHP profile backend ID **11** for
+PHP 8.2. The earlier NZB test packages incorrectly used backend 10, and the
+DSM web portal was registered without a working package-based PHP profile.
+A known-working DUP 0.6.3-0009 DSM 7 SPK provided as a reference uses backend
+11 with a named PHP 8.2 profile. Its postinst script only logs installation:
+the Web Station package resource creates the PHP profile automatically.
+The NZB SPK also adopts DUP's alias-only service and startable-app metadata.
+The PHP profile remains minimal, with no experimental PHP ini overrides.
 PHP session storage is configured by the application itself before
 session_start(). The service's document root remains restricted to:
 
@@ -55,7 +59,7 @@ From the repository root:
 
 Output:
 
-    dist/NZB-Manager-DSM7-0.2.1-0002-noauth-test.spk
+    dist/NZB-Manager-DSM7-0.2.1-0003-noauth-test.spk
 
 The builder validates the resource configuration, PHP profile, privilege
 policy, icons, lifecycle scripts, absence of an installation wizard, and
@@ -71,11 +75,11 @@ the original 2013 icons, and the service icons under ui/.
 
 1. Install Web Station and PHP 8.2 from DSM Package Center if necessary.
 2. Restrict Web Station access to trusted clients; the app has no login.
-3. If upgrading from the 0.2.1-0001 test SPK, **back up any NZB data** first.
-   The Web Station webservice resource is not updatable after registration,
-   so remove the earlier test installation in Package Center before installing
-   0.2.1-0002 if the PHP profile is missing. Uninstalling may remove private
-   application data; do not uninstall if you need that data and have no backup.
+3. If using a previous 0.2.1-0001 or 0.2.1-0002 test SPK, **back up any NZB
+   library data** first. The Web Station webservice resource is not updatable
+   after registration, so **uninstall the failing old test package** in
+   Package Center and install 0.2.1-0003 fresh to recreate its PHP profile.
+   Uninstalling may remove private data; do not proceed without a backup.
 4. Open Package Center > Manual Install and select the test SPK.
 5. Check Web Station > Script Language Settings > PHP for a **NZB Manager PHP 8.2**
    package profile, and verify the NZB Manager Web Service appears normal.

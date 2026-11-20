@@ -132,7 +132,7 @@ A password-free **test SPK** can now be built from this same application source:
 
     python packaging/dsm7/build.py
 
-Install `dist/NZB-Manager-DSM7-0.2.1-0002-noauth-test.spk` through Package
+Install `dist/NZB-Manager-DSM7-0.2.1-0003-noauth-test.spk` through Package
 Center > Manual Install. Web Station and PHP 8.2 must be available. The
 application registers an alias portal at `/nzbmanager/` through Web Station.
 There is **no installation wizard, application password or login prompt**.

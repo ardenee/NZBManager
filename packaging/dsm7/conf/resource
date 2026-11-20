@@ -5,7 +5,7 @@
         "service": "nzbmanager",
         "display_name": "NZB Manager",
         "support_alias": true,
-        "support_server": true,
+        "support_server": false,
         "type": "nginx_php",
         "root": "nzbmanager/public",
         "index": [
@@ -15,7 +15,7 @@
         "php": {
           "profile_name": "NZB Manager PHP 8.2",
           "profile_desc": "Package PHP 8.2 profile for NZB Manager",
-          "backend": 10,
+          "backend": 11,
           "open_basedir": "/var/services/web_packages/nzbmanager:/var/packages/nzbmanager/var:/tmp:/var/services/tmp",
           "extensions": [
             "curl",

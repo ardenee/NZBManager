@@ -51,6 +51,8 @@ def main() -> None:
     match = re.search(r'^version="([0-9A-Za-z.-]+)"$', info, re.MULTILINE)
     if match is None or 'package="nzbmanager"' not in info or 'os_min_ver="7.2-' not in info:
         raise RuntimeError("Missing or invalid DSM7 package metadata.")
+    if 'startable="yes"' not in info or 'adminurl="nzbmanager/"' not in info:
+        raise RuntimeError("DSM package must register its startable application and portal URL.")
     if (PACK / "WIZARD_UIFILES").exists():
         raise RuntimeError("Refusing any password/setup wizard in the no-login package.")
 
@@ -61,12 +63,14 @@ def main() -> None:
         raise RuntimeError("Web Station must serve only the public/ document root.")
     php = services[0].get("php", {})
     prepared = config.get("webservice", {}).get("pkg_dir_prepare", [])
-    if php.get("backend") != 10 or php.get("profile_name") != "NZB Manager PHP 8.2":
-        raise RuntimeError("A dedicated PHP 8.2 package-based profile is required.")
+    if php.get("backend") != 11 or php.get("profile_name") != "NZB Manager PHP 8.2":
+        raise RuntimeError("A dedicated PHP 8.2 package-based profile (backend 11, matching working DUP SPK) is required.")
     if len(prepared) != 1 or prepared[0].get("source") != "/var/packages/nzbmanager/target/webapp" or prepared[0].get("target") != "nzbmanager":
         raise RuntimeError("Web Station app directory registration is incorrect.")
     if php.get("user") != "nzbmanager" or php.get("group") != "http" or php.get("user") != prepared[0].get("user") or php.get("group") != prepared[0].get("group"):
         raise RuntimeError("PHP-FPM identity and web-directory ownership must match.")
+    if services[0].get("support_server") is not False:
+        raise RuntimeError("The DSM test package registers only an alias portal, like the working DUP package.")
     if services[0].get("icon") != "ui/nzb_{0}.png":
         raise RuntimeError("Web Station must display the original NZB artwork.")
     if "php_settings" in php:
