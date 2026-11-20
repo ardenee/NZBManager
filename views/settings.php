@@ -1,3 +1,27 @@
+<?php
+$folderStatus = [];
+foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
+{
+    $current = $appSettings[$field] ?? '';
+    if (!is_string($current) || $current === '')
+    {
+        $folderStatus[$field] = ['ok' => true, 'text' => 'Not configured. Use Browse folders to check access.'];
+        continue;
+    }
+    try
+    {
+        \NZB\Modules\FolderBrowser::validateSelection($current, $field);
+        $access = \NZB\Modules\FolderBrowser::access($current);
+        $folderStatus[$field] = ['ok' => true, 'text' => $access['writable']
+            ? 'Permission check passed: the PHP service account has read/write access.'
+            : 'Readable but not writable: browsing and verification work; file modifications require write access.'];
+    }
+    catch (\Throwable $error)
+    {
+        $folderStatus[$field] = ['ok' => false, 'text' => 'Permission/configuration issue: ' . $error->getMessage()];
+    }
+}
+?>
 <section class="page-header">
     <div>
         <div class="eyebrow">APPLICATION CONFIGURATION</div>
@@ -33,23 +57,38 @@
             </select>
             <label for="setting-workspace">Downloaded-files workspace</label>
             <div class="settings-input-help">
-                <input id="setting-workspace" name="workspace_path" maxlength="240" value="<?= escape($appSettings['workspace_path']) ?>" placeholder="/volume1/downloads">
+                <div class="folder-setting-row"><input id="setting-workspace" name="workspace_path" maxlength="240" value="<?= escape($appSettings['workspace_path']) ?>" placeholder="/volume1/downloads"><button type="button" class="button secondary" data-folder-pick="workspace_path">Browse folders</button></div>
+                <small class="folder-permission-status <?= $folderStatus['workspace_path']['ok'] ? '' : 'folder-permission-denied' ?>" data-permission-for="workspace_path"><?= escape($folderStatus['workspace_path']['text']) ?></small>
                 <small>PAR2, Archive Extraction, and File Organizer operate only within this folder. Use a dedicated shared folder, not a volume root.</small>
             </div>
             <label for="setting-import-folder">NZB folder import location</label>
             <div class="settings-input-help">
-                <input id="setting-import-folder" name="folder_import_path" maxlength="240" value="<?= escape($appSettings['folder_import_path']) ?>" placeholder="/volume1/downloads/nzb-inbox">
+                <div class="folder-setting-row"><input id="setting-import-folder" name="folder_import_path" maxlength="240" value="<?= escape($appSettings['folder_import_path']) ?>" placeholder="/volume1/downloads/nzb-inbox"><button type="button" class="button secondary" data-folder-pick="folder_import_path">Browse folders</button></div>
+                <small class="folder-permission-status <?= $folderStatus['folder_import_path']['ok'] ? '' : 'folder-permission-denied' ?>" data-permission-for="folder_import_path"><?= escape($folderStatus['folder_import_path']['text']) ?></small>
                 <small>Readable DSM shared folder. Source files remain untouched; duplicate imports are skipped.</small>
             </div>
             <label for="setting-push-folder">Push To monitored folder</label>
             <div class="settings-input-help">
-                <input id="setting-push-folder" name="push_folder_path" maxlength="240" value="<?= escape($appSettings['push_folder_path']) ?>" placeholder="/volume1/downloads/watch">
+                <div class="folder-setting-row"><input id="setting-push-folder" name="push_folder_path" maxlength="240" value="<?= escape($appSettings['push_folder_path']) ?>" placeholder="/volume1/downloads/watch"><button type="button" class="button secondary" data-folder-pick="push_folder_path">Browse folders</button></div>
+                <small class="folder-permission-status <?= $folderStatus['push_folder_path']['ok'] ? '' : 'folder-permission-denied' ?>" data-permission-for="push_folder_path"><?= escape($folderStatus['push_folder_path']['text']) ?></small>
                 <small>Writable folder with PHP permissions and open_basedir access.</small>
             </div>
         </div>
         <div class="settings-form-footer"><button type="submit" class="button primary">Save settings</button></div>
     </form>
 </section>
+
+<dialog id="folder-picker" class="folder-picker" aria-labelledby="folder-picker-title">
+    <div class="folder-picker-head">
+        <div><h2 id="folder-picker-title">Choose a folder</h2><p>Only approved DSM shared folders appear. Files and system folders are hidden.</p></div>
+        <button type="button" class="button subtle" data-folder-close>Close</button>
+    </div>
+    <div class="folder-picker-breadcrumb"><button type="button" class="button subtle" data-folder-up>Parent</button><code data-folder-current>Volumes</code></div>
+    <p class="folder-picker-error" data-folder-error role="alert" hidden></p>
+    <div class="folder-picker-list" data-folder-list aria-live="polite"></div>
+    <p class="folder-picker-permissions" data-folder-permissions></p>
+    <div class="folder-picker-actions"><button type="button" class="button secondary" data-folder-close>Cancel</button><button type="button" class="button primary" data-folder-select disabled>Use this folder</button></div>
+</dialog>
 
 <section class="panel">
     <div class="panel-heading">

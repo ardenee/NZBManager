@@ -30,6 +30,8 @@ try
 {
     $validated = \NZB\AppSettings::validate(['workspace_path' => $workspaceRoot]);
     check($validated['workspace_path'] === $workspaceRoot, 'Workspace root passes bounded Settings validation');
+    expectFailure(static fn () => \NZB\AppSettings::validate(['workspace_path' => '/volume1/web_packages/nzbmanager']), 'Workspace rejects Web Station application share');
+    expectFailure(static fn () => \NZB\AppSettings::validate(['workspace_path' => '/volume1/web']), 'Workspace rejects publicly served web share');
     expectFailure(static fn () => new WorkspaceFiles($root . '/../etc'), 'Workspace rejects parent traversal');
     $work = new WorkspaceFiles($workspaceRoot);
     check(count($work->list('')) === 2, 'Workspace lists only existing child directories');

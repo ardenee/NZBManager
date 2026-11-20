@@ -8,7 +8,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SPK = ROOT / "dist/NZB-Manager-DSM7-0.4.0-0001-noauth-test.spk"
+SPK = ROOT / "dist/NZB-Manager-DSM7-0.4.1-0001-noauth-test.spk"
 assert SPK.is_file(), f"SPK missing: {SPK}"
 
 with tarfile.open(SPK, "r:") as package:
@@ -65,9 +65,16 @@ with tarfile.open(SPK, "r:") as package:
         assert "webapp/views/unpack.php" in paths
         assert "webapp/views/file-organizer.php" in paths
         assert "webapp/bin/par2-worker.php" in paths
+        assert "webapp/src/Modules/Par2Reader.php" in paths
+        assert "webapp/src/Modules/FolderBrowser.php" in paths
+        inspector = app.extractfile("webapp/views/inspector.php").read().decode("utf-8")
+        settings = app.extractfile("webapp/views/settings.php").read().decode("utf-8")
+        assert "segment-raw-bytes" in inspector, "Exact article byte counts must appear in the viewer"
+        assert "folder-picker" in settings and "data-folder-pick" in settings, "Folder picker must ship"
         worker = app.extractfile("webapp/bin/par2-worker.php").read().decode("utf-8")
         assert "PHP_SAPI !== 'cli'" in worker
         assert "Par2Jobs::runOne()" in worker
+        assert "Par2Reader.php" in worker, "Native PHP PAR2 verifier must be loaded by the CLI worker"
         for name in ("PACKAGE_ICON.PNG", "PACKAGE_ICON_120.PNG"):
             original = (ROOT / "current" / "spk" / name).read_bytes()
             saved = app.extractfile("original-icons/" + name)

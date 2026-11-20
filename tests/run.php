@@ -119,4 +119,6 @@ require __DIR__ . '/binsearch.php';
 require __DIR__ . '/download-station.php';
 require __DIR__ . '/new-features.php';
 require __DIR__ . '/modules.php';
+require __DIR__ . '/par2-native.php';
+require __DIR__ . '/folder-browser.php';
 echo 'All ' . $checks . ' assertions passed.' . PHP_EOL;

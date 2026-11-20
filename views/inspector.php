@@ -146,7 +146,7 @@ if ($selectedFileIndex !== null && isset($summary['files'][$selectedFileIndex]))
             <?php foreach ($segmentRows as $segment): ?>
             <tr class="<?= $segment['valid'] ? '' : 'integrity-suspect' ?>">
                 <td><?= $segment['valid'] ? number_format($segment['number']) : 'Invalid' ?></td>
-                <td><?= humanBytes($segment['bytes']) ?></td>
+                <td class="segment-raw-bytes"><?= $segment['bytes'] ?></td>
                 <td class="name segment-message"><?= escape($segment['id']) ?></td>
                 <td class="right">
                 <?php if ($segment['valid']): ?>

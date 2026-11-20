@@ -214,3 +214,28 @@ tr.integrity-suspect td { background: #fff8e9; }
   .indexer-settings-list { margin: 0 17px 14px; }
   .segment-viewer .segment-pager { margin: 14px 17px 18px; }
 }
+
+/* Folder-only settings picker and access indicators */
+.folder-setting-row { display:flex; align-items:center; gap:9px; max-width:780px; }
+.folder-setting-row input { flex:1; min-width:100px; min-height:38px; border:1px solid #d9e1ec; border-radius:7px; padding:9px 12px; background:#fff; }
+.folder-setting-row .button { flex:none; white-space:nowrap; }
+.folder-permission-status { color:#71869c; }
+.folder-permission-denied { color:#aa3434; font-weight:600; }
+.folder-picker { border:1px solid #cbd6e4; border-radius:13px; padding:0; width:min(650px, calc(100vw - 26px)); max-height:82vh; background:#fff; color:#172d43; box-shadow:0 22px 80px #182c4666; }
+.folder-picker::backdrop { background:#131e3299; }
+.folder-picker-head { display:flex; justify-content:space-between; align-items:start; gap:12px; padding:20px 23px 13px; border-bottom:1px solid #e5ebf2; }
+.folder-picker-head p { font-size:12px; margin-top:4px; }
+.folder-picker-breadcrumb { display:flex; align-items:center; gap:12px; padding:13px 22px; background:#f7f9fc; border-bottom:1px solid #e5ebf2; }
+.folder-picker-breadcrumb code { font-size:12px; overflow-wrap:anywhere; }
+.folder-picker-list { display:grid; gap:3px; padding:11px 19px; overflow:auto; max-height:43vh; }
+.folder-picker-entry { display:flex; align-items:center; justify-content:space-between; gap:15px; width:100%; border:1px solid transparent; border-radius:7px; padding:10px 12px; background:#fff; color:#203b61; text-align:left; }
+.folder-picker-entry:hover, .folder-picker-entry:focus-visible { background:#eef3fb; border-color:#cedbef; }
+.folder-picker-entry strong { font-size:13px; overflow-wrap:anywhere; }
+.folder-picker-entry span { font-size:11px; color:#7389a3; text-align:right; }
+.folder-picker-entry .folder-picker-denied { color:#b54b30; }
+.folder-picker-permissions { padding:9px 23px; font-size:12px; border-top:1px solid #edf1f6; }
+.folder-picker-error { margin:10px 20px 0; border:1px solid #efc7c7; color:#a32828; border-radius:7px; background:#fff4f4; padding:10px 12px; font-size:12px; }
+.folder-picker-error[hidden] { display:none; }
+.folder-picker-actions { display:flex; align-items:center; justify-content:flex-end; padding:14px 23px 20px; gap:10px; }
+.folder-picker-actions [disabled] { opacity:.5; cursor:not-allowed; }
+@media(max-width:650px) { .folder-setting-row { flex-wrap:wrap; } .folder-picker-head { padding:16px; } .folder-picker-entry { align-items:start; } }

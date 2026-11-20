@@ -20,17 +20,21 @@ are not yet certified.
   an NZB from selected results; search and generation tested against live site
 - Search, globally sort and paginate documents; sort the other result tables
 - Configure Binsearch page size, library size and per-page file/segment counts
+- Select configured NAS folders through a directory-only Settings picker that
+  reports PHP service-account read/write permissions and rejects inaccessible paths
 - Configure Newznab providers and API keys from Settings (stored in private data)
 - Import NZBs from a configured DSM folder without altering source files
 - Suppress duplicate NZBs across all import methods using SHA-256 content hashes
 - Push up to 25 NZBs to a monitored download folder or to a restricted HTTPS upload endpoint
-- Inspect suspect segment numbering; add, edit or delete NZB references into a new document
+- Inspect suspect segment numbering; add, edit or delete NZB references into a new document;
+  segment Article bytes are displayed as exact integer values
 - Browse a configured downloads workspace with the File Organizer module;
   preview and confirm safe same-filesystem renames/moves and create subfolders
 - Inspect small ZIP archives and extract their validated members into new
   directories without overwriting the original files (PHP zip extension)
-- Browse PAR2 recovery indexes and queue verification for a separate CLI worker;
-  repair requires explicit administrator opt-in and an installed par2cmdline tool
+- Verify PAR2 2.0 packet integrity and protected-file/slice checksums natively
+  in PHP through a separate CLI worker, without installing par2cmdline;
+  actual recovery still requires explicit opt-in and external par2cmdline
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
@@ -149,7 +153,7 @@ A password-free **test SPK** can now be built from this same application source:
 
     python packaging/dsm7/build.py
 
-Install `dist/NZB-Manager-DSM7-0.4.0-0001-noauth-test.spk` through Package
+Install `dist/NZB-Manager-DSM7-0.4.1-0001-noauth-test.spk` through Package
 Center > Manual Install. Web Station and PHP 8.2 must be available. The
 application registers an alias portal at `/nzbmanager/` through Web Station.
 There is **no installation wizard, application password or login prompt**.
@@ -162,8 +166,9 @@ trusted local network using NAS firewall/reverse-proxy access controls; do not
 publish this password-free test instance to the internet.
 
 An earlier SPK was installed and its PHP profile tested on the development NAS.
-The latest 0.4.0 test SPK includes the modules, CLI worker and PHP zip
-configuration, but its installation and archive/PAR2 execution on a NAS
+The latest 0.4.1 test SPK includes the native PAR2 verifier, secure folder
+picker, CLI worker, modules and PHP zip configuration, but its installation
+and real-world PAR2 verification on a NAS
 have not yet been certified. The application remains an early alpha,
 not a production-ready release. See docs/DSM7-PACKAGING.md.
 
@@ -173,7 +178,9 @@ The historical application also had torrent uploads, continuous folder
 monitoring, PAR2 repair, archive unpacking and filesystem operations to
 rename/merge/move downloaded content. **Selected capabilities** are now
 available as separate modules: bounded ZIP extraction, controlled file
-renames/moves and a PAR2 CLI job queue. Full RAR/7z/TAR extraction, payload
+renames/moves, native PHP PAR2 checksum verification and a PAR2 CLI job
+queue. Native PAR2 error recovery is not yet implemented. Full RAR/7z/TAR
+extraction, payload
 merging, batch file operations and automatic PAR2 worker scheduling are
 **not yet implemented**. Bounded manual NZB-folder importing and
 monitored-folder NZB output are also implemented. Optional Download Station submission has a mocked API-tested

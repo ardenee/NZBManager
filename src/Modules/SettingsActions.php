@@ -29,6 +29,13 @@ final class SettingsActions
                     }
                     $values[$key] = $value;
                 }
+                foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
+                {
+                    if ($values[$field] !== '')
+                    {
+                        FolderBrowser::validateSelection($values[$field], $field);
+                    }
+                }
                 AppSettings::save($values);
                 unset($_SESSION['binsearch_search']);
                 \message('Settings saved.');

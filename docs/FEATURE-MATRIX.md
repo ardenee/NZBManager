@@ -13,7 +13,7 @@ with temporary records removed afterward. Other NAS devices remain untested.
 | Global sorting/search/pagination | Library | **Working** | Sorts whole library before page slicing |
 | Inspect file metadata and segments | Inspector | **Working** | External DTD references disabled |
 | Missing/repeated/invalid segment warnings | Inspector | **Working** | Cannot always know absent final segments |
-| Segment viewer with add/edit/delete | Inspector | **Working** | Saves revised NZB; Add offers gaps or next sequential number |
+| Segment viewer with add/edit/delete | Inspector | **Working** | Saves revised NZB; Add offers gaps or next sequential number; Article bytes are raw integers |
 | Segment and file entry sorting/pagination | Inspector | **Working** | Sorts full list before page slicing |
 | Selective NZB entry export | Inspector | **Working** | Never fetches Usenet article payloads |
 | Search Binsearch.info and create NZBs | Binsearch | **Working, live tested** | Scrapes public HTML; max 25 selected results per page |
@@ -24,13 +24,13 @@ with temporary records removed afterward. Other NAS devices remain untested.
 | Sort Newznab results | Indexer | **Implemented** | Sorts retrieved results in browser |
 | Push To public HTTPS upload | Push To | **Implemented, unit-tested** | Custom parameters, 1–25 NZBs; public TLS destinations only |
 | Push To monitored NZB folder | Push To | **Working on DEV** | Atomic copy, no overwrite; NAS share permission tests pending |
-| Settings page size/folder controls | Settings | **Implemented** | Private on-disk settings |
+| Settings page size/folder controls | Settings | **Implemented, DSM-tested** | Directory-only picker, PHP account permission checks and inaccessible-folder errors |
 | Optional DSM Download Station API | Download Station | **Mock-tested, optional** | Disabled without API; live task submission pending |
 | DSM 7 package and original icons | Packaging | **Built; earlier revision tested on NAS** | 0.4.0-0001 includes CLI worker and PHP ZIP profile; new SPK install still pending |
 | Torrent uploads | Import | Not ported | Historical feature |
 | PAR2 set browser and packet inspection | PAR2 Repair | **Working, DEV-tested** | Recognizes PAR2 packet headers in approved workspace |
-| PAR2 verification job queue/CLI worker | PAR2 Repair | **Worker lifecycle DEV-tested** | Requires compatible par2cmdline and scheduled worker; live NAS parity not verified |
-| PAR2 repair of downloaded payloads | PAR2 Repair | **Opt-in CLI worker, not live-certified** | Off by default; par2cmdline and worker are external prerequisites |
+| Native PHP PAR2 verification job queue/worker | PAR2 Repair | **Working with conformant fixtures** | Main/FileDesc/IFSC, MD5+CRC32 file/slice verification; CLI worker required; no par2cmdline for verify |
+| PAR2 repair of downloaded payloads | PAR2 Repair | **Opt-in external-only; not live-certified** | Reed–Solomon recovery not yet implemented in PHP; par2cmdline and worker required |
 | ZIP preview and bounded extraction | Archive Extraction | **Working, DEV-tested** | Max 250 entries, 32 MiB archive/64 MiB output; safe new folder only |
 | RAR/7z/TAR archive extraction | Archive Extraction | **Recognized; not extracted** | Separate safe adapters needed |
 | Workspace file preview, rename/move and create subfolder | File Organizer | **Working, DEV-tested** | Approved workspace only, preview/confirm, no overwrite |
@@ -39,13 +39,15 @@ with temporary records removed afterward. Other NAS devices remain untested.
 
 ## Test coverage
 
-- 196 PHP assertions on DEV
+- 222 PHP assertions on DEV (native PAR2 fixtures, folder picker and permissions included)
 - HTTP smoke tests on DEV
 - DSM HTTP: upload, duplicate suppression, view segments, add missing segment,
   produce revised NZB and remove both temporary records
 - DSM HTTP: add a temporary Newznab provider, confirm search form is usable,
   remove the provider
 - Live Binsearch page-2 navigation
+- DSM HTTP: directory picker has three controls, a volume/folder listing,
+  safe-path rejection and CSRF checking; raw segment bytes verified
 - Working DSM PHP 8.2 profile confirmed on the test NAS
 
 ## Outstanding release gates

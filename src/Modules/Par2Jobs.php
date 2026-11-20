@@ -114,9 +114,9 @@ final class Par2Jobs
         {
             throw new RuntimeException('PAR2 repair is disabled. Enable it only on an access-controlled installation.');
         }
-        if (self::binary() === null)
+        if ($mode === 'repair' && self::binary() === null)
         {
-            throw new RuntimeException('Install par2cmdline and configure NZB_PAR2_BINARY before queueing PAR2 operations.');
+            throw new RuntimeException('Install par2cmdline before queueing a repair. Native PHP verification needs no executable.');
         }
         $details = self::inspect($work, $relative);
         $pending = 0;
@@ -203,11 +203,6 @@ final class Par2Jobs
         {
             throw new RuntimeException('PAR2 worker cannot run from an HTTP request.');
         }
-        $binary = self::binary();
-        if ($binary === null)
-        {
-            throw new RuntimeException('No par2cmdline executable installed.');
-        }
         $lock = fopen(self::dir() . '/.worker.lock', 'c');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB))
         {
@@ -237,10 +232,33 @@ final class Par2Jobs
                     {
                         throw new RuntimeException('PAR2 file changed after queueing.');
                     }
-                    $filename = $work->resolve((string) $job['relative'], 'file');
-                    [$exit, $output] = self::runCommand($binary, $job['mode'] === 'repair' ? 'r' : 'v', $filename);
-                    $job['status'] = $exit === 0 ? 'completed' : 'failed';
-                    $job['message'] = $output === '' ? 'par2 exit status ' . $exit : $output;
+                    if (($job['mode'] ?? '') === 'verify')
+                    {
+                        $result = Par2Reader::verify($work, (string) $job['relative']);
+                        $errors = [];
+                        foreach ($result['files'] as $entry)
+                        {
+                            if ($entry['status'] !== 'verified')
+                            {
+                                $errors[] = $entry['name'] . ': ' . $entry['status'];
+                            }
+                        }
+                        $job['status'] = $errors === [] ? 'completed' : 'failed';
+                        $job['message'] = 'Native PHP PAR2: ' . count($result['files']) . ' protected file(s), ' .
+                            count($errors) . ' problem(s). ' . implode('; ', array_slice($errors, 0, 8));
+                    }
+                    else
+                    {
+                        $binary = self::binary();
+                        if ($binary === null)
+                        {
+                            throw new RuntimeException('PAR2 repair requires a configured par2cmdline executable.');
+                        }
+                        $filename = $work->resolve((string) $job['relative'], 'file');
+                        [$exit, $output] = self::runCommand($binary, 'r', $filename);
+                        $job['status'] = $exit === 0 ? 'completed' : 'failed';
+                        $job['message'] = $output === '' ? 'par2 exit status ' . $exit : $output;
+                    }
                 }
                 catch (\Throwable $error)
                 {

@@ -33,6 +33,10 @@
 | src/Modules/PushToActions.php | Restricted HTTPS NZB upload and monitored-folder copy |
 | src/Modules/FolderImportActions.php | Bounded, duplicate-aware NZB folder scan |
 | src/Modules/SegmentActions.php | Safe add/edit/delete into a revised NZB |
+| src/Modules/FolderBrowser.php | Folder-only DSM volume/share navigation and PHP access checks |
+| src/Modules/Par2Reader.php | Native PAR2 2.0 packet, file hash and slice checksum verifier |
+| src/Modules/Par2Jobs.php | Private PAR2 job queue and CLI-only verification/repair dispatch |
+| bin/par2-worker.php | Standalone PHP CLI job runner outside public/ |
 | src/Indexers/NewznabClient.php | HTTPS-only Newznab search/get, XML parsing and network limits |
 | src/Indexers/ProviderCatalog.php | Shared Newznab provider presets, including special API paths |
 | src/Indexers/IndexerConnections.php | Multi-indexer server settings and public name-only listing |
@@ -86,10 +90,11 @@ execution of uploaded modules is deliberately prohibited.
 - File organization: a bounded workspace browser, file rename/move preview,
   explicit confirmation and no-overwrite hard-link moves are implemented;
   batch operations, payload merges and persistent audit records are pending.
-- PAR2: private queue and CLI-only worker with fixed executable allowlist,
-  argv-based launch (not concatenated shell commands), time limit and bounded
-  logs. Requires external par2cmdline and CLI scheduler; live DSM repair
-  certification remains outstanding.
+- PAR2: a pure PHP verifier handles bounded 2.0 Main, FileDesc and IFSC
+  packets, packet MD5 checks, protected-file MD5 and per-slice MD5/CRC-32.
+  The CLI-only job worker needs no executable for verification. Full
+  Reed–Solomon repair still requires a separately installed par2cmdline and
+  administrator opt-in; real DSM parity certification remains outstanding.
 - Archives: bounded ZIP streaming extraction with traversal and symlink
   prevention; solid, encrypted, RAR, 7z and TAR adapters remain pending.
 - Settings: validated deployment configuration and integration settings,

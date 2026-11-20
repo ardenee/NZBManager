@@ -32,7 +32,7 @@ not expose the password-free test package to the public internet.
 - HTTPS is recommended even on the local network
 
 The Web Station service uses nginx_php and PHP profile backend ID **11** for
-PHP 8.2. The 0.4.0-0001 SPK also includes the ZIP PHP extension, module
+PHP 8.2. The 0.4.1-0001 SPK also includes the ZIP PHP extension, module
 workspace access to /volume1–/volume4 and the CLI-only PAR2 worker inside
 webapp/bin. The worker requires a separate DSM scheduler and par2cmdline.
 This revision has not yet been installed/validated on a real NAS. Version 0.3.0-0001 also grants the PHP profile open_basedir access
@@ -65,7 +65,7 @@ From the repository root:
 
 Output:
 
-    dist/NZB-Manager-DSM7-0.4.0-0001-noauth-test.spk
+    dist/NZB-Manager-DSM7-0.4.1-0001-noauth-test.spk
 
 The builder validates the resource configuration, PHP profile, privilege
 policy, icons, lifecycle scripts, absence of an installation wizard, and

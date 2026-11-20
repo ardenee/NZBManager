@@ -8,18 +8,26 @@ configured workspace, not on the contents of the NZB XML files.
 ## Configure the workspace
 
 1. Open Settings > Display and folders.
-2. Set **Downloaded-files workspace** to an existing shared folder such as
-   /volume1/downloads. Avoid system, user-home and web application folders.
-3. Save. The modules now display the contents of the chosen folder.
-4. Ensure the NZB Manager PHP-FPM execution user has the appropriate filesystem
-   read and/or write permissions from DSM Shared Folder permissions/ACLs.
-5. The PHP Web Station open_basedir profile must also allow the volume. The
-   DSM 0.4.0-0001 SPK declares volumes 1–4; installing it does not grant ACL
-   access to arbitrary DSM shares.
+2. Click **Browse folders** next to the downloaded-files workspace, folder
+   import or monitored Push To destination. The directory-only picker lists
+   eligible DSM volumes and shares, excluding system, home and web shares.
+3. Navigate the shared folders. Read/traverse and read/write availability
+   are checked using the PHP-FPM execution account. Inaccessible directories
+   show a permission warning; write access is mandatory for monitored Push To.
+4. Select an accessible existing folder, for example /volume1/downloads.
+   Save Settings. Every configured path is rechecked on page load and before
+   saving; invalid paths are not silently accepted.
+5. If access is denied, update the NZB Manager PHP service account's DSM
+   Shared Folder permissions/ACLs. PHP open_basedir must also include the
+   volume. The 0.4.1-0001 SPK declares volumes 1–4; installing it does not
+   grant filesystem privileges or expand the currently registered PHP profile
+   until the service is re-registered.
 
 The configured path is stored outside the public web root. User requests
 cannot select arbitrary absolute paths, traverse outside the workspace or
-follow symbolic links. At most 300 entries are listed per folder request, and
+follow symbolic links. Web Station web and web_packages shares and DSM home
+shares are prohibited as downloaded-files workspaces, to prevent extraction
+of executable files under public web roots. At most 300 entries are listed per folder request, and
 folder traversal is limited to eight directory levels.
 
 **No application login:** Any person who can open NZB Manager over the network
@@ -61,40 +69,54 @@ are not extracted in this release. Large/solid or encrypted archives require
 a separate bounded background extraction service; none is claimed here.
 No archive content is executed.
 
-## PAR2 Repair
+## PAR2 verification and repair
 
-- Browse workspace folders for .par2 recovery index files.
-- Read the standard PAR2 packet header and show recovery-set identifiers.
-- Queue a verification request only when the **par2cmdline** executable
-  is detected. PAR2 jobs are saved in package-private JSON files.
-- A **separate CLI worker** runs up to five queued jobs per invocation. It
-  invokes a fixed, administrator-selected executable with an argument array,
-  without building a shell command from web request text.
-- Each job has a 90-second worker limit and bounded captured log output.
-- PAR2 repair is **disabled by default**. An administrator who accepts
-  the risk of modifying downloaded payloads must explicitly set
-  NZB_PAR2_REPAIR_ENABLED=1 for both the web service and worker environments.
+PAR2 2.0 **verification is implemented entirely in native PHP**. It is
+implemented in src/Modules/Par2Reader.php using the published Parchive 2.0
+specification:
+https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
 
-The CLI worker script is included inside the package at:
+- Parse the 64-byte packet header and validate the MD5 of each packet.
+- Decode Main, FileDesc and IFSC metadata from bounded little-endian fields.
+- Check matching recovery-set identifiers, protected filenames and file sizes.
+- Compare the protected file's full and first-16-KiB MD5 hashes and, when
+  IFSC packets are available, each slice's MD5/CRC-32 (with final zero padding).
+- Report verified, damaged or missing protected files. Verification NEVER
+  overwrites or repairs files.
+- The current native verifier limits individual PAR2 files to 256 MiB,
+  protected data to 256 MiB, one protected file to 128 MiB, and a set to
+  128 files and 5,000 PAR2 packets. Unsupported large/packed/partial sets
+  must be handled by a more complete verifier.
+
+**No par2cmdline executable is needed for native PHP verification.**
+However, verification is still a potentially slow workload, so the web
+interface queues it for a separate **PHP CLI worker**, not an HTTP request.
+Both valid and damaged checksums were tested with synthetic specification-
+conformant packet fixtures; real-world PAR2 sets still need certification.
+
+**Repair is not yet native PHP.** Reconstructing damaged slices requires
+Reed–Solomon calculations over GF(2^16), recovery-block selection, matrix
+inversion and writeback verification. Until that separate implementation is
+tested, recovery remains an optional, external par2cmdline operation. It is
+**disabled by default**. Enabling repair requires a trusted par2cmdline
+executable and NZB_PAR2_REPAIR_ENABLED=1 in the web and worker environments.
+No executable may be selected by ordinary website visitors.
+
+PAR2 job records live in package-private JSON storage. The worker is included
+inside the SPK at:
 
     /var/packages/nzbmanager/target/webapp/bin/par2-worker.php
 
-It must be run periodically with the PHP CLI using **DSM Task Scheduler** or
-cron. Locate the installed PHP 8.2 CLI binary on the NAS; do not assume the
-Windows DEV PHP path exists on DSM. For illustration, a scheduled command
-may have this shape (replace <php82-cli> with the actual executable):
+Run the worker periodically using DSM Task Scheduler or Linux cron with
+the installed PHP CLI, for example (replace the placeholder):
 
     <php82-cli> /var/packages/nzbmanager/target/webapp/bin/par2-worker.php
 
-The default PAR2 executable search covers /opt/bin/par2, /usr/bin/par2,
-and /usr/local/bin/par2. Another executable location can be supplied through
-the trusted NZB_PAR2_BINARY server environment. Do not configure
-user-supplied executables in the web interface.
-
-**Limitations:** No PAR2 executable is bundled with the SPK. Verification and
-repair cannot run until par2cmdline and the CLI worker are installed/scheduled.
-The worker and a real PAR2 repair were not exercised on an actual NAS during
-the first module implementation.
+Only for **repair**, a compatible executable is discovered at /opt/bin/par2,
+/usr/bin/par2 or /usr/local/bin/par2, or via NZB_PAR2_BINARY in the trusted
+worker environment. The external command is executed with a fixed argument
+array and a 90-second job limit; user input is never concatenated into a shell
+command. A full native PHP Reed–Solomon repairer remains future work.
 
 ## Storage and MySQL
 

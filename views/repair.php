@@ -1,6 +1,6 @@
 <section class="page-header">
     <div><div class="eyebrow">DOWNLOADS WORKSPACE</div><h1>PAR2 Repair</h1>
-        <p>Find PAR2 sets and queue verification or explicitly enabled repair through the separate CLI worker.</p>
+        <p>Verify PAR2 recovery sets natively in PHP, or queue explicitly enabled external repair jobs through a separate CLI worker.</p>
     </div><a class="button secondary" href="index.php?module=settings">Configure workspace</a>
 </section>
 <?php
@@ -24,13 +24,13 @@ $par2RepairAllowed = \NZB\Modules\Par2Jobs::repairEnabled();
 ?>
 <section class="panel">
     <div class="panel-heading">
-        <div><h2>PAR2 execution</h2><p>Verification and repair run outside PHP-FPM. Queue processing must be configured through the DSM Task Scheduler or a Linux cron job.</p></div>
-        <span class="chip"><?= $par2Binary === null ? 'par2cmdline not detected' : 'par2cmdline detected' ?></span>
+        <div><h2>PAR2 execution</h2><p>Verification uses the native PHP PAR2 packet and file checksum reader. Full Reed–Solomon recovery still uses an external tool. Both run in a separate CLI worker.</p></div>
+        <span class="chip"><?= $par2Binary === null ? 'Native PHP verify · repair unavailable' : 'Native PHP verify · external repair ready' ?></span>
     </div>
     <div class="configuration-help">
         <p><?= $par2Binary === null
-            ? 'Install a compatible par2cmdline executable at /opt/bin/par2 or /usr/bin/par2, or configure NZB_PAR2_BINARY in the worker environment.'
-            : 'Executable: ' . escape($par2Binary) . '. Verification jobs may be queued.' ?></p>
+            ? 'Native PHP verification requires no executable. Repair requires a compatible par2cmdline at /opt/bin/par2 or /usr/bin/par2, or NZB_PAR2_BINARY.'
+            : 'External repair executable: ' . escape($par2Binary) . '. Native PHP verification works independently.' ?></p>
         <p><?= $par2RepairAllowed
             ? 'Repair is explicitly enabled by the administrator; it can change downloaded payload files.'
             : 'Repair is deliberately disabled by default because this DSM web application does not have an application login. Set NZB_PAR2_REPAIR_ENABLED=1 in the trusted worker environment to permit repair.' ?></p>
@@ -76,7 +76,7 @@ $par2RepairAllowed = \NZB\Modules\Par2Jobs::repairEnabled();
                 <form class="inline-form" method="post" action="index.php?module=repair">
                     <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                     <input type="hidden" name="par2_file" value="<?= escape($item['relative']) ?>">
-                    <button type="submit" class="button secondary" name="action" value="par2_verify" <?= $par2Binary === null ? 'disabled' : '' ?>>Queue verify</button>
+                    <button type="submit" class="button secondary" name="action" value="par2_verify">Queue PHP verify</button>
                     <button type="submit" class="button subtle" name="action" value="par2_repair" <?= $par2Binary === null || !$par2RepairAllowed ? 'disabled' : '' ?> data-confirm="Queue PAR2 repair? The worker may modify downloaded files.">Queue repair</button>
                 </form>
             <?php endif; ?></td></tr>

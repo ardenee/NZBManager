@@ -74,6 +74,11 @@ final class AppSettings
                     {
                         throw new RuntimeException('Invalid folder import path.');
                     }
+                    if ($key === 'workspace_path' &&
+                        preg_match('~\A/volume[1-9][0-9]*/(?:web|web_packages|homes|home)(?:/|\z)~i', $path))
+                    {
+                        throw new RuntimeException('Downloaded-files workspace must not be inside a web-served or home share.');
+                    }
                     if (AppConfig::privateDir() !== null)
                     {
                         if (!preg_match('~\A/volume[1-9][0-9]*/[A-Za-z0-9_.() -]+(?:/[A-Za-z0-9_.() -]+)*\z~D', $path))

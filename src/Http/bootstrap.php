@@ -27,10 +27,12 @@ require dirname(__DIR__) . '/Modules/PushToActions.php';
 require dirname(__DIR__) . '/Modules/FolderImportActions.php';
 require dirname(__DIR__) . '/Modules/SegmentActions.php';
 require dirname(__DIR__) . '/Modules/WorkspaceFiles.php';
+require dirname(__DIR__) . '/Modules/FolderBrowser.php';
 require dirname(__DIR__) . '/Modules/FileOrganizerActions.php';
 require dirname(__DIR__) . '/Modules/ArchiveTools.php';
 require dirname(__DIR__) . '/Modules/ArchiveActions.php';
 require dirname(__DIR__) . '/Modules/Par2Jobs.php';
+require dirname(__DIR__) . '/Modules/Par2Reader.php';
 require dirname(__DIR__) . '/Modules/Par2Actions.php';
 
 
@@ -39,6 +41,30 @@ use NZB\NzbStorage;
 use NZB\WebSecurity;
 
 WebSecurity::initialize();
+if (isset($_POST['folder_browser']))
+{
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: private, no-store');
+    header('X-Content-Type-Options: nosniff');
+    try
+    {
+        $csrf = $_POST['_csrf'] ?? null;
+        $path = $_POST['path'] ?? '';
+        $field = $_POST['field'] ?? '';
+        if (!is_string($csrf) || !hash_equals(WebSecurity::csrf(), $csrf) ||
+            !is_string($path) || !is_string($field))
+        {
+            throw new RuntimeException('Invalid or expired folder picker session.');
+        }
+        echo json_encode(\NZB\Modules\FolderBrowser::browse($path, $field), JSON_THROW_ON_ERROR);
+    }
+    catch (Throwable $error)
+    {
+        http_response_code(422);
+        echo json_encode(['error' => $error->getMessage()], JSON_THROW_ON_ERROR);
+    }
+    exit;
+}
 $folder = \NZB\AppConfig::storageDir();
 try
 {

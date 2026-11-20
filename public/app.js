@@ -155,3 +155,110 @@ document.querySelectorAll("button[data-confirm]").forEach((button) => {
     if (!window.confirm(button.dataset.confirm)) event.preventDefault();
   });
 });
+
+/* DSM folder picker: directory-only, server-enforced bounds and PHP permission checks. */
+const folderDialog = document.getElementById("folder-picker");
+if (folderDialog) {
+  const list = folderDialog.querySelector("[data-folder-list]");
+  const currentLabel = folderDialog.querySelector("[data-folder-current]");
+  const up = folderDialog.querySelector("[data-folder-up]");
+  const choose = folderDialog.querySelector("[data-folder-select]");
+  const error = folderDialog.querySelector("[data-folder-error]");
+  const permission = folderDialog.querySelector("[data-folder-permissions]");
+  const token = document.querySelector("form.settings-form input[name='_csrf']")?.value || "";
+  const fields = {
+    workspace_path: document.getElementById("setting-workspace"),
+    folder_import_path: document.getElementById("setting-import-folder"),
+    push_folder_path: document.getElementById("setting-push-folder")
+  };
+  let target = null;
+  let current = null;
+  let sequence = 0;
+  const row = (entry) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "folder-picker-entry";
+    const name = document.createElement("strong");
+    name.textContent = entry.name;
+    const access = document.createElement("span");
+    access.textContent = !entry.traversable || !entry.readable
+      ? "No read/traverse permission"
+      : (entry.writable ? "Read / Write" : "Read only");
+    if (!entry.readable || !entry.traversable) access.className = "folder-picker-denied";
+    button.append(name, access);
+    button.addEventListener("click", () => browse(entry.path));
+    return button;
+  };
+  const browse = async (path) => {
+    const request = ++sequence;
+    error.hidden = true;
+    choose.disabled = true;
+    up.disabled = true;
+    up.dataset.fallbackParent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+    list.replaceChildren();
+    currentLabel.textContent = path || "Available volumes";
+    permission.textContent = "Checking access as the NZB Manager PHP service account…";
+    try {
+      const body = new URLSearchParams({ folder_browser: "1", path, field: target, _csrf: token });
+      const response = await fetch("index.php", { method: "POST", body, credentials: "same-origin", cache: "no-store" });
+      const data = await response.json();
+      if (request !== sequence) return;
+      if (!response.ok || data.error) throw new Error(data.error || "Directory list could not be loaded.");
+      current = data;
+      currentLabel.textContent = data.path || "Available volumes";
+      up.disabled = data.parent === null;
+      choose.disabled = !data.selectable;
+      data.entries.forEach((entry) => list.appendChild(row(entry)));
+      if (data.entries.length === 0) {
+        const note = document.createElement("p");
+        note.textContent = "No subfolders are visible to this PHP service account.";
+        list.appendChild(note);
+      }
+      const flags = data.path
+        ? (data.readable && data.traversable ? (data.writable ? "Read/write access" : "Read-only access") : "Permission denied")
+        : "Select a volume, then a shared folder";
+      const required = data.need === "write" ? "Write access is required for monitored-folder delivery." : "Read/traverse access is required.";
+      permission.textContent = flags + " · " + required;
+      if (data.path && !data.selectable && data.readable && data.traversable) {
+        error.textContent = data.need === "write"
+          ? "Permission denied: this folder is read-only for the NZB Manager PHP account."
+          : "Select a shared folder inside an available volume.";
+        error.hidden = false;
+      }
+    } catch (reason) {
+      if (request !== sequence) return;
+      current = null;
+      up.disabled = path === "";
+      error.textContent = reason instanceof Error ? reason.message : "Folder browsing failed.";
+      error.hidden = false;
+      permission.textContent = "Cannot verify folder permissions.";
+    }
+  };
+  document.querySelectorAll("[data-folder-pick]").forEach((button) => {
+    button.addEventListener("click", () => {
+      target = button.dataset.folderPick;
+      if (!fields[target]) return;
+      folderDialog.showModal();
+      browse(fields[target].value.trim() || "");
+    });
+  });
+  up.addEventListener("click", () => {
+    if (current && current.parent !== null && current.parent !== undefined) browse(current.parent);
+    else if (!current && !up.disabled) browse(up.dataset.fallbackParent || "");
+  });
+  choose.addEventListener("click", () => {
+    if (!current?.selectable || !fields[target]) return;
+    fields[target].value = current.path;
+    const label = document.querySelector("[data-permission-for='" + target + "']");
+    if (label) {
+      label.textContent = current.writable
+        ? "Permission check passed: PHP account can read and write this folder."
+        : "Permission check passed for browsing/import; this folder is read-only.";
+      label.classList.remove("folder-permission-denied");
+    }
+    folderDialog.close();
+  });
+  folderDialog.querySelectorAll("[data-folder-close]").forEach((button) => {
+    button.addEventListener("click", () => folderDialog.close());
+  });
+}
