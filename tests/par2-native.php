@@ -118,7 +118,31 @@ try
         ($damagedRecords[0]['verification']['damaged_files'] ?? 0) === 1 &&
         str_contains($damagedRecords[0]['message'], 'Repair required'),
         'Finished PAR2 verification reports Failed and Repair required when any protected file is damaged');
+    $autoRepair = \NZB\Modules\BackgroundJobs::repairFromVerify($damagedJob, $work);
+    check(preg_match('/\A[a-f0-9]{32}\z/D', $autoRepair) === 1 &&
+        $autoRepair !== $damagedJob,
+        'Failed PAR2 verification can securely queue a separate Repair job using the original set');
+    \NZB\Modules\BackgroundJobs::run($autoRepair);
+    $repairRecords = array_values(array_filter(Par2Jobs::all(),
+        static fn (array $item): bool => $item['id'] === $autoRepair));
+    check(count($repairRecords) === 1 &&
+        $repairRecords[0]['status'] === 'completed' &&
+        file_get_contents($par2TestRoot . '/payload.dat') === $contents &&
+        file_get_contents($par2TestRoot . '/payload.dat.damaged') === 'ABCDXFGHIJ',
+        'Repair button job reconstructs the corrupted slice and preserves the damaged original');
+    $noOpRepair = \NZB\Modules\BackgroundJobs::repairFromVerify($damagedJob, $work);
+    \NZB\Modules\BackgroundJobs::run($noOpRepair);
+    $noOpRecords = array_values(array_filter(Par2Jobs::all(),
+        static fn (array $item): bool => $item['id'] === $noOpRepair));
+    check(count($noOpRecords) === 1 && $noOpRecords[0]['status'] === 'completed' &&
+        str_contains($noOpRecords[0]['message'], 'No repair needed') &&
+        file_get_contents($par2TestRoot . '/payload.dat') === $contents &&
+        file_get_contents($par2TestRoot . '/payload.dat.damaged') === 'ABCDXFGHIJ',
+        'A stale failed Verify result never renames or overwrites an already-repaired healthy file');
+    \NZB\Modules\BackgroundJobs::forget($autoRepair, 'par2');
+    \NZB\Modules\BackgroundJobs::forget($noOpRepair, 'par2');
     \NZB\Modules\BackgroundJobs::forget($damagedJob, 'par2');
+    unlink($par2TestRoot . '/payload.dat.damaged');
     file_put_contents($par2TestRoot . '/payload.dat', $contents);
 
     $queued = Par2Jobs::submit($work, 'valid.par2', 'verify');
@@ -132,6 +156,8 @@ try
             str_contains($jobs[0]['message'], '1 recovery volume(s) / 1 recovery slice(s) checksum-validated') &&
             ($jobs[0]['verification']['checked_slices'] ?? null) === 3,
             'Native PHP verification records a verified result in private job metadata');
+        expectFailure(static fn () => \NZB\Modules\BackgroundJobs::repairFromVerify($queued, $work),
+            'Healthy completed PAR2 verification cannot be converted into an unnecessary Repair job');
         check(Par2Jobs::runOne() === false, 'Native verifier does not rerun completed job');
         expectFailure(static fn () => \NZB\Modules\BackgroundJobs::rerun($queued, 'archive_extract', $work),
             'PAR2 job cannot be rerun from Archive Extraction');
@@ -162,6 +188,8 @@ try
     check(count($launchFailed) === 1 && $launchFailed[0]['status'] === 'failed' &&
         str_contains($launchFailed[0]['message'], 'simulated unavailable PHP CLI'),
         'Failed PHP worker launch becomes terminal instead of clogging the active-job queue');
+    expectFailure(static fn () => \NZB\Modules\BackgroundJobs::repairFromVerify($launchJob, $work),
+        'Generic worker launch failure cannot incorrectly offer protected-file PAR2 repair');
     unlink($par2TestRoot . '/' . $name);
     $missing = Par2Reader::verify($work, 'valid.par2');
     check($missing['files'][0]['status'] === 'missing', 'Native PHP PAR2 reports missing protected file');

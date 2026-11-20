@@ -97,7 +97,7 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
   in 64 KiB chunks; independent GF16 equations are solved over 64 KiB windows
   and patched into private staged files. Staged file MD5s are checked before
   atomic no-overwrite publication. Output requires free disk space.
-- **Remaining algorithmic bounds:** 128 missing/damaged slices per job, 1024
+- **Remaining algorithmic bounds:** 128 missing/damaged **source-data** slices per repair job, 1024
   recoverable input files, 3000 discovered recovery volumes and 32,768 input
   slices (the PAR2 2.0 format limit). Large jobs can be CPU intensive; actual
   multi-gigabyte recovery is **not yet certified**.
@@ -106,6 +106,16 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
   repair finds the originals verified and produces no duplicate outputs.
   Rerunning ZIP creates another numbered extraction directory, preserving
   prior extracted data. An encrypted ZIP rerun may use a new password.
+- When a PAR2 Verify job finishes with confirmed missing or damaged protected
+  data, the monitor displays an immediate **Repair** button. This references
+  the failed verification job ID (not a client-supplied filename), validates
+  that it is a failed integrity check, then queues a separate PHP-only repair
+  worker. The repair independently checks current source slices; if they now
+  verify, it creates no .damaged copy or replacement. Generic worker failures
+  and successful verifications cannot trigger this shortcut. Available
+  *recovery* slices must be at least as numerous and independent as the
+  missing/damaged *original* slices; the current 128-damaged-slice limit
+  is a PHP solver safeguard rather than a PAR2 format limit.
 
 ### Verification performed
 

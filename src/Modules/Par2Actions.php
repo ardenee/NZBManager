@@ -56,6 +56,26 @@ final class Par2Actions
                     \message('PAR2 rerun started in a new PHP background job: ' . $newId . '.');
                 }
             }
+            elseif ($action === 'par2_repair_from_verify')
+            {
+                $jobId = $_POST['job_id'] ?? null;
+                if (!is_string($jobId))
+                {
+                    throw new RuntimeException('Select a failed PAR2 Verify job to repair.');
+                }
+                $newId = BackgroundJobs::repairFromVerify($jobId, WorkspaceFiles::fromSettings());
+                try
+                {
+                    BackgroundJobs::start($newId);
+                }
+                catch (Throwable $launchError)
+                {
+                    BackgroundJobs::failLaunch($newId, $launchError->getMessage());
+                    throw $launchError;
+                }
+                \message('Native PHP repair started from failed verification: ' . $newId .
+                    '. Protected files will be checked again before any changes.');
+            }
             elseif ($action === 'par2_verify' || $action === 'par2_repair')
             {
                 $relative = $_POST['par2_file'] ?? null;

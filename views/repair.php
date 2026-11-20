@@ -29,7 +29,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
     </div>
     <div class="configuration-help">
         <p>Verify checksums without changing downloaded files, or select Repair to reconstruct missing or damaged slices. Verified files take their exact original names for Archive Extraction. Existing damaged files are preserved as <code>filename.ext.damaged</code>; a pre-existing <code>.damaged</code> backup blocks publication rather than being overwritten.</p>
-        <p>Large files are handled in fixed 64 KiB stream windows with no 64 MiB total-data cap. Current safeguards allow up to 128 missing/damaged slices, 32,768 input slices and 3000 recovery volumes. Large repairs may take substantial CPU time and temporary disk space.</p>
+        <p>Large files are handled in fixed 64 KiB stream windows with no 64 MiB total-data cap. A repair can reconstruct up to the number of independent recovery slices available, subject to the current PHP solver limit of 128 missing/damaged original-data slices per job. For example, 39 recovery slices can reconstruct at most 39 damaged data slices, not 128. PAR2 2.0 permits 32,768 input slices; discovery allows up to 3000 recovery volumes. Large repairs may take substantial CPU time and temporary disk space.</p>
         <p>The job monitor updates automatically while the independent PHP CLI worker runs. Cancellation never deliberately deletes successfully published repairs or their <code>.damaged</code> backups.</p>
     </div>
 </section>
@@ -148,6 +148,14 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
                 </form>
             <?php else: ?>
                 <div class="job-actions">
+                    <?php if ($isVerify && ($job['status'] ?? '') === 'failed' && $hasDamage): ?>
+                    <form method="post" action="index.php?module=repair&amp;folder=<?= escape(rawurlencode($par2Folder)) ?>" data-confirm="Start native PHP PAR2 Repair for this failed verification? The repair worker will check all protected slices again. Files that now verify will be left unchanged; damaged originals are saved as .damaged.">
+                        <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+                        <input type="hidden" name="action" value="par2_repair_from_verify">
+                        <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
+                        <button type="submit" class="button primary">Repair</button>
+                    </form>
+                    <?php endif; ?>
                     <form method="post" action="index.php?module=repair&amp;folder=<?= escape(rawurlencode($par2Folder)) ?>" data-confirm="Rerun this job using the original input? Previous results will be preserved.">
                         <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                         <input type="hidden" name="action" value="par2_rerun">

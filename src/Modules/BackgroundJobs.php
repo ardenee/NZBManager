@@ -322,6 +322,29 @@ final class BackgroundJobs
         return self::queue($type, $work, $relative, $password);
     }
 
+    /**
+     * Promote only a completed integrity-failed PAR2 Verify job into Repair.
+     * The worker independently rechecks all source slices before modifying any
+     * filenames; if they now verify, no .damaged backup is produced.
+     */
+    public static function repairFromVerify(string $id, WorkspaceFiles $work): string
+    {
+        $job = self::read($id);
+        if (($job['type'] ?? '') !== 'par2_verify' ||
+            ($job['status'] ?? '') !== 'failed' ||
+            !is_array($job['verification'] ?? null) ||
+            (int) ($job['verification']['damaged_files'] ?? 0) < 1)
+        {
+            throw new RuntimeException('Repair is available only after a PAR2 Verify job detects missing or damaged files.');
+        }
+        $relative = $job['relative'] ?? null;
+        if (!is_string($relative))
+        {
+            throw new RuntimeException('The failed verification job has no original PAR2 input.');
+        }
+        return self::queue('par2_repair', $work, $relative);
+    }
+
     private static function assertCategory(array $job, string $category): void
     {
         $type = $job['type'] ?? '';
@@ -449,8 +472,10 @@ final class BackgroundJobs
                 {
                     $result = Par2Recovery::repair($work, $record['relative'], $report);
                     $record['outputs'] = $result['outputs'];
-                    $record['message'] = 'Reconstructed ' . $result['recovered'] . ' slice(s); ' .
-                        count($result['outputs']) . ' original filename(s) restored; damaged copies preserved as .damaged';
+                    $record['message'] = $result['recovered'] === 0
+                        ? 'No repair needed — protected files verify; original files were not renamed or modified.'
+                        : 'Reconstructed ' . $result['recovered'] . ' slice(s); ' .
+                            count($result['outputs']) . ' original filename(s) restored; damaged copies preserved as .damaged';
                 }
                 elseif ($record['type'] === 'par2_verify')
                 {

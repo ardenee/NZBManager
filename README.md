@@ -52,7 +52,13 @@ are not yet certified.
   File and recovery data are streamed in 64 KiB windows with no 64 MiB data
   ceiling or 1 MiB slice restriction. PAR2 2.0 input slices are limited by
   the format to 32,768; this PHP implementation currently solves up to 128
-  missing/damaged slices per job. Large jobs can be CPU- and disk-intensive.
+  missing/damaged source-data slices per job. Recoverability also requires at
+  least the same number of independent recovery slices (e.g. 39 available
+  recovery slices can rebuild at most 39 damaged input slices). Failed Verify
+  jobs with confirmed damaged/missing files now offer a Repair button that
+  starts a separate PHP job; the worker rechecks current files before modifying
+  them, so a stale Verify failure cannot unnecessarily rename a healthy file.
+  Large jobs can be CPU- and disk-intensive.
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result

@@ -406,6 +406,12 @@ document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
                 });
                 return form;
               };
+              if (category === "par2" && job.type === "par2_verify" &&
+                  job.status === "failed" && Number(job.verification?.damaged_files || 0) > 0) {
+                actions.append(actionForm("repair_from_verify", "Repair",
+                  "Start native PHP PAR2 Repair? The worker rechecks every protected slice and does not rename files that now verify.",
+                  "primary"));
+              }
               actions.append(
                 actionForm("rerun", "Rerun", "Rerun this job? Existing output files will be preserved.", "secondary"),
                 actionForm("forget", "Remove", "Remove this finished job from history? Output files will be preserved.", "subtle")

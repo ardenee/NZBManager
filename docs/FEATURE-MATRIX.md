@@ -40,7 +40,7 @@ has newer source than the last published SPK; no package is being built now.
 
 ## Tests and live checks
 
-- **385 PHP assertions on DEV**, covering metadata, parity, workspace
+- **391 PHP assertions on DEV**, covering metadata, parity, workspace
   protection, 68 MiB standard / 300 MiB stress PAR2 reconstruction, 5 GiB metadata, managed
   folders, asynchronous ZIP jobs, Download Station mock API contracts, etc.
 - DEV HTTP smoke tests for indexer/security/asset-cache routes.
