@@ -17,6 +17,9 @@ require dirname(__DIR__) . '/src/AppSettings.php';
 require dirname(__DIR__) . '/src/Modules/WorkspaceFiles.php';
 require dirname(__DIR__) . '/src/Modules/Par2Jobs.php';
 require dirname(__DIR__) . '/src/Modules/Par2Reader.php';
+require dirname(__DIR__) . '/src/Modules/Par2Galois.php';
+require dirname(__DIR__) . '/src/Modules/Par2Recovery.php';
+require dirname(__DIR__) . '/src/Modules/BackgroundJobs.php';
 
 try
 {

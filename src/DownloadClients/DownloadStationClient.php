@@ -51,7 +51,12 @@ final class DownloadStationClient
         $url = trim((string) (getenv('NZB_DSM_URL') ?: ''));
         $user = (string) (getenv('NZB_DSM_USER') ?: '');
         $password = (string) (getenv('NZB_DSM_PASSWORD') ?: '');
-        return $url !== '' && $user !== '' && $password !== '' ? new self($url, $user, $password) : null;
+        if ($url !== '' && $user !== '' && $password !== '')
+        {
+            return new self($url, $user, $password);
+        }
+        $saved = DownloadStationSettings::credentials();
+        return $saved !== null ? new self($saved['url'], $saved['user'], $saved['password']) : null;
     }
 
     /** @return array{path:string,version:int,auth_path:string,auth_version:int}|null */
@@ -165,6 +170,109 @@ final class DownloadStationClient
                 // An optional logout error must not conceal a task result.
             }
         }
+    }
+
+    /**
+     * Authenticate, run an API operation, and always invalidate the scoped SID.
+     * @template T
+     * @param callable(array,int,string):T $operation
+     * @return T
+     */
+    private function withSession(callable $operation): mixed
+    {
+        $cap = $this->discover();
+        if ($cap === null)
+        {
+            throw new RuntimeException('Synology Download Station task API is not installed.');
+        }
+        $login = $this->request('POST', $cap['auth_path'], [
+            'api' => 'SYNO.API.Auth', 'version' => (string) $cap['auth_version'],
+            'method' => 'login', 'account' => $this->user, 'passwd' => $this->password,
+            'session' => 'DownloadStation', 'format' => 'sid'
+        ]);
+        $sid = $login['data']['sid'] ?? null;
+        if (!($login['success'] ?? false) || !is_string($sid) ||
+            !preg_match('/\A[A-Za-z0-9_-]{8,256}\z/D', $sid))
+        {
+            throw new RuntimeException('Download Station authentication rejected the configured account.');
+        }
+        try
+        {
+            return $operation($cap, $cap['version'], $sid);
+        }
+        finally
+        {
+            try
+            {
+                $this->request('POST', $cap['auth_path'], [
+                    'api' => 'SYNO.API.Auth', 'version' => (string) $cap['auth_version'],
+                    'method' => 'logout', 'session' => 'DownloadStation', '_sid' => $sid
+                ]);
+            }
+            catch (\Throwable)
+            {
+                // Never hide the original task response.
+            }
+        }
+    }
+
+    /** @return list<array{id:string,title:string,status:string,type:string,size:int,progress:int}> */
+    public function taskList(): array
+    {
+        return $this->withSession(function (array $cap, int $version, string $sid): array {
+            $response = $this->request('GET', $cap['path'], [
+                'api' => 'SYNO.DownloadStation.Task', 'version' => (string) $version,
+                'method' => 'list', '_sid' => $sid, 'offset' => '0',
+                'limit' => '50', 'additional' => 'transfer'
+            ]);
+            if (!($response['success'] ?? false) || !is_array($response['data']['tasks'] ?? null))
+            {
+                $code = $response['error']['code'] ?? null;
+                throw new RuntimeException('Download Station task listing failed' .
+                    (is_int($code) ? ' (code ' . $code . ')' : '') . '.');
+            }
+            $tasks = [];
+            foreach (array_slice($response['data']['tasks'], 0, 50) as $task)
+            {
+                if (!is_array($task) || !is_string($task['id'] ?? null) ||
+                    !preg_match('/\A[A-Za-z0-9_-]{1,80}\z/D', $task['id']))
+                {
+                    continue;
+                }
+                $size = max(0, (int) ($task['size'] ?? 0));
+                $downloaded = max(0, (int) ($task['additional']['transfer']['size_downloaded'] ?? 0));
+                $tasks[] = [
+                    'id' => $task['id'],
+                    'title' => mb_substr((string) ($task['title'] ?? 'Unnamed task'), 0, 240),
+                    'status' => mb_substr((string) ($task['status'] ?? 'unknown'), 0, 40),
+                    'type' => mb_substr((string) ($task['type'] ?? 'unknown'), 0, 25),
+                    'size' => $size,
+                    'progress' => $size > 0 ? (int) min(100, floor($downloaded * 100 / $size)) : 0
+                ];
+            }
+            return $tasks;
+        });
+    }
+
+    public function controlTask(string $method, string $id): void
+    {
+        if (!in_array($method, ['pause', 'resume', 'delete'], true) ||
+            !preg_match('/\A[A-Za-z0-9_-]{1,80}\z/D', $id))
+        {
+            throw new RuntimeException('Invalid Download Station task control request.');
+        }
+        $this->withSession(function (array $cap, int $version, string $sid) use ($method, $id): void {
+            $response = $this->request('POST', $cap['path'], [
+                'api' => 'SYNO.DownloadStation.Task', 'version' => (string) $version,
+                'method' => $method, 'id' => $id, '_sid' => $sid
+            ]);
+            if (!($response['success'] ?? false))
+            {
+                $code = $response['error']['code'] ?? null;
+                throw new RuntimeException('Download Station refused task ' . $method .
+                    (is_int($code) ? ' (code ' . $code . ')' : '') . '.');
+            }
+        });
     }
 
     /** @param array<string,string> $args

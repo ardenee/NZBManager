@@ -35,10 +35,13 @@ are not yet certified.
   folders, rename those folders (preserving contents) and delete them when empty.
   Pre-existing folders cannot be renamed or deleted through this module.
 - Inspect small ZIP archives and extract their validated members into new
-  directories without overwriting the original files (PHP zip extension)
+  directories via background PHP workers with progress and cancellation
 - Verify PAR2 2.0 packet integrity and protected-file/slice checksums natively
-  in PHP through a separate CLI worker, without installing par2cmdline;
-  actual recovery still requires explicit opt-in and external par2cmdline
+  in PHP, with an independent worker, live job monitor, progress and cancellation
+- Repair PAR2-protected files using PHP-only GF(2^16) Reed–Solomon arithmetic,
+  writing fully checksum-verified `.repaired` outputs without overwriting originals.
+  Initial bounded implementation: 64 MiB of protected data, 256 slices,
+  eight erasures and 1 MiB per slice; large recovery sets are not supported yet
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
 - Merge two or more NZBs and download the result
@@ -53,10 +56,11 @@ nodes. Metadata from additional NZBs is not yet merged.
 
 ## Requirements
 
-- PHP 8.2+ with cURL, DOM, libxml, JSON, mbstring and session; ZIP extraction
-  additionally requires zip. The DSM installer automatically configures
-  cURL, mbstring, OpenSSL, ZIP and zlib as required PHP profile extensions.
-  (PHP 8.5 target), and a trusted TLS certificate-authority bundle
+- PHP 8.2+ with cURL, DOM, libxml, JSON, mbstring, session, hash, ZIP/zlib,
+  and TLS CA trust. The DSM installer declares cURL, DOM, fileinfo, mbstring,
+  OpenSSL, SimpleXML, XML, XMLReader, XMLWriter, ZIP and zlib in its PHP profile.
+- Independent background work requires PHP CLI plus `proc_open` in Web Station
+  and `pcntl_fork` in Linux PHP CLI (these are not PAR2 executable dependencies).
 - Linux web server with PHP-FPM (nginx or Apache) and TLS
 - Writable private storage directory outside the public web root
 - No MySQL or Composer dependency for the modern core
@@ -142,7 +146,7 @@ The HTML interface can change; see docs/BINSEARCH.md for limits and testing.
 | --- | --- |
 | public/ | Only web-served files |
 | src/ | Parser, storage, security, module registry and request handlers |
-| bin/ | CLI-only PAR2 job worker, never part of the public web root |
+| bin/ | Independent PHP CLI background worker for native PAR2 verify/repair and ZIP extraction; never public |
 | views/ | Shared layout and modular feature templates |
 | tests/ | PHP regression tests and HTTP smoke tests |
 | deploy/ | Linux web-server example |
@@ -170,33 +174,33 @@ sites. Anyone who can reach this portal can use NZB Manager. Keep it on a
 trusted local network using NAS firewall/reverse-proxy access controls; do not
 publish this password-free test instance to the internet.
 
-An earlier SPK was installed and its PHP profile tested on the development NAS.
-The latest 0.4.3 test SPK includes the native PAR2 verifier, secure folder
-picker, CLI worker, modules and automatic cURL/mbstring/OpenSSL/zip/zlib
-profile configuration, but its installation
-and real-world PAR2 verification on a NAS
-have not yet been certified. The application remains an early alpha,
-not a production-ready release. See docs/DSM7-PACKAGING.md.
+An earlier 0.4.3 test SPK was installed and its PHP profile tested on the NAS,
+but **the current source is newer than that SPK**. The live DSM website now
+includes the PHP-only Reed–Solomon repair engine, independent job monitors,
+Download Station task controls and the expanded PHP extension-status screen.
+These changes have not been packaged again, by request. Build a new SPK only
+when installer settings need testing or a release is requested. Real-world
+large PAR2 recovery and portability to other NAS models are not certified.
+The application remains early alpha; see docs/DSM7-PACKAGING.md.
 
 ## Functions not yet ported
 
-The historical application also had torrent uploads, continuous folder
-monitoring, PAR2 repair, archive unpacking and filesystem operations to
-rename/merge/move downloaded content. **Selected capabilities** are now
-available as separate modules: bounded ZIP extraction, controlled file
-renames/moves, native PHP PAR2 checksum verification and a PAR2 CLI job
-queue. Native PAR2 error recovery is not yet implemented. Full RAR/7z/TAR
-extraction, payload
-merging, batch file operations and automatic PAR2 worker scheduling are
-**not yet implemented**. Bounded manual NZB-folder importing and
-monitored-folder NZB output are also implemented. Optional Download Station submission has a mocked API-tested
-adapter, but still requires connection settings and actual DSM validation. Indexer search and
-import are implemented but require live-provider verification. Old MySQL databases
-are not automatically imported. See docs/FEATURE-MATRIX.md for the
-complete parity checklist, docs/ARCHITECTURE.md for extension points,
-docs/DOWNLOAD-STATION.md for the optional DSM service activation policy,
-and docs/MODULES.md for module setup, limits and CLI worker instructions,
-and AUDIT.md for the security risks in the archived PHP.
+The historical app included torrent uploads, automatic folder monitoring,
+PAR2 repair, archive unpacking and moving/merging downloaded files.
+The modern application now supports bounded ZIP background extraction, safe
+file/folder organization, native PHP PAR2 verification and bounded native PHP
+Reed–Solomon repair. Full-size PAR2 datasets, RAR/7z/TAR extraction, batch
+payload operations, torrent imports and continuous monitoring remain open.
+Download Station supports native task submission, listing, progress,
+pause/resume and removal through a mocked, tested API adapter. Its package
+is detected on DSM, but authenticated operations require a configured
+Download Station account and have not been live-certified. Third-party
+Newznab integration also requires live-provider verification.
+
+Old MySQL databases are not automatically imported. See
+docs/FEATURE-MATRIX.md for the detailed parity matrix, docs/MODULES.md
+for background-worker and recovery safety limits, docs/DOWNLOAD-STATION.md
+for native DSM task API setup, and AUDIT.md for legacy security findings.
 
 ## Historical source and licensing
 

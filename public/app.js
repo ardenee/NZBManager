@@ -262,3 +262,44 @@ if (folderDialog) {
     button.addEventListener("click", () => folderDialog.close());
   });
 }
+
+
+/** Read-only PHP background task progress. JSON is served from the same origin. */
+document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
+  const category = monitor.dataset.backgroundMonitor;
+  let busy = false;
+  const poll = async () => {
+    if (busy || document.visibilityState === "hidden") return;
+    busy = true;
+    try {
+      const query = new URLSearchParams({ job_status: "1", type: category });
+      const response = await fetch("index.php?" + query.toString(), { cache: "no-store", credentials: "same-origin" });
+      if (!response.ok) throw new Error("Background status HTTP " + response.status);
+      const info = await response.json();
+      for (const job of info.jobs || []) {
+        if (!/^[a-f0-9]{32}$/.test(job.id || "")) continue;
+        const row = monitor.querySelector('[data-job-row="' + job.id + '"]');
+        if (!row) continue;
+        const progress = Math.max(0, Math.min(100, Number(job.progress) || 0));
+        const bar = row.querySelector("[data-job-progress]");
+        const percent = row.querySelector("[data-job-percent]");
+        const state = row.querySelector("[data-job-state]");
+        const message = row.querySelector("[data-job-message]");
+        if (bar) bar.value = progress;
+        if (percent) percent.textContent = progress + "%";
+        if (state) state.textContent = job.status || "unknown";
+        if (message) message.textContent = job.message || "";
+        if (["completed", "failed", "cancelled"].includes(job.status)) {
+          const cancelForm = row.querySelector('form:has(input[value$="_cancel"])');
+          if (cancelForm) cancelForm.remove();
+        }
+      }
+    } catch (error) {
+      monitor.dataset.monitorError = error instanceof Error ? error.message : "Status unavailable";
+    } finally {
+      busy = false;
+    }
+  };
+  void poll();
+  setInterval(poll, 1300);
+});

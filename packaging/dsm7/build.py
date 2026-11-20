@@ -65,7 +65,7 @@ def main() -> None:
     prepared = config.get("webservice", {}).get("pkg_dir_prepare", [])
     if php.get("backend") != 11 or php.get("profile_name") != "NZB Manager PHP 8.2":
         raise RuntimeError("A dedicated PHP 8.2 package-based profile (backend 11, matching working DUP SPK) is required.")
-    required_extensions = {"curl", "mbstring", "openssl", "zip", "zlib"}
+    required_extensions = {"curl", "dom", "fileinfo", "mbstring", "openssl", "simplexml", "xml", "xmlreader", "xmlwriter", "zip", "zlib"}
     enabled = php.get("extensions", [])
     if not isinstance(enabled, list) or not required_extensions.issubset(set(enabled)):
         raise RuntimeError("DSM PHP profile must enable curl, mbstring, openssl, zip and zlib automatically.")

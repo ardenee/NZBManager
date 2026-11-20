@@ -27,18 +27,19 @@ not expose the password-free test package to the public internet.
 ## Package requirements and layout
 
 - DSM 7.2+ with Web Station and Synology PHP 8.2
-- The installer creates an NZB Manager PHP 8.2 profile with **cURL, mbstring,
-  OpenSSL, ZIP and zlib enabled and required**. You do not need to tick their
-  checkboxes. DOM/XML, JSON, session and hash are provided by the PHP runtime
-  and do not require separate extension toggles in this package.
+- The installer declares **cURL, DOM, fileinfo, mbstring, OpenSSL, SimpleXML,
+  XML, XMLReader, XMLWriter, ZIP and zlib** in the NZB Manager PHP 8.2 profile.
+  JSON, session and hash are PHP runtime requirements, not separate SPK toggles.
+  Manual checkbox changes should not be needed on a freshly registered profile.
 - Correct permission support for package users and PHP-FPM
 - HTTPS is recommended even on the local network
 
 The Web Station service uses nginx_php and PHP profile backend ID **11** for
-PHP 8.2. The 0.4.3-0001 SPK enables all five declared PHP extensions, module
-workspace access to /volume1–/volume4 and the CLI-only PAR2 worker inside
-webapp/bin. Native PAR2 verification requires the PHP hash functionality and a
-separately scheduled CLI worker; only actual repair needs par2cmdline.
+PHP 8.2. The 0.4.3-0001 SPK declares the required PHP extensions, module workspace
+access to /volume1–/volume4 and PHP CLI workers inside webapp/bin. PAR2
+verification and bounded PAR2 recovery are native PHP only and never call
+par2cmdline. New background jobs launch automatically through PHP-FPM
+`proc_open` and Linux CLI `pcntl_fork`; availability must be verified on DSM.
 This revision has not yet been installed/validated on a real NAS. Earlier test packages also granted the PHP profile open_basedir access
 to /volume1 through /volume4, allowing folder imports and monitored-folder
 outputs when the package execution user has the necessary share permissions.
@@ -64,17 +65,23 @@ The legacy current/source directory is not part of the modern SPK.
 ## Automatic PHP extension configuration
 
 The Web Station resource `packaging/dsm7/conf/resource` declares the
-extensions `curl`, `mbstring`, `openssl`, `zip` and `zlib` in its
+extensions `curl`, `dom`, `fileinfo`, `mbstring`, `openssl`, `simplexml`,
+`xml`, `xmlreader`, `xmlwriter`, `zip` and `zlib` in its
 `webservice.services[0].php.extensions` array. Synology treats these as
 package-required extensions when it creates the package-based PHP profile:
 users do not have to enable them manually. The SPK builder and validation
 suite both fail if any is absent.
 
 `zip` enables `ZipArchive` for the archive extractor; `zlib` provides zlib
-compression streams. The native PAR2 verifier uses PHP's built-in hash
-support (MD5 and CRC-32), so no special PAR2 extension or MySQL is needed.
+compression streams. Native PAR2 verification and repair use PHP hashing and
+GF(2^16) operations without par2cmdline, FFI or MySQL. The web worker launcher
+uses PHP-FPM `proc_open` and the Linux CLI must expose `pcntl_fork`; these
+functions are not installable as a Web Station PHP profile extension toggle.
 The runtime status in Settings reports the **actual PHP-FPM extensions**, not
-merely the package configuration.
+merely the package configuration. On 20 November 2026, a short-lived PHP
+probe on DSM 7 / PHP 8.2.35 verified `proc_open`, successful PHP CLI launch
+and `pcntl_fork`; its temporary public diagnostic file was deleted. This
+checks worker prerequisites, not yet completion of a real PAR2 repair job.
 
 **Existing package profiles:** Synology may preserve an already-registered
 package PHP profile during an in-place upgrade. The new SPK specifies the

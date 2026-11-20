@@ -20,6 +20,7 @@ require dirname(__DIR__) . '/Indexers/FixedOriginHttp.php';
 require dirname(__DIR__) . '/Indexers/BinsearchClient.php';
 require dirname(__DIR__) . '/Modules/BinsearchActions.php';
 require dirname(__DIR__) . '/Modules/IndexerActions.php';
+require dirname(__DIR__) . '/DownloadClients/DownloadStationSettings.php';
 require dirname(__DIR__) . '/DownloadClients/DownloadStationClient.php';
 require dirname(__DIR__) . '/Modules/DownloadStationActions.php';
 require dirname(__DIR__) . '/Modules/SettingsActions.php';
@@ -34,6 +35,9 @@ require dirname(__DIR__) . '/Modules/ArchiveTools.php';
 require dirname(__DIR__) . '/Modules/ArchiveActions.php';
 require dirname(__DIR__) . '/Modules/Par2Jobs.php';
 require dirname(__DIR__) . '/Modules/Par2Reader.php';
+require dirname(__DIR__) . '/Modules/Par2Galois.php';
+require dirname(__DIR__) . '/Modules/Par2Recovery.php';
+require dirname(__DIR__) . '/Modules/BackgroundJobs.php';
 require dirname(__DIR__) . '/Modules/Par2Actions.php';
 
 
@@ -42,6 +46,32 @@ use NZB\NzbStorage;
 use NZB\WebSecurity;
 
 WebSecurity::initialize();
+if (isset($_GET['job_status']))
+{
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: private, no-store');
+    header('X-Content-Type-Options: nosniff');
+    try
+    {
+        $type = $_GET['type'] ?? '';
+        if (!is_string($type) || !in_array($type, ['par2', 'archive_extract'], true))
+        {
+            throw new RuntimeException('Invalid job monitor category.');
+        }
+        $records = array_map(static fn (array $job): array => [
+            'id' => $job['id'], 'type' => $job['type'], 'name' => $job['name'],
+            'status' => $job['status'], 'progress' => $job['progress'],
+            'message' => $job['message'], 'outputs' => $job['outputs'] ?? [],
+        ], \NZB\Modules\BackgroundJobs::all($type));
+        echo json_encode(['jobs' => $records], JSON_THROW_ON_ERROR);
+    }
+    catch (Throwable $error)
+    {
+        http_response_code(422);
+        echo json_encode(['error' => $error->getMessage()], JSON_THROW_ON_ERROR);
+    }
+    exit;
+}
 if (isset($_POST['folder_browser']))
 {
     header('Content-Type: application/json; charset=UTF-8');
@@ -126,14 +156,14 @@ $actions = (new \NZB\Http\ActionRouter())
     ->register(['upload', 'delete', 'rename', 'export', 'merge'], [\NZB\Modules\LibraryActions::class, 'dispatch'])
     ->register(['indexer_search', 'indexer_import'], [\NZB\Modules\IndexerActions::class, 'dispatch'])
     ->register(['binsearch_search', 'binsearch_generate'], [\NZB\Modules\BinsearchActions::class, 'dispatch'])
-    ->register(['downloadstation_submit'], [\NZB\Modules\DownloadStationActions::class, 'dispatch'])
+    ->register(['downloadstation_submit', 'downloadstation_pause', 'downloadstation_resume', 'downloadstation_delete', 'downloadstation_save', 'downloadstation_clear'], [\NZB\Modules\DownloadStationActions::class, 'dispatch'])
     ->register(['settings_save', 'indexer_add', 'indexer_remove'], [\NZB\Modules\SettingsActions::class, 'dispatch'])
     ->register(['push_to'], [\NZB\Modules\PushToActions::class, 'dispatch'])
     ->register(['folder_import'], [\NZB\Modules\FolderImportActions::class, 'dispatch'])
     ->register(['segment_add', 'segment_replace', 'segment_delete'], [\NZB\Modules\SegmentActions::class, 'dispatch'])
     ->register(['organizer_preview', 'organizer_apply', 'organizer_mkdir', 'organizer_folder_rename_preview', 'organizer_folder_rename_apply', 'organizer_folder_delete'], [\NZB\Modules\FileOrganizerActions::class, 'dispatch'])
-    ->register(['archive_extract'], [\NZB\Modules\ArchiveActions::class, 'dispatch'])
-    ->register(['par2_verify', 'par2_repair'], [\NZB\Modules\Par2Actions::class, 'dispatch']);
+    ->register(['archive_extract', 'archive_cancel'], [\NZB\Modules\ArchiveActions::class, 'dispatch'])
+    ->register(['par2_verify', 'par2_repair', 'par2_cancel'], [\NZB\Modules\Par2Actions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);
 
 if (($_GET['download'] ?? '') !== '')

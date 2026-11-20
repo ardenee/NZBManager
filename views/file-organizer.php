@@ -30,7 +30,7 @@ catch (\Throwable $problem)
 <?php else: ?>
 <section class="panel">
     <div class="panel-heading">
-        <div><h2>Contents</h2><p>Workspace: <?= escape(str_replace('\\', '/', $workspace->root())) ?><?= $workspaceFolder !== '' ? ' / ' . escape($workspaceFolder) : '' ?></p></div>
+        <div><h2>Contents</h2><p>Rename/Delete are enabled for folders created through File Organizer since tracking was introduced. Earlier/existing folders show disabled controls for safety.</p><p>Workspace: <?= escape(str_replace('\\', '/', $workspace->root())) ?><?= $workspaceFolder !== '' ? ' / ' . escape($workspaceFolder) : '' ?></p></div>
         <?php if ($workspaceFolder !== ''): ?>
         <a class="button subtle" href="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode(str_contains($workspaceFolder, '/') ? substr($workspaceFolder, 0, strrpos($workspaceFolder, '/')) : '')) ?>">Parent folder</a>
         <?php endif; ?>
@@ -68,7 +68,9 @@ catch (\Throwable $problem)
                             <button type="submit" class="button subtle">Delete</button>
                         </form>
                         <?php else: ?>
-                            <span class="organizer-existing-note">Existing folder · protected</span>
+                            <button type="button" class="button subtle" disabled title="Only folders created using File Organizer after tracking was added may be renamed">Rename</button>
+                            <button type="button" class="button subtle" disabled title="Existing or previously created folders are protected from deletion">Delete</button>
+                            <span class="organizer-existing-note">Untracked · protected</span>
                         <?php endif; ?>
                     <?php endif; ?>
                     </td>

@@ -55,7 +55,13 @@ try
         $packet("PAR 2.0\0FileDesc", $describe) .
         $packet("PAR 2.0\0IFSC\0\0\0\0", $ifsc);
     file_put_contents($par2TestRoot . '/valid.par2', $parData);
-    $result = Par2Reader::verify($work, 'valid.par2');
+    $progressEvents = [];
+    $result = Par2Reader::verify($work, 'valid.par2',
+        static function (int $percent, string $message) use (&$progressEvents): void { $progressEvents[] = [$percent, $message]; });
+    check(count($progressEvents) >= 3 && $progressEvents[0][0] === 2 &&
+        $progressEvents[array_key_last($progressEvents)][0] === 95 &&
+        array_reduce($progressEvents, static fn (bool $ok, array $event): bool => $ok && $event[0] >= 0 && $event[0] <= 95, true),
+        'Native PHP verifier reports bounded incremental PAR2 packet and file progress');
     check(count($result['files']) === 1 && $result['files'][0]['status'] === 'verified', 'Native PHP PAR2 verifies a genuine packet set and protected file');
     check($result['packet_count'] === 3 && $result['slice_bytes'] === 4, 'Native PHP PAR2 reads Main, FileDesc and IFSC packet structure');
     check($result['set'] === bin2hex($setId) && $result['files'][0]['bad_slices'] === [], 'Native PHP PAR2 verifies recovery set and all slice checksums including zero padding');
@@ -74,10 +80,17 @@ try
         check(Par2Jobs::runOne(), 'Native PHP CLI worker processes verification without external executable');
         $jobs = Par2Jobs::all();
         check(count($jobs) === 1 && $jobs[0]['status'] === 'completed' &&
-            str_contains($jobs[0]['message'], 'Native PHP PAR2: 1 protected file(s), 0 problem(s)'),
+            str_contains($jobs[0]['message'], '1 protected file(s), 0 damaged or missing'),
             'Native PHP verification records a verified result in private job metadata');
         check(Par2Jobs::runOne() === false, 'Native verifier does not rerun completed job');
     }
+    $launchJob = \NZB\Modules\BackgroundJobs::queue('par2_verify', $work, 'valid.par2');
+    \NZB\Modules\BackgroundJobs::failLaunch($launchJob, 'test simulated unavailable PHP CLI');
+    $launchStates = \NZB\Modules\BackgroundJobs::all('par2');
+    $launchFailed = array_values(array_filter($launchStates, static fn (array $item): bool => $item['id'] === $launchJob));
+    check(count($launchFailed) === 1 && $launchFailed[0]['status'] === 'failed' &&
+        str_contains($launchFailed[0]['message'], 'simulated unavailable PHP CLI'),
+        'Failed PHP worker launch becomes terminal instead of clogging the active-job queue');
     unlink($par2TestRoot . '/' . $name);
     $missing = Par2Reader::verify($work, 'valid.par2');
     check($missing['files'][0]['status'] === 'missing', 'Native PHP PAR2 reports missing protected file');

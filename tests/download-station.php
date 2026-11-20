@@ -63,3 +63,52 @@ $broken = new DownloadStationClient('https://nas.example.com', 'u', 'p', static 
 check($broken->discover() === null, 'Unsafe server-advertised API path is rejected');
 check(\NZB\Modules\ModuleRegistry::standard()->get('download-client')->route() === null, 'Download Station defaults to disabled navigation');
 check(\NZB\Modules\ModuleRegistry::standard(true)->get('download-client')->route() === 'index.php?module=download-client', 'Download Station navigation enabled after discovery');
+
+
+/* Exercise real Download Station task-list and control request contracts with a
+   fake API transport: no DSM credentials and no real tasks are changed. */
+$taskCalls = [];
+$taskApi = static function (string $method, string $path, array $args, ?string $uploaded) use (&$taskCalls, $metadata): array {
+    $taskCalls[] = ['method' => $method, 'path' => $path, 'args' => $args, 'xml' => $uploaded];
+    if (($args['api'] ?? '') === 'SYNO.API.Info')
+    {
+        return $metadata;
+    }
+    if (($args['method'] ?? '') === 'login')
+    {
+        return ['success' => true, 'data' => ['sid' => 'mock-task-session4567']];
+    }
+    if (($args['method'] ?? '') === 'logout')
+    {
+        return ['success' => true];
+    }
+    if (($args['method'] ?? '') === 'list')
+    {
+        return ['success' => true, 'data' => ['tasks' => [
+            ['id' => 'dbid_123', 'title' => 'Example NZB', 'status' => 'downloading', 'type' => 'nzb',
+                'size' => 1000, 'additional' => ['transfer' => ['size_downloaded' => 450]]]
+        ]]];
+    }
+    if (in_array($args['method'] ?? '', ['pause', 'resume', 'delete'], true))
+    {
+        return ['success' => true];
+    }
+    return ['success' => false, 'error' => ['code' => 101]];
+};
+$clientTasks = new DownloadStationClient('https://nas.example.com:5001', 'user', 'test-credentials', $taskApi);
+$tasks = $clientTasks->taskList();
+check(count($tasks) === 1 && $tasks[0]['title'] === 'Example NZB' && $tasks[0]['status'] === 'downloading',
+    'Download Station displays validated native DSM task metadata');
+check($tasks[0]['progress'] === 45 && $tasks[0]['size'] === 1000,
+    'Download Station calculates task progress from API transfer counters');
+$clientTasks->controlTask('pause', 'dbid_123');
+$clientTasks->controlTask('resume', 'dbid_123');
+$clientTasks->controlTask('delete', 'dbid_123');
+$controls = array_values(array_filter($taskCalls,
+    static fn (array $call): bool => in_array($call['args']['method'] ?? '', ['pause', 'resume', 'delete'], true)));
+check(array_column(array_column($controls, 'args'), 'method') === ['pause', 'resume', 'delete'],
+    'Download Station issues scoped pause, resume and delete task API calls');
+check(count(array_filter($taskCalls, static fn (array $call): bool => ($call['args']['method'] ?? '') === 'logout')) === 4,
+    'Download Station invalidates the session for each task list or control operation');
+expectFailure(static fn () => $clientTasks->controlTask('remove_files', 'dbid_123'), 'Download Station rejects unapproved control operations');
+expectFailure(static fn () => $clientTasks->controlTask('pause', '../task'), 'Download Station rejects malformed task identifiers');

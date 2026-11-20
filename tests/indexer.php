@@ -103,9 +103,20 @@ try
 }
 finally
 {
-    foreach (glob($folder . '/*') ?: [] as $path)
+    $files = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($folder, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($files as $file)
     {
-        unlink($path);
+        if ($file->isDir() && !$file->isLink())
+        {
+            rmdir($file->getPathname());
+        }
+        else
+        {
+            unlink($file->getPathname());
+        }
     }
     rmdir($folder);
 }

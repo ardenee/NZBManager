@@ -27,7 +27,7 @@ with tarfile.open(SPK, "r:") as package:
     service = resource["webservice"]["services"][0]
     assert service["root"] == "nzbmanager/public"
     assert service["php"]["backend"] == 11, "PHP 8.2 backend must match the working DUP DSM7 SPK"
-    required_extensions = {"curl", "mbstring", "openssl", "zip", "zlib"}
+    required_extensions = {"curl", "dom", "fileinfo", "mbstring", "openssl", "simplexml", "xml", "xmlreader", "xmlwriter", "zip", "zlib"}
     assert required_extensions.issubset(set(service["php"]["extensions"])), (
         "DSM PHP 8.2 profile must enable every required module automatically: "
         + ", ".join(sorted(required_extensions - set(service["php"]["extensions"])))

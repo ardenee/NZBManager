@@ -11,27 +11,59 @@ final class Par2Actions
 {
     public static function dispatch(NzbStorage $store, string $viewId): void
     {
+        $folder = $_GET['folder'] ?? '';
+        if (!is_string($folder))
+        {
+            $folder = '';
+        }
         try
         {
             $action = $_POST['action'] ?? '';
-            if ($action !== 'par2_verify' && $action !== 'par2_repair')
+            if ($action === 'par2_cancel')
             {
-                throw new RuntimeException('Invalid PAR2 operation.');
+                $id = $_POST['job_id'] ?? '';
+                if (!is_string($id))
+                {
+                    throw new RuntimeException('Invalid PAR2 cancellation request.');
+                }
+                BackgroundJobs::requestCancel($id);
+                \message('PAR2 background job cancellation requested.');
             }
-            $file = $_POST['par2_file'] ?? null;
-            if (!is_string($file))
+            elseif ($action === 'par2_verify' || $action === 'par2_repair')
             {
-                throw new RuntimeException('Choose a PAR2 recovery index in the configured workspace.');
+                $relative = $_POST['par2_file'] ?? null;
+                if (!is_string($relative))
+                {
+                    throw new RuntimeException('Select a PAR2 recovery index from the downloads workspace.');
+                }
+                $work = WorkspaceFiles::fromSettings();
+                $id = BackgroundJobs::queue($action, $work, $relative);
+                try
+                {
+                    BackgroundJobs::start($id);
+                }
+                catch (Throwable $launchError)
+                {
+                    BackgroundJobs::failLaunch($id, $launchError->getMessage());
+                    throw $launchError;
+                }
+                \message(strtoupper($action === 'par2_repair' ? 'Repair' : 'Verify') .
+                    ' started in a separate PHP process. Job: ' . $id . '.');
             }
-            $mode = $action === 'par2_repair' ? 'repair' : 'verify';
-            $work = WorkspaceFiles::fromSettings();
-            $id = Par2Jobs::submit($work, $file, $mode);
-            \message(strtoupper($mode) . ' job queued: ' . $id . '. It will run when the CLI worker is scheduled.');
+            else
+            {
+                throw new RuntimeException('Unsupported PAR2 operation.');
+            }
         }
         catch (Throwable $error)
         {
             \message($error->getMessage(), 'error');
         }
-        \redirectTo('index.php?module=repair');
+        $return = 'index.php?module=repair';
+        if ($folder !== '')
+        {
+            $return .= '&folder=' . rawurlencode($folder);
+        }
+        \redirectTo($return);
     }
 }

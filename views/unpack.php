@@ -1,6 +1,6 @@
 <section class="page-header">
     <div><div class="eyebrow">DOWNLOADS WORKSPACE</div><h1>Archive Extraction</h1>
-        <p>Inspect supported archives and extract small ZIPs to new folders without overwriting existing downloads.</p>
+        <p>Inspect ZIP archives and extract them in a separate PHP process, with live progress and no overwrite.</p>
     </div><a class="button secondary" href="index.php?module=settings">Configure workspace</a>
 </section>
 <?php
@@ -69,14 +69,45 @@ catch (\Throwable $error)
         </tbody></table></div>
     <div class="panel-footer">
         <span>Total expanded size: <?= humanBytes($archiveInfo['bytes']) ?> · New output directory only · Max 64 MiB</span>
-        <form method="post" action="index.php?module=unpack" data-confirm="Extract to a new folder beside this ZIP? Nothing will be overwritten.">
+        <form method="post" action="index.php?module=unpack&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Queue extraction into a new folder beside this ZIP? Existing files will be protected.">
             <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
             <input type="hidden" name="action" value="archive_extract">
             <input type="hidden" name="archive" value="<?= escape($selectedArchive) ?>">
-            <button type="submit" class="button primary">Extract ZIP into new folder</button>
+            <button type="submit" class="button primary">Start PHP background extraction</button>
         </form>
     </div>
     <?php endif; ?>
 </section>
 <?php endif; ?>
 <?php endif; ?>
+
+
+<?php $archiveJobs = \NZB\Modules\BackgroundJobs::all('archive_extract'); ?>
+<section class="panel" data-background-monitor="archive_extract">
+    <div class="panel-heading"><div><h2>Archive extraction jobs</h2>
+        <p>Each ZIP is extracted by an independent PHP CLI process. The progress bar updates automatically.</p></div>
+        <a class="button subtle" href="index.php?module=unpack">Refresh</a>
+    </div>
+    <div class="table-scroll"><table data-sortable>
+        <thead><tr><th>Created (UTC)</th><th>Archive</th><th>State / progress</th><th>Details and output</th><th data-no-sort>Action</th></tr></thead><tbody>
+        <?php foreach ($archiveJobs as $job): ?>
+        <tr data-job-row="<?= escape($job['id']) ?>">
+            <td><?= escape($job['created'] ?? '') ?></td>
+            <td class="name"><?= escape($job['name'] ?? '') ?></td>
+            <td><strong data-job-state><?= escape($job['status'] ?? '') ?></strong>
+                <progress data-job-progress max="100" value="<?= (int) ($job['progress'] ?? 0) ?>"></progress>
+                <span data-job-percent><?= (int) ($job['progress'] ?? 0) ?>%</span></td>
+            <td data-job-message><?= escape($job['message'] ?? '') ?></td>
+            <td><?php if (in_array($job['status'] ?? '', ['queued', 'running'], true)): ?>
+                <form method="post" action="index.php?module=unpack" data-confirm="Request cancellation? Files published before cancellation are not removed.">
+                    <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+                    <input type="hidden" name="action" value="archive_cancel">
+                    <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
+                    <button type="submit" class="button subtle">Cancel</button>
+                </form>
+            <?php endif; ?></td>
+        </tr>
+        <?php endforeach; ?>
+        <?php if ($archiveJobs === []): ?><tr><td class="empty" colspan="5">No background extraction jobs yet.</td></tr><?php endif; ?>
+    </tbody></table></div>
+</section>

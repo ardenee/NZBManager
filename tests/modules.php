@@ -6,6 +6,10 @@ require_once dirname(__DIR__) . '/src/AppSettings.php';
 require_once dirname(__DIR__) . '/src/Modules/WorkspaceFiles.php';
 require_once dirname(__DIR__) . '/src/Modules/ArchiveTools.php';
 require_once dirname(__DIR__) . '/src/Modules/Par2Jobs.php';
+require_once dirname(__DIR__) . '/src/Modules/Par2Reader.php';
+require_once dirname(__DIR__) . '/src/Modules/Par2Galois.php';
+require_once dirname(__DIR__) . '/src/Modules/Par2Recovery.php';
+require_once dirname(__DIR__) . '/src/Modules/BackgroundJobs.php';
 
 use NZB\Modules\WorkspaceFiles;
 use NZB\Modules\ArchiveTools;
@@ -94,21 +98,19 @@ try
     check($info['set_id'] === str_repeat('42', 16) && $info['bytes'] === 64, 'PAR2 scanner reads set ID from valid packet header');
     file_put_contents($inbox . '/invalid.par2', 'not a par2 packet');
     expectFailure(static fn () => Par2Jobs::inspect($work, 'inbox/invalid.par2'), 'PAR2 scanner rejects malformed headers');
-    expectFailure(static fn () => Par2Jobs::submit($work, 'inbox/release.par2', 'repair'), 'PAR2 repair requires explicit operator opt-in');
-    putenv('NZB_PAR2_BINARY=' . PHP_BINARY);
-    if (Par2Jobs::binary() !== null)
+    expectFailure(static fn () => Par2Jobs::submit($work, 'inbox/release.par2', 'invalid'), 'PAR2 background queue rejects unsupported modes');
+    \NZB\AppSettings::save(['workspace_path' => $workspaceRoot]);
+    $job = Par2Jobs::submit($work, 'inbox/release.par2', 'verify');
+    check(preg_match('/\A[a-f0-9]{32}\z/D', $job) === 1, 'PAR2 verification queues a private PHP-only background job');
+    $jobs = Par2Jobs::all();
+    check(count($jobs) === 1 && $jobs[0]['status'] === 'queued' && $jobs[0]['type'] === 'par2_verify',
+        'PAR2 job metadata is queued without an external executable');
+    if (PHP_SAPI === 'cli')
     {
-        $job = Par2Jobs::submit($work, 'inbox/release.par2', 'verify');
-        check(preg_match('/\A[a-f0-9]{32}\z/D', $job) === 1, 'PAR2 verification enqueues an opaque private job');
-        $jobs = Par2Jobs::all();
-        check(count($jobs) === 1 && $jobs[0]['status'] === 'queued' && $jobs[0]['mode'] === 'verify', 'PAR2 job metadata is private and queued');
-        if (function_exists('proc_open') && PHP_SAPI === 'cli')
-        {
-            check(Par2Jobs::runOne() === true, 'PAR2 CLI worker accepts one queued job');
-            $finished = Par2Jobs::all();
-            check($finished[0]['status'] === 'failed', 'PAR2 worker records external executable failure without claiming a repair');
-            check(Par2Jobs::runOne() === false, 'PAR2 worker does not rerun finished jobs');
-        }
+        check(Par2Jobs::runOne() === true, 'Native PAR2 CLI worker processes one queued job');
+        $finished = Par2Jobs::all();
+        check($finished[0]['status'] === 'failed', 'Native PAR2 reader rejects incomplete test packet without claiming repair');
+        check(Par2Jobs::runOne() === false, 'Native PAR2 worker never reruns terminal jobs');
     }
 }
 finally

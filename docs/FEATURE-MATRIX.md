@@ -1,62 +1,61 @@
 # NZB Manager feature matrix
 
-Status at 20 November 2026. A feature marked **Working** has been exercised
-by tests; DSM tests were run on the active Web Station site at 192.168.0.67,
-with temporary records removed afterward. Other NAS devices remain untested.
+Updated 20 November 2026. **Working** means covered by automated tests.
+DSM HTTP/CLI results are specifically marked. The running DSM web application
+has newer source than the last published SPK; no package is being built now.
 
-| Feature | Area | Current state | Limitations / notes |
+| Feature | Area | Status | Limitations / notes |
 | --- | --- | --- | --- |
-| Multi-file NZB import | Library | **Working** | Validates NZB XML and max 32 MiB per file |
-| Import NZBs from a configured folder | Library | **Implemented, DEV-tested** | Manual scans up to 200; DSM shares need PHP permission and open_basedir access |
-| Prevent duplicate NZB imports | Library | **Working** | SHA-256 across new and historical library contents |
-| Rename/delete/download and merge | Library | **Working** | Managed NZB documents only; merge header behavior limited |
-| Global sorting/search/pagination | Library | **Working** | Sorts whole library before page slicing |
-| Inspect file metadata and segments | Inspector | **Working** | External DTD references disabled |
-| Missing/repeated/invalid segment warnings | Inspector | **Working** | Cannot always know absent final segments |
-| Segment viewer with add/edit/delete | Inspector | **Working** | Saves revised NZB; Add offers gaps or next sequential number; Article bytes are raw integers |
-| Segment and file entry sorting/pagination | Inspector | **Working** | Sorts full list before page slicing |
-| Selective NZB entry export | Inspector | **Working** | Never fetches Usenet article payloads |
-| Search Binsearch.info and create NZBs | Binsearch | **Working, live tested** | Scrapes public HTML; max 25 selected results per page |
-| Navigate Binsearch pages | Binsearch | **Working, live tested** | Provider zero-based pagination, 25/50/100 page size |
-| Sort Binsearch results | Binsearch | **Implemented** | Sorts current provider page in browser |
-| Preset Newznab searches and importing | Indexer | **Implemented, live provider unverified** | Presets require real credentials |
-| Manage Newznab profiles in Settings | Settings | **Working, DSM HTTP tested** | Keys private, never redisplayed; trusted LAN only |
-| Sort Newznab results | Indexer | **Implemented** | Sorts retrieved results in browser |
-| Push To public HTTPS upload | Push To | **Implemented, unit-tested** | Custom parameters, 1–25 NZBs; public TLS destinations only |
-| Push To monitored NZB folder | Push To | **Working on DEV** | Atomic copy, no overwrite; NAS share permission tests pending |
-| Settings page size/folder controls | Settings | **Working, Chrome-tested on DSM** | Modal opens, navigates real NAS folders, checks permissions, and fills selection; CSP and asset cache fixed |
-| Optional DSM Download Station API | Download Station | **Mock-tested, optional** | Disabled without API; live task submission pending |
-| DSM 7 package and original icons | Packaging | **Built; earlier revision tested on NAS** | 0.4.3-0001 automatically requires cURL, mbstring, OpenSSL, ZIP and zlib; active profile pending install validation |
+| Multi-file NZB XML upload | Library | **Working** | Validates XML; 32 MiB per input |
+| Import NZBs from configured folder | Library | **Working, DEV-tested** | Manual scan, 200-file limit, DSM ACL/open_basedir required |
+| Duplicate NZB suppression | Library | **Working** | SHA-256 across all import methods |
+| Rename/delete/export/merge NZBs | Library | **Working** | Private managed documents only |
+| Global library sorting/search/paging | Library | **Working** | Sort before pagination |
+| Inspect metadata and segments | Inspector | **Working** | Raw Article bytes, gap/duplicate detection |
+| Add/edit/delete NZB segment references | Inspector | **Working, DSM-tested** | Edits create new NZBs; sequential-number allowlist |
+| Inspector file/segment table sorting | Inspector | **Working** | Full dataset before page slicing |
+| Binsearch lookup and NZB generation | Binsearch | **Working, live tested** | HTML parser, max 25 selected posts per page |
+| Browse Binsearch pages | Binsearch | **Working** | 25/50/100 page size |
+| Newznab profiles/queries/import | Indexer | **Implemented** | Account keys required; live third-party requests unverified |
+| Private Newznab connection settings | Settings | **Working, DSM-tested** | Secrets not displayed; password-free test site |
+| Push To HTTPS endpoint | Push To | **Unit tested** | Bounded public HTTPS; real endpoint delivery unverified |
+| Push To monitored folder | Push To | **Working on DEV** | Atomic copy, avoids overwrite |
+| Folder picker and PHP access feedback | Settings | **Working, Chrome-tested on DSM** | Browses eligible DSM shares; checks read/write/traverse |
+| Required PHP extension status | Settings | **Working, DSM-probed** | DOM, libxml, XML, XMLReader/Writer, SimpleXML, hash, JSON, fileinfo, cURL, mbstring, OpenSSL, zip, zlib |
+| Native DSM Download Station API discovery | Download Station | **Working on DSM** | Legacy and DownloadStation2 API advertised; legacy Task API used |
+| Configure Download Station credentials | Download Station | **Implemented** | Private DSM connection file; use a restricted account and HTTPS front end |
+| Submit NZB / list/pause/resume/remove DSM tasks | Download Station | **Mock-tested** | Authenticated tasks on user's NAS not yet tested |
+| Native PHP PAR2 packet & slice verification | PAR2 Repair | **DEV-tested** | MD5/CRC, checks protected files; independent PHP worker |
+| Pure PHP Reed-Solomon repair | PAR2 Repair | **DSM end-to-end tested** | 5 slices reconstructed, 2 verified .repaired outputs; originals preserved |
+| PAR2 background progress and cancellation | PAR2 Repair | **Working** | Independent PHP CLI worker and JSON status monitor; initial 8-slice/64MiB bounds |
+| ZIP archive inspection | Archive Extraction | **Working** | Max 32 MiB ZIP, 250 entries, 64 MiB expanded |
+| ZIP extraction in independent PHP worker | Archive Extraction | **DSM end-to-end tested** | Live progress to 100%, cancellation, new folder, no overwrite |
+| RAR/7z/TAR extraction | Archive Extraction | **Not yet implemented** | Recognized, not extracted |
+| Preview file rename/move, create folders | File Organizer | **DSM-tested** | Workspace-only, no overwrite, preview & confirmation |
+| Rename/delete created folders | File Organizer | **DSM HTTP/Chrome tested** | Tracked folders only; delete empty only; older folders protected |
+| Batch file moves/payload merging | File Organizer | Not ported | Requires expanded job queue |
 | Torrent uploads | Import | Not ported | Historical feature |
-| PAR2 set browser and packet inspection | PAR2 Repair | **Working, DEV-tested** | Recognizes PAR2 packet headers in approved workspace |
-| Native PHP PAR2 verification job queue/worker | PAR2 Repair | **Working with conformant fixtures** | Main/FileDesc/IFSC, MD5+CRC32 file/slice verification; CLI worker required; no par2cmdline for verify |
-| PAR2 repair of downloaded payloads | PAR2 Repair | **Opt-in external-only; not live-certified** | Reed–Solomon recovery not yet implemented in PHP; par2cmdline and worker required |
-| ZIP preview and bounded extraction | Archive Extraction | **Working, DEV-tested** | Max 250 entries, 32 MiB archive/64 MiB output; safe new folder only |
-| RAR/7z/TAR archive extraction | Archive Extraction | **Recognized; not extracted** | Separate safe adapters needed |
-| Workspace file preview, rename/move and create subfolder | File Organizer | **Working, DSM HTTP tested** | Approved workspace only, preview/confirm, no overwrite |
-| Rename File Organizer-created folders | File Organizer | **Working, DSM HTTP tested** | Requires managed-folder identity, preview/confirmation; contents preserved; tracked children updated |
-| Delete File Organizer-created folders | File Organizer | **Working, DSM HTTP tested** | Empty folders only, confirmation; pre-existing folders protected |
-| Batch move/folder merge/payload joining | File Organizer | **Not ported** | Requires deeper operation queue and collision safeguards |
-| Historical MySQL catalogue import | Migration | Not ported | Read-only migration tool required |
+| Historical MySQL data migration | Migration | Not ported | MySQL not needed at modern runtime |
+| DSM 7 test SPK with original icons | Packaging | **Earlier revision built and tested** | Current source changes deliberately un-packaged until release testing |
 
-## Test coverage
+## Tests and live checks
 
-- 252 PHP assertions on DEV (native PAR2, folder picker, managed-folder identity, rename/delete safeguards)
-- HTTP smoke tests on DEV
-- DSM HTTP: upload, duplicate suppression, view segments, add missing segment,
-  produce revised NZB and remove both temporary records
-- DSM HTTP: add a temporary Newznab provider, confirm search form is usable,
-  remove the provider
-- Live Binsearch page-2 navigation
-- DSM HTTP and real Chrome UI: create uniquely named temporary managed folders,
-  preview and confirm rename, verify management status, delete empty folders;
-  temporary test folders removed
-- DSM HTTP: directory picker has three controls, a volume/folder listing,
-  safe-path rejection and CSRF checking; raw segment bytes verified
-- Working DSM PHP 8.2 profile confirmed on the test NAS
+- **282 PHP assertions on DEV**, covering metadata, parity, workspace
+  protection, synthetic PAR2 reconstruction and recovery limits, managed
+  folders, asynchronous ZIP jobs, Download Station mock API contracts, etc.
+- DEV HTTP smoke tests for indexer/security/asset-cache routes.
+- DSM real PHP-FPM 8.2.35 extensions and DSM package API discovery probed.
+- DSM HTTP: native-PHP background PAR2 reconstruction of **5 damaged/missing
+  slices across 2 recovered files**, checksums validated; job reached 100%.
+- DSM HTTP: ZIP background worker reached 100%, output validated.
+- DSM HTTP/Chrome: folder picker and managed folder create/rename/delete.
+- DSM application files are synced to DEV and GitHub after validation.
+  No new SPK is built for each source change.
 
-## Outstanding release gates
+## Outstanding certification
 
-Real third-party Newznab requests and live Download Station submissions
-remain unverified. Actual PAR2 verification/repair on a NAS, RAR/7z/TAR extraction, and
-advanced batch/folder file organization remain incomplete. Do not expose the password-free DSM site to the public internet.
+Real-world large PAR2 sets, more than eight missing slices, complex PAR2
+metadata, external Newznab search, authenticated Download Station tasks,
+RAR/7z/TAR extraction and multi-file organization require further work.
+The DSM alpha intentionally has no application login: keep it off the
+public Internet and protect any submitted DSM credentials.

@@ -256,3 +256,13 @@ tr.integrity-suspect td { background: #fff8e9; }
 .organizer-rename-form label { display: grid; gap: 4px; font-size: 12px; color: #647890; }
 .organizer-rename-form input { min-width: 170px; max-width: 250px; padding: 8px 10px; border: 1px solid #d9e1ec; border-radius: 6px; }
 .organizer-existing-note { color: #8696ab; font-size: 11px; white-space: nowrap; }
+
+
+/* Asynchronous PAR2 and archive job progress displays */
+[data-background-monitor] progress {
+  display: block; width: clamp(100px, 12vw, 180px); height: 12px;
+  margin: 6px 0 2px; accent-color: #4376bb;
+}
+[data-background-monitor] [data-job-state] { text-transform: capitalize; font-size: 12px; }
+[data-background-monitor] [data-job-message] { max-width: 410px; overflow-wrap: anywhere; font-size: 12px; }
+[data-background-monitor] [data-job-percent] { color: #758aa1; font-variant-numeric: tabular-nums; font-size: 11px; }

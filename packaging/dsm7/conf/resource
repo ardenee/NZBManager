@@ -19,8 +19,14 @@
           "open_basedir": "/var/services/web_packages/nzbmanager:/var/packages/nzbmanager/var:/volume1:/volume2:/volume3:/volume4:/opt/bin:/usr/bin:/etc.defaults:/tmp:/var/services/tmp",
           "extensions": [
             "curl",
+            "dom",
+            "fileinfo",
             "mbstring",
             "openssl",
+            "simplexml",
+            "xml",
+            "xmlreader",
+            "xmlwriter",
             "zip",
             "zlib"
           ],

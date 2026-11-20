@@ -139,8 +139,10 @@ final class ArchiveTools
      * Extract into a fresh isolated child folder; never extract over existing data.
      * Files are streamed individually, with bounded expanded size and entry checks.
      */
-    public static function extract(WorkspaceFiles $work, string $relative): string
+    public static function extract(WorkspaceFiles $work, string $relative, ?callable $progress = null): string
     {
+        $progress ??= static function (int $percent, string $step): void {};
+        $progress(2, 'Validating ZIP entries and size limits');
         $preview = self::inspect($work, $relative);
         if (!$preview['supported'])
         {
@@ -183,6 +185,7 @@ final class ArchiveTools
             try
             {
                 $processed = 0;
+                $totalEntries = max(1, count($preview['entries']));
                 foreach ($preview['entries'] as $entry)
                 {
                     $dest = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $entry['relative']);
@@ -226,6 +229,10 @@ final class ArchiveTools
                             }
                             $written += strlen($chunk);
                             $processed += strlen($chunk);
+                            if ($preview['bytes'] > 0)
+                            {
+                                $progress(5 + (int) min(90, (90 * $processed / $preview['bytes'])), 'Extracting ' . $entry['name']);
+                            }
                             if ($written > $entry['bytes'] || $processed > self::MAX_OUTPUT_BYTES ||
                                 fwrite($out, $chunk) !== strlen($chunk))
                             {
@@ -248,6 +255,7 @@ final class ArchiveTools
             {
                 $zip->close();
             }
+            $progress(96, 'Publishing completed ZIP extraction');
             if (file_exists($destination) || !rename($stage, $destination))
             {
                 throw new RuntimeException('Extraction destination is occupied or could not be published.');

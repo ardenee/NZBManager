@@ -1,6 +1,6 @@
 <section class="page-header">
     <div><div class="eyebrow">DOWNLOADS WORKSPACE</div><h1>PAR2 Repair</h1>
-        <p>Verify PAR2 recovery sets natively in PHP, or queue explicitly enabled external repair jobs through a separate CLI worker.</p>
+        <p>Verify PAR2 recovery sets and reconstruct missing or damaged slices in a separate PHP process. No par2cmdline or other repair executable is used.</p>
     </div><a class="button secondary" href="index.php?module=settings">Configure workspace</a>
 </section>
 <?php
@@ -19,36 +19,34 @@ catch (\Throwable $error)
 {
     $workspaceError = $error->getMessage();
 }
-$par2Binary = \NZB\Modules\Par2Jobs::binary();
-$par2RepairAllowed = \NZB\Modules\Par2Jobs::repairEnabled();
+$par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
 ?>
 <section class="panel">
     <div class="panel-heading">
-        <div><h2>PAR2 execution</h2><p>Verification uses the native PHP PAR2 packet and file checksum reader. Full Reed–Solomon recovery still uses an external tool. Both run in a separate CLI worker.</p></div>
-        <span class="chip"><?= $par2Binary === null ? 'Native PHP verify · repair unavailable' : 'Native PHP verify · external repair ready' ?></span>
+        <div><h2>Native PHP PAR2 engine</h2>
+            <p>Recovery arithmetic, packet checks, file and slice checksums run in PHP CLI. No external PAR2 executable.</p></div>
+        <span class="chip">PHP GF(2¹⁶) Reed–Solomon</span>
     </div>
     <div class="configuration-help">
-        <p><?= $par2Binary === null
-            ? 'Native PHP verification requires no executable. Repair requires a compatible par2cmdline at /opt/bin/par2 or /usr/bin/par2, or NZB_PAR2_BINARY.'
-            : 'External repair executable: ' . escape($par2Binary) . '. Native PHP verification works independently.' ?></p>
-        <p><?= $par2RepairAllowed
-            ? 'Repair is explicitly enabled by the administrator; it can change downloaded payload files.'
-            : 'Repair is deliberately disabled by default because this DSM web application does not have an application login. Set NZB_PAR2_REPAIR_ENABLED=1 in the trusted worker environment to permit repair.' ?></p>
+        <p>Verify checksums without changing downloaded files, or select Repair to reconstruct damaged/missing slices from the PAR2 recovery volumes. Outputs are written as <code>filename.repaired</code> alongside the originals; existing files are never overwritten.</p>
+        <p>Safety limits for this initial native engine: 64 MiB total protected data, 256 input slices, 8 missing slices, 1 MiB per slice and 80 recovery volumes. Unsupported large recovery sets report a precise error instead of making risky filesystem changes.</p>
+        <p>The job monitor updates automatically while the independent PHP CLI worker runs. Tasks can be cancelled; cancellation does not delete completed recovered outputs.</p>
     </div>
 </section>
 <?php if ($workspaceError !== null): ?>
-<section class="panel"><div class="configuration-help"><p><?= escape($workspaceError) ?></p></div></section>
+<section class="panel"><div class="configuration-help"><p><?= escape($workspaceError) ?></p>
+    <a class="button secondary" href="index.php?module=settings">Set downloads workspace</a></div></section>
 <?php else: ?>
 <section class="panel">
     <div class="panel-heading">
         <div><h2>PAR2 sets in <?= escape($par2Folder ?: 'workspace root') ?></h2>
-            <p>Only PAR2 files with a valid first packet header can be queued.</p></div>
+            <p>Select any PAR2 index or volume; matching recovery volumes are discovered in the same folder.</p></div>
         <?php if ($par2Folder !== ''): ?>
         <a class="button secondary" href="index.php?module=repair&amp;folder=<?= escape(rawurlencode(str_contains($par2Folder, '/') ? substr($par2Folder, 0, strrpos($par2Folder, '/')) : '')) ?>">Parent</a>
         <?php endif; ?>
     </div>
     <div class="table-scroll"><table data-sortable>
-        <thead><tr><th>File/folder</th><th>Set identifier / state</th><th>Size</th><th data-no-sort>Actions</th></tr></thead>
+        <thead><tr><th>PAR2 index / folder</th><th>Recovery set</th><th>Size</th><th data-no-sort>Actions</th></tr></thead>
         <tbody>
         <?php foreach ($par2Entries as $item): ?>
         <?php if (!$item['is_dir'] && $item['extension'] !== 'par2') continue; ?>
@@ -73,29 +71,45 @@ $par2RepairAllowed = \NZB\Modules\Par2Jobs::repairEnabled();
             <td><?php if ($item['is_dir']): ?>
                 <a href="index.php?module=repair&amp;folder=<?= escape(rawurlencode($item['relative'])) ?>">Browse</a>
             <?php elseif ($metadata !== null): ?>
-                <form class="inline-form" method="post" action="index.php?module=repair">
+                <form class="inline-form" method="post" action="index.php?module=repair&amp;folder=<?= escape(rawurlencode($par2Folder)) ?>">
                     <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                     <input type="hidden" name="par2_file" value="<?= escape($item['relative']) ?>">
-                    <button type="submit" class="button secondary" name="action" value="par2_verify">Queue PHP verify</button>
-                    <button type="submit" class="button subtle" name="action" value="par2_repair" <?= $par2Binary === null || !$par2RepairAllowed ? 'disabled' : '' ?> data-confirm="Queue PAR2 repair? The worker may modify downloaded files.">Queue repair</button>
+                    <button type="submit" class="button secondary" name="action" value="par2_verify">Verify</button>
+                    <button type="submit" class="button subtle" name="action" value="par2_repair" data-confirm="Start native PHP recovery? Recovered outputs will use new .repaired filenames and will not replace originals.">Repair</button>
                 </form>
             <?php endif; ?></td></tr>
         <?php endforeach; ?>
+        <?php if ($par2Entries === []): ?>
+        <tr><td class="empty" colspan="4">No visible PAR2 files in this folder.</td></tr>
+        <?php endif; ?>
         </tbody>
     </table></div>
 </section>
 <?php endif; ?>
-<?php $par2Jobs = \NZB\Modules\Par2Jobs::all(); ?>
-<section class="panel">
-    <div class="panel-heading"><div><h2>Recent PAR2 jobs</h2><p>Refresh this page to check status. Queued jobs require a CLI worker to run.</p></div>
+<section class="panel" data-background-monitor="par2">
+    <div class="panel-heading"><div><h2>PAR2 background jobs</h2><p>Progress, errors and recovered file names update automatically while PHP workers run.</p></div>
         <a class="button subtle" href="index.php?module=repair">Refresh</a></div>
     <div class="table-scroll"><table data-sortable>
-        <thead><tr><th>Created (UTC)</th><th>File</th><th>Action</th><th>Status</th><th>Result</th></tr></thead><tbody>
+        <thead><tr><th>Created (UTC)</th><th>PAR2 set</th><th>Operation</th><th>Status / progress</th><th>Details</th><th data-no-sort>Action</th></tr></thead><tbody>
         <?php foreach ($par2Jobs as $job): ?>
-        <tr><td><?= escape($job['created'] ?? '') ?></td><td class="name"><?= escape($job['relative'] ?? '') ?></td>
-            <td><?= escape($job['mode'] ?? '') ?></td><td><?= escape($job['status'] ?? '') ?></td>
-            <td><?= escape(mb_strimwidth((string) ($job['message'] ?? ''), 0, 250)) ?></td></tr>
+        <tr data-job-row="<?= escape($job['id']) ?>">
+            <td><?= escape($job['created'] ?? '') ?></td>
+            <td class="name"><?= escape($job['name'] ?? '') ?></td>
+            <td><?= escape(($job['type'] ?? '') === 'par2_repair' ? 'Repair' : 'Verify') ?></td>
+            <td><strong data-job-state><?= escape($job['status'] ?? '') ?></strong>
+                <progress data-job-progress max="100" value="<?= (int) ($job['progress'] ?? 0) ?>"></progress>
+                <span data-job-percent><?= (int) ($job['progress'] ?? 0) ?>%</span></td>
+            <td data-job-message><?= escape($job['message'] ?? '') ?></td>
+            <td><?php if (in_array($job['status'] ?? '', ['queued', 'running'], true)): ?>
+                <form method="post" action="index.php?module=repair" data-confirm="Request cancellation of this PHP PAR2 job?">
+                    <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+                    <input type="hidden" name="action" value="par2_cancel">
+                    <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
+                    <button type="submit" class="button subtle">Cancel</button>
+                </form>
+            <?php endif; ?></td>
+        </tr>
         <?php endforeach; ?>
-        <?php if ($par2Jobs === []): ?><tr><td class="empty" colspan="5">No PAR2 jobs have been submitted.</td></tr><?php endif; ?>
+        <?php if ($par2Jobs === []): ?><tr><td class="empty" colspan="6">No PAR2 jobs yet. Select Verify or Repair above.</td></tr><?php endif; ?>
     </tbody></table></div>
 </section>

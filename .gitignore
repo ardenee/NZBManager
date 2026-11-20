@@ -15,3 +15,7 @@ vendor-local/
 # Modern application runtime and generated packages
 /var/
 /dist/
+
+# Python bytecode from packaging/test validation
+__pycache__/
+*.pyc

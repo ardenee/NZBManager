@@ -23,7 +23,8 @@
 | src/Modules/LibraryActions.php | Library and NZB file POST actions |
 | src/Modules/IndexerActions.php | Search and import requests, short-lived result references |
 | src/Modules/BinsearchActions.php | Binsearch search and secure selected-NZB generation |
-| src/Modules/DownloadStationActions.php | Optional task submission and detected-service visibility |
+| src/Modules/DownloadStationActions.php | Native DSM task submission, task controls and API discovery |
+| src/DownloadClients/DownloadStationSettings.php | Private DSM account storage; no credentials rendered to browser |
 | src/DownloadClients/DownloadStationClient.php | DSM task API discovery, scoped authentication, NZB upload and logout |
 | src/AppConfig.php | DSM package detection and private storage setup |
 | src/AppSettings.php | Validated private page sizes and folder paths |
@@ -36,8 +37,11 @@
 | src/Modules/FolderBrowser.php | Folder-only DSM volume/share navigation and PHP access checks |
 | src/Modules/ManagedFolders.php | Locked private registry, filesystem identity checks and managed-folder rename/empty-delete |
 | src/Modules/Par2Reader.php | Native PAR2 2.0 packet, file hash and slice checksum verifier |
-| src/Modules/Par2Jobs.php | Private PAR2 job queue and CLI-only verification/repair dispatch |
-| bin/par2-worker.php | Standalone PHP CLI job runner outside public/ |
+| src/Modules/Par2Jobs.php | PAR2 header inspection and native job compatibility facade |
+| src/Modules/Par2Galois.php | Pure PHP GF16 Reed–Solomon field/matrix arithmetic |
+| src/Modules/Par2Recovery.php | Bounded native PHP PAR2 recovery and checksum-verified non-overwriting outputs |
+| src/Modules/BackgroundJobs.php | Private async PHP job queue, cancel controls and progress state |
+| bin/background-worker.php | Detached PHP CLI worker for PAR2 verify/repair and ZIP extraction |
 | src/Indexers/NewznabClient.php | HTTPS-only Newznab search/get, XML parsing and network limits |
 | src/Indexers/ProviderCatalog.php | Shared Newznab provider presets, including special API paths |
 | src/Indexers/IndexerConnections.php | Multi-indexer server settings and public name-only listing |
@@ -84,20 +88,23 @@ execution of uploaded modules is deliberately prohibited.
 - Binsearch: HTML-based search, zero-based provider pagination and selected
   NZB generation are implemented and have passed live testing; parser
   maintenance remains necessary when Binsearch changes its website.
-- Download clients: a separate Download Station API adapter is implemented with
-  mocked discovery, login, upload and logout tests. It remains unavailable
-  unless DSM discovery advertises the required API; an actual NAS must still
-  certify task submission and lifecycle. This is independent of the SPK build.
+- Download clients: Download Station discovery, scoped sessions, task upload,
+  list, pause/resume and remove implemented. Module appears only if DSM
+  advertises the legacy task API; private connection settings support a
+  restricted account. Tests mock the API and verify operations. The test NAS
+  confirms discovery only; live authenticated tasks await credentials.
 - File organization: a bounded workspace browser, file rename/move preview,
   explicit confirmation and no-overwrite hard-link moves are implemented;
   batch operations, payload merges and persistent audit records are pending.
-- PAR2: a pure PHP verifier handles bounded 2.0 Main, FileDesc and IFSC
-  packets, packet MD5 checks, protected-file MD5 and per-slice MD5/CRC-32.
-  The CLI-only job worker needs no executable for verification. Full
-  Reed–Solomon repair still requires a separately installed par2cmdline and
-  administrator opt-in; real DSM parity certification remains outstanding.
-- Archives: bounded ZIP streaming extraction with traversal and symlink
-  prevention; solid, encrypted, RAR, 7z and TAR adapters remain pending.
+- PAR2: pure PHP packet verifier and pure PHP GF(2^16) Reed–Solomon
+  reconstruction; no third-party PAR2 executable, FFI or system binary.
+  Repair writes only checksum-verified .repaired outputs and preserves originals.
+  Initial bounds are 64 MiB protected data, 256 slices and 8 missing slices.
+  Live web-to-independent PHP CLI repair passed on DSM for 5 slices and 2 files.
+  Real larger PAR2 sets remain uncertified.
+- Archives: bounded ZIP streaming extraction in an independent PHP CLI worker,
+  with polling progress monitor, cancellation, path traversal/symlink checks.
+  Solid, encrypted, RAR, 7z and TAR adapters remain pending.
 - Settings: validated deployment configuration and integration settings,
   secret handling, storage migrations.
 - Legacy migration: read-only import of historic MySQL schema and NZB documents.
@@ -118,7 +125,8 @@ package-private marker; it must be restricted to a trusted network. No
 MySQL database is required by the modern application.
 
 The storage index is JSON sidecars. SHA-256 hashes and a lock around imports
-prevent duplicate NZBs even from different import sources. Broader transaction
-handling, audit logs, migrations and non-blocking work remain outstanding.
+prevent duplicate NZBs even from different import sources. Bounded native PHP
+background job execution is implemented; broader transactional guarantees,
+audit logs, migrations and multiworker recovery are still outstanding.
 
 See FEATURE-MATRIX.md for exact implementation status.

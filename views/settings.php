@@ -148,6 +148,39 @@ foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
     </div>
 </section>
 
+<?php $downloadStationSummary = \NZB\DownloadClients\DownloadStationSettings::publicSummary(); ?>
+<section class="panel">
+    <div class="panel-heading">
+        <div><h2>Synology Download Station connection</h2>
+            <p>Optional native DSM task API integration, separate from monitored-folder Push To.</p></div>
+        <span class="chip"><?= $downloadStationAvailable ? 'Download Station detected' : 'DSM API unavailable' ?></span>
+    </div>
+    <div class="configuration-help">
+        <p>Enter the credentials of a dedicated DSM account allowed to use Download Station. NZB Manager connects over local loopback (<code>127.0.0.1:5000</code>) and stores the credentials in a package-private file, never in the web directory. Do not use a DSM administrator account.</p>
+        <p>This development website has no application login, so restrict it to your trusted network. Anyone who can access Settings could replace these credentials or submit tasks.</p>
+    </div>
+    <?php if ($downloadStationSummary['configured']): ?>
+    <div class="configuration-help"><p><strong>Saved Download Station account:</strong> <?= escape($downloadStationSummary['user']) ?>. Password is not displayed.</p>
+        <form method="post" action="index.php?module=settings" data-confirm="Remove the locally saved Download Station API credentials?">
+            <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+            <input type="hidden" name="action" value="downloadstation_clear">
+            <button type="submit" class="button secondary">Remove saved connection</button>
+        </form>
+    </div>
+    <?php endif; ?>
+    <form method="post" action="index.php?module=settings" class="settings-form">
+        <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+        <input type="hidden" name="action" value="downloadstation_save">
+        <div class="settings-form-grid">
+            <label for="downloadstation-username">DSM Download Station username</label>
+            <input id="downloadstation-username" name="dsm_user" maxlength="128" autocomplete="off" required placeholder="Dedicated Download Station user">
+            <label for="downloadstation-password">DSM Download Station password</label>
+            <input id="downloadstation-password" type="password" name="dsm_password" maxlength="512" autocomplete="new-password" required placeholder="Saved privately; not displayed again">
+        </div>
+        <div class="settings-form-footer"><button type="submit" class="button primary">Save Download Station connection</button></div>
+    </form>
+</section>
+
 <section class="panel">
     <div class="panel-heading">
         <div><h2>PHP module status</h2><p>Extensions actually loaded by this website's PHP-FPM process. The DSM installer declares the required extensions in its package PHP profile.</p></div>
@@ -155,11 +188,20 @@ foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
     </div>
     <?php
     $runtimeModules = [
-        ['cURL', 'curl', 'Indexer search, Binsearch and remote delivery'],
-        ['mbstring', 'mbstring', 'Unicode text and indexer metadata'],
-        ['OpenSSL', 'openssl', 'Secure PHP stream and cryptography support'],
-        ['ZIP', 'zip', 'Archive Extraction'],
-        ['zlib', 'zlib', 'Compressed stream handling'],
+        ['cURL', 'curl', 'Binsearch, Newznab and DSM Download Station API'],
+        ['DOM', 'dom', 'NZB XML document parsing'],
+        ['libxml', 'libxml', 'Safe XML parser library used by DOM'],
+        ['XML', 'xml', 'XML parser functionality'],
+        ['XMLReader', 'xmlreader', 'XML reader support'],
+        ['XMLWriter', 'xmlwriter', 'XML writer support'],
+        ['SimpleXML', 'simplexml', 'Additional XML document support'],
+        ['hash', 'hash', 'Native PHP PAR2 MD5 and CRC32 checksums'],
+        ['JSON', 'json', 'Settings and background job state'],
+        ['fileinfo', 'fileinfo', 'File format inspection'],
+        ['mbstring', 'mbstring', 'Unicode text, metadata and job progress'],
+        ['OpenSSL', 'openssl', 'Secure remote communication'],
+        ['ZIP', 'zip', 'ZIP archive streaming and extraction'],
+        ['zlib', 'zlib', 'Compressed streams'],
     ];
     ?>
     <dl class="settings-status-list">
@@ -170,10 +212,11 @@ foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
                 <span class="muted"> · <?= escape($purpose) ?></span></dd>
         </div>
         <?php endforeach; ?>
-        <div class="settings-status-row"><dt>DOM / XML / hash</dt>
-            <dd><?= extension_loaded('dom') && extension_loaded('xml') && extension_loaded('hash') ? 'Available · Built-in PHP features used for NZB parsing and native PAR2 checksums' : 'Missing a required PHP runtime feature' ?></dd></div>
+        <div class="settings-status-row"><dt>PHP CLI worker launcher</dt>
+            <dd><strong class="<?= function_exists('proc_open') ? 'runtime-available' : 'runtime-unavailable' ?>"><?= function_exists('proc_open') ? 'Available' : 'Unavailable' ?></strong>
+                · Native PHP worker launch, independent of FPM requests</dd></div>
     </dl>
-    <div class="settings-help-note">The SPK requests cURL, mbstring, OpenSSL, ZIP and zlib automatically for the NZB Manager PHP profile. Native PHP PAR2 verification uses the core hash extension; it does not require ZIP or zlib. If this page reports missing extensions after an update, the older Web Station profile may still be in use.</div>
+    <div class="settings-help-note">The installer configuration declares cURL, DOM, XML, XMLReader, XMLWriter, SimpleXML, fileinfo, mbstring, OpenSSL, ZIP and zlib for the next SPK. libxml, hash and JSON are provided by the PHP runtime. Native PHP PAR2 verification and Reed–Solomon repair require hash and PHP CLI, not any third-party repair executable. The next SPK will be built when installer testing is requested.</div>
 </section>
 
 <section class="panel">

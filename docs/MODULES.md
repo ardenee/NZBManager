@@ -1,141 +1,116 @@
 # Download-processing modules (DSM 7 and Linux)
 
-The NZB Manager **PAR2 Repair**, **Archive Extraction** and **File Organizer**
-modules are separate from the NZB Library, Binsearch, Indexer Search and
-Push To. They operate on actual downloaded files in a single administrator-
-configured workspace, not on the contents of the NZB XML files.
+NZB Manager's PAR2 Repair, Archive Extraction and File Organizer modules
+operate on downloaded payloads inside the approved **downloads workspace**,
+not on NZB document XML or arbitrary NAS paths.
 
-## Configure the workspace
+## Workspace setup and permissions
 
-1. Open Settings > Display and folders.
-2. Click **Browse folders** next to the downloaded-files workspace, folder
-   import or monitored Push To destination. The directory-only picker lists
-   eligible DSM volumes and shares, excluding system, home and web shares.
-3. Navigate the shared folders. Read/traverse and read/write availability
-   are checked using the PHP-FPM execution account. Inaccessible directories
-   show a permission warning; write access is mandatory for monitored Push To.
-4. Select an accessible existing folder, for example /volume1/downloads.
-   Save Settings. Every configured path is rechecked on page load and before
-   saving; invalid paths are not silently accepted.
-5. If access is denied, update the NZB Manager PHP service account's DSM
-   Shared Folder permissions/ACLs. PHP open_basedir must also include the
-   volume. The 0.4.1-0001 SPK declares volumes 1–4; installing it does not
-   grant filesystem privileges or expand the currently registered PHP profile
-   until the service is re-registered.
+Open Settings > Display and folders. Browse to an existing approved DSM share
+such as /volume1/data/Downloads and save the downloads workspace. Directory
+browsing excludes home/system/web shares and symlinks. Read/traverse
+permission is required to list contents, and write permission is needed to
+extract, repair or organize files. The Web Station PHP profile must include the
+volume in open_basedir, and the actual PHP-FPM user must have the DSM share ACLs.
+Settings reports read/write access and rejects inaccessible configured paths.
 
-The configured path is stored outside the public web root. User requests
-cannot select arbitrary absolute paths, traverse outside the workspace or
-follow symbolic links. Web Station web and web_packages shares and DSM home
-shares are prohibited as downloaded-files workspaces, to prevent extraction
-of executable files under public web roots. At most 300 entries are listed per folder request, and
-folder traversal is limited to eight directory levels.
+**Security:** The current DSM alpha has no application login. Anyone able to
+access NZB Manager could submit jobs or organize files. Restrict the website
+to a trusted LAN or an authenticated reverse proxy; never expose this
+password-free test site directly to the Internet.
 
-**No application login:** Any person who can open NZB Manager over the network
-could submit folder changes or ZIP extractions. Keep this experimental package
-strictly inside a trusted LAN with NAS firewall or an external access-control
-layer. Do not expose the site to the internet.
+## File Organizer and folder creation
 
-## File Organizer
-
-- Browse workspace folders, including nested directories.
-- Select one regular file for a same-workspace rename or move.
-- Optionally choose a new filename and an existing destination subfolder.
-- First POST creates a **preview** showing old/new paths and bytes. The
-  second, CSRF-protected confirmation must be completed within 120 seconds.
-- The original must be unchanged since preview. An atomic hard-link
-  plus unlink moves the regular file, and never overwrites existing files.
-  This requires compatible source/destination filesystem permissions.
-- Create a subfolder in the current approved workspace folder. NZB Manager
-  records its relative path and filesystem identity in a locked private
-  managed-folder registry outside the downloadable workspace.
-- **Rename** a folder created through File Organizer (same parent folder).
-  This uses a 120-second preview and confirmation, rejects collisions,
-  verifies the folder identity and preserves all its contents. If a managed
-  parent contains other managed folders, their tracked paths update together.
-- **Delete** a File Organizer-created folder only when truly empty, after
-  user confirmation. No recursive deletion. The workspace root and existing,
-  untracked, externally replaced or symlinked folders remain protected.
-  A folder created by an older version before tracking was introduced is
-  intentionally not treated as managed, because its origin cannot be proven.
-
-**Limitations:** Batch operations, moving folders to different parents, merging payload
-fragments, recursive full-disk scans and background file processing are
-not yet implemented. The app does not modify arbitrary files outside the
-configured workspace.
+- Browse approved directories; preview/confirm a same-filesystem file rename
+  or move without overwriting other files.
+- Create a folder through File Organizer. Its identity (filesystem device/inode)
+  is recorded in the package-private managed-folder registry.
+- Rename tracked folders within their existing parent, preserving contents.
+  The operation uses a short-lived preview, CSRF and collision checks.
+- Delete **empty tracked folders only**; never recursively delete the contents.
+  Pre-existing, externally moved/replaced or untracked folders are protected.
+- Rename/Delete controls appear for tracked folders; earlier folders show
+  disabled controls and an explanation. A folder created before tracking
+  existed cannot safely be claimed as managed without an explicit adoption
+  process, which is not implemented.
+- Batch moves, fragment merges and folder moves between parent directories
+  remain outstanding.
 
 ## Archive Extraction
 
-- ZIP and folders are listed and ZIP contents can be previewed, with a
-  limit of **250 members, 32 MiB ZIP size, and 64 MiB expanded bytes**.
-- ZIP path traversal, absolute paths, symlinks, special files, encrypted
-  members and case-colliding/duplicate entries are rejected.
-- The extractor streams members to a newly created, private staging folder,
-  then publishes one new extracted folder alongside the original archive.
-  Original archives are never deleted or overwritten.
-- PHP's **zip** extension is required. The DSM SPK enables it in the
-  package's PHP 8.2 profile.
+- ZIP inspection and extraction use PHP's ZipArchive and zlib capabilities.
+  No 7-Zip, unrar or shell-based extractor is invoked.
+- Submitting a ZIP queues a job; **bin/background-worker.php** launches in its
+  own PHP CLI process (on DSM using the PHP 8.2 CLI) and reports progress.
+  The webpage polls a read-only same-origin JSON status endpoint, displaying
+  progress bars, job messages and terminal errors. Cancellation is supported.
+- ZIP safety limits remain **32 MiB input, 64 MiB expanded, 250 entries**.
+  Absolute/traversal paths, duplicates, case collisions, symlinks, encrypted
+  or special members are rejected. Extraction stages in a private directory
+  and publishes a **new folder**, preserving the original archive.
+- RAR, 7z and TAR/TGZ are recognized but do **not** have extraction adapters
+  yet. There is no claim of support for encrypted, solid or very large archives.
 
-**Limitations:** RAR, 7z and TAR/TGZ are recognized for future adapters but
-are not extracted in this release. Large/solid or encrypted archives require
-a separate bounded background extraction service; none is claimed here.
-No archive content is executed.
+## Fully native PHP PAR2 verification and repair
 
-## PAR2 verification and repair
-
-PAR2 2.0 **verification is implemented entirely in native PHP**. It is
-implemented in src/Modules/Par2Reader.php using the published Parchive 2.0
-specification:
+The implementation uses the official Parchive 2.0 specification:
 https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
 
-- Parse the 64-byte packet header and validate the MD5 of each packet.
-- Decode Main, FileDesc and IFSC metadata from bounded little-endian fields.
-- Check matching recovery-set identifiers, protected filenames and file sizes.
-- Compare the protected file's full and first-16-KiB MD5 hashes and, when
-  IFSC packets are available, each slice's MD5/CRC-32 (with final zero padding).
-- Report verified, damaged or missing protected files. Verification NEVER
-  overwrites or repairs files.
-- The current native verifier limits individual PAR2 files to 256 MiB,
-  protected data to 256 MiB, one protected file to 128 MiB, and a set to
-  128 files and 5,000 PAR2 packets. Unsupported large/packed/partial sets
-  must be handled by a more complete verifier.
+- **Par2Reader.php:** Pure PHP packet header checks, MD5 validation,
+  Main/FileDesc/IFSC metadata and protected-file/per-slice MD5/CRC32 checks.
+  Verification is non-destructive.
+- **Par2Galois.php:** PHP Reed-Solomon arithmetic in GF(2^16), primitive
+  polynomial 0x1100B, input coefficients, matrix inversion and binary
+  16-bit slice operations. No FFI or non-PHP repair executable.
+- **Par2Recovery.php:** Reads matching PAR2 volume packets, solves
+  linearly-independent recovery equations, reconstructs bad/missing slices,
+  validates per-slice and whole-file hashes and publishes new files as
+  **filename.repaired**. The original damaged files are never overwritten;
+  missing originals are not silently created under their original names.
+- **BackgroundJobs.php:** Private, bounded JSON queue, separate PHP CLI
+  worker, cancellation flag, percent+step callbacks and automatic polling
+  from the browser. No cron or DSM Task Scheduler is required when the
+  Web Station account can launch the PHP CLI.
+- **Worker:** bin/background-worker.php uses CLI pcntl_fork to detach, not
+  a background PHP-FPM web request. The DSM test NAS has php82, proc_open,
+  pcntl and posix features available. No par2cmdline or other parity-tool
+  executable is used.
+- **Initial bounded repair limits:** 64 MiB total protected data, 256 input
+  slices, up to **8 missing/damaged slices**, at most 1 MiB per slice and
+  80 PAR2 volumes per operation. Larger recovery sets fail explicitly;
+  arbitrary full-size PAR2 recovery is **not yet certified**.
+- A cancelled job stops at the next callback. Already published .repaired
+  outputs are not automatically removed.
 
-**No par2cmdline executable is needed for native PHP verification.**
-However, verification is still a potentially slow workload, so the web
-interface queues it for a separate **PHP CLI worker**, not an HTTP request.
-Both valid and damaged checksums were tested with synthetic specification-
-conformant packet fixtures; real-world PAR2 sets still need certification.
+### Verification performed
 
-**Repair is not yet native PHP.** Reconstructing damaged slices requires
-Reed–Solomon calculations over GF(2^16), recovery-block selection, matrix
-inversion and writeback verification. Until that separate implementation is
-tested, recovery remains an optional, external par2cmdline operation. It is
-**disabled by default**. Enabling repair requires a trusted par2cmdline
-executable and NZB_PAR2_REPAIR_ENABLED=1 in the web and worker environments.
-No executable may be selected by ordinary website visitors.
+1. On DEV, specification-conformant synthetic PAR2 volume fixtures recover
+   five missing/damaged input slices spanning multiple source files. All
+   reconstructed data are validated against original bytes and hashes.
+2. On the actual DSM website, a POST to the PAR2 Repair module started a
+   separate PHP CLI process. The monitor reported **100%** and **two verified
+   .repaired outputs** after reconstructing five damaged/missing slices.
+   The original damaged data were unchanged. All temporary test files were
+   removed.
+3. A live ZIP background extraction also completed at 100%, with the
+   extracted contents validated and temporary data removed.
 
-PAR2 job records live in package-private JSON storage. The worker is included
-inside the SPK at:
+**Remaining certification:** Real third-party recovery sets, unusual PAR2
+packets, huge sets, complex rename mappings and expanded erasure counts
+need broader validation. Current repair coverage should not be described
+as general unlimited PAR2 repair.
 
-    /var/packages/nzbmanager/target/webapp/bin/par2-worker.php
+## PHP extensions and installer policy
 
-Run the worker periodically using DSM Task Scheduler or Linux cron with
-the installed PHP CLI, for example (replace the placeholder):
+The DSM PHP-FPM 8.2.35 profile was probed directly. It loads DOM, libxml,
+XML, XMLReader, XMLWriter, SimpleXML, hash, JSON, fileinfo, cURL, mbstring,
+OpenSSL, ZIP and zlib. Neither iconv nor phar is needed for these modules.
 
-    <php82-cli> /var/packages/nzbmanager/target/webapp/bin/par2-worker.php
+The **next** SPK configuration under packaging/dsm7/conf/resource declares
+the selectable extensions: curl, dom, fileinfo, mbstring, openssl, simplexml,
+xml, xmlreader, xmlwriter, zip and zlib. Core/runtime components libxml,
+hash and JSON are verified on the Settings page and are not falsely treated
+as optional install-time checkboxes.
 
-Only for **repair**, a compatible executable is discovered at /opt/bin/par2,
-/usr/bin/par2 or /usr/local/bin/par2, or via NZB_PAR2_BINARY in the trusted
-worker environment. The external command is executed with a fixed argument
-array and a 90-second job limit; user input is never concatenated into a shell
-command. A full native PHP Reed–Solomon repairer remains future work.
-
-## Storage and MySQL
-
-The **modern application does not use MySQL**. NZB files, JSON metadata,
-settings, Newznab profiles and queued PAR2 jobs are stored in package-private
-directories. No database user or password is required to install DSM 7 NZB
-Manager. The recovered 2013 application did use MySQL; importing historic
-MySQL records is a future optional migration feature, not a runtime
-requirement. If a SQL backend is later provided, credentials should be kept
-in administrator-controlled private configuration, not in public PHP files
-or unprotected browser forms.
+**No SPK is built for these source changes.** Build one only when installer
+behavior needs testing or the user requests a release.

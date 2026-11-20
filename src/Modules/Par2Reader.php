@@ -48,8 +48,10 @@ final class Par2Reader
     /**
      * @return array{set:string,slice_bytes:int,packet_count:int,recovery_packets:int,files:list<array<string,mixed>>}
      */
-    public static function verify(WorkspaceFiles $work, string $relative): array
+    public static function verify(WorkspaceFiles $work, string $relative, ?callable $progress = null): array
     {
+        $progress ??= static function (int $percent, string $message): void {};
+        $progress(2, 'Reading and validating PAR2 packets');
         $source = $work->resolve($relative, 'file');
         $fileBytes = @filesize($source);
         if (!is_int($fileBytes) || $fileBytes < 64 || $fileBytes > self::MAX_PAR_BYTES)
@@ -122,6 +124,10 @@ final class Par2Reader
                 if (!hash_equals(substr($header, 16, 16), hash_final($context, true)))
                 {
                     throw new RuntimeException('PAR2 packet MD5 checksum failed.');
+                }
+                if ($packetCount === 1 || $packetCount % 16 === 0 || $position === $fileBytes)
+                {
+                    $progress(3 + (int) (22 * $position / $fileBytes), 'Validated ' . $packetCount . ' PAR2 packets');
                 }
                 if ($type === "PAR 2.0\0Main\0\0\0\0")
                 {
@@ -224,14 +230,20 @@ final class Par2Reader
             {
                 throw new RuntimeException('Protected PAR2 data exceeds the native 256 MiB/128-file verification limit.');
             }
-            $files[] = self::verifyFile($work, $parent, $entry, $checksums[$id] ?? null, $sliceSize);
+            $fileIndex = count($files);
+            $fileCount = count($mainIds);
+            $fileProgress = static function (int $percent, string $message) use ($progress, $fileIndex, $fileCount): void {
+                $progress(25 + (int) (70 * ($fileIndex + $percent / 100) / $fileCount), $message);
+            };
+            $files[] = self::verifyFile($work, $parent, $entry, $checksums[$id] ?? null, $sliceSize, $fileProgress);
+            $fileProgress(100, 'Checked ' . $entry['name']);
         }
         return ['set' => bin2hex($set), 'slice_bytes' => $sliceSize,
             'packet_count' => $packetCount, 'recovery_packets' => $recovery, 'files' => $files];
     }
 
     /** @param array<string,mixed> $description */
-    private static function verifyFile(WorkspaceFiles $work, string $parent, array $description, ?array $ifsc, int $sliceSize): array
+    private static function verifyFile(WorkspaceFiles $work, string $parent, array $description, ?array $ifsc, int $sliceSize, callable $progress): array
     {
         $entry = [
             'name' => $description['name'], 'bytes' => $description['bytes'],
@@ -328,6 +340,10 @@ final class Par2Reader
                         hash_update($sliceMd5, $zeros);
                         hash_update($sliceCrc, $zeros);
                         $pad -= strlen($zeros);
+                    }
+                    if (($index % 8) === 0 || $index === count($ifsc) - 1)
+                    {
+                        $progress((int) (100 * ($index + 1) / count($ifsc)), 'Checking slices in ' . $description['name']);
                     }
                     if (!hash_equals($check['md5'], hash_final($sliceMd5)) ||
                         !hash_equals($check['crc32'], hash_final($sliceCrc)))
