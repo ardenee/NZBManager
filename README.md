@@ -49,8 +49,9 @@ nodes. Metadata from additional NZBs is not yet merged.
 
 ## Requirements
 
-- PHP 8.2+ with cURL, DOM, libxml, JSON, mbstring and session extensions;
-  ZIP extraction additionally requires the zip extension
+- PHP 8.2+ with cURL, DOM, libxml, JSON, mbstring and session; ZIP extraction
+  additionally requires zip. The DSM installer automatically configures
+  cURL, mbstring, OpenSSL, ZIP and zlib as required PHP profile extensions.
   (PHP 8.5 target), and a trusted TLS certificate-authority bundle
 - Linux web server with PHP-FPM (nginx or Apache) and TLS
 - Writable private storage directory outside the public web root
@@ -153,7 +154,7 @@ A password-free **test SPK** can now be built from this same application source:
 
     python packaging/dsm7/build.py
 
-Install `dist/NZB-Manager-DSM7-0.4.1-0001-noauth-test.spk` through Package
+Install `dist/NZB-Manager-DSM7-0.4.2-0001-noauth-test.spk` through Package
 Center > Manual Install. Web Station and PHP 8.2 must be available. The
 application registers an alias portal at `/nzbmanager/` through Web Station.
 There is **no installation wizard, application password or login prompt**.
@@ -166,8 +167,9 @@ trusted local network using NAS firewall/reverse-proxy access controls; do not
 publish this password-free test instance to the internet.
 
 An earlier SPK was installed and its PHP profile tested on the development NAS.
-The latest 0.4.1 test SPK includes the native PAR2 verifier, secure folder
-picker, CLI worker, modules and PHP zip configuration, but its installation
+The latest 0.4.2 test SPK includes the native PAR2 verifier, secure folder
+picker, CLI worker, modules and automatic cURL/mbstring/OpenSSL/zip/zlib
+profile configuration, but its installation
 and real-world PAR2 verification on a NAS
 have not yet been certified. The application remains an early alpha,
 not a production-ready release. See docs/DSM7-PACKAGING.md.

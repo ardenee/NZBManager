@@ -239,3 +239,7 @@ tr.integrity-suspect td { background: #fff8e9; }
 .folder-picker-actions { display:flex; align-items:center; justify-content:flex-end; padding:14px 23px 20px; gap:10px; }
 .folder-picker-actions [disabled] { opacity:.5; cursor:not-allowed; }
 @media(max-width:650px) { .folder-setting-row { flex-wrap:wrap; } .folder-picker-head { padding:16px; } .folder-picker-entry { align-items:start; } }
+
+/* Live module availability in the private Settings page */
+.runtime-available { color: #186b44; }
+.runtime-unavailable { color: #a6382d; }

@@ -20,7 +20,9 @@
           "extensions": [
             "curl",
             "mbstring",
-            "zip"
+            "openssl",
+            "zip",
+            "zlib"
           ],
           "user": "nzbmanager",
           "group": "http"

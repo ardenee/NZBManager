@@ -8,7 +8,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SPK = ROOT / "dist/NZB-Manager-DSM7-0.4.1-0001-noauth-test.spk"
+SPK = ROOT / "dist/NZB-Manager-DSM7-0.4.2-0001-noauth-test.spk"
 assert SPK.is_file(), f"SPK missing: {SPK}"
 
 with tarfile.open(SPK, "r:") as package:
@@ -27,7 +27,12 @@ with tarfile.open(SPK, "r:") as package:
     service = resource["webservice"]["services"][0]
     assert service["root"] == "nzbmanager/public"
     assert service["php"]["backend"] == 11, "PHP 8.2 backend must match the working DUP DSM7 SPK"
-    assert "zip" in service["php"]["extensions"], "ZIP extraction needs the PHP zip extension"
+    required_extensions = {"curl", "mbstring", "openssl", "zip", "zlib"}
+    assert required_extensions.issubset(set(service["php"]["extensions"])), (
+        "DSM PHP 8.2 profile must enable every required module automatically: "
+        + ", ".join(sorted(required_extensions - set(service["php"]["extensions"])))
+    )
+    assert len(service["php"]["extensions"]) == len(set(service["php"]["extensions"])), "Duplicate PHP extensions"
     assert "/opt/bin" in service["php"]["open_basedir"], "PAR2 binary lookup needs the /opt/bin tool path"
     assert service["php"]["user"] == "nzbmanager"
     assert service["type"] == "nginx_php"

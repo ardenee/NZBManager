@@ -65,6 +65,12 @@ def main() -> None:
     prepared = config.get("webservice", {}).get("pkg_dir_prepare", [])
     if php.get("backend") != 11 or php.get("profile_name") != "NZB Manager PHP 8.2":
         raise RuntimeError("A dedicated PHP 8.2 package-based profile (backend 11, matching working DUP SPK) is required.")
+    required_extensions = {"curl", "mbstring", "openssl", "zip", "zlib"}
+    enabled = php.get("extensions", [])
+    if not isinstance(enabled, list) or not required_extensions.issubset(set(enabled)):
+        raise RuntimeError("DSM PHP profile must enable curl, mbstring, openssl, zip and zlib automatically.")
+    if len(enabled) != len(set(enabled)):
+        raise RuntimeError("Duplicate extensions in Web Station PHP profile.")
     if len(prepared) != 1 or prepared[0].get("source") != "/var/packages/nzbmanager/target/webapp" or prepared[0].get("target") != "nzbmanager":
         raise RuntimeError("Web Station app directory registration is incorrect.")
     if php.get("user") != "nzbmanager" or php.get("group") != "http" or php.get("user") != prepared[0].get("user") or php.get("group") != prepared[0].get("group"):

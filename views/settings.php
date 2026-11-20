@@ -150,6 +150,34 @@ foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
 
 <section class="panel">
     <div class="panel-heading">
+        <div><h2>PHP module status</h2><p>Extensions actually loaded by this website's PHP-FPM process. The DSM installer declares the required extensions in its package PHP profile.</p></div>
+        <span class="chip"><?= escape(PHP_VERSION) ?> · <?= escape(PHP_SAPI) ?></span>
+    </div>
+    <?php
+    $runtimeModules = [
+        ['cURL', 'curl', 'Indexer search, Binsearch and remote delivery'],
+        ['mbstring', 'mbstring', 'Unicode text and indexer metadata'],
+        ['OpenSSL', 'openssl', 'Secure PHP stream and cryptography support'],
+        ['ZIP', 'zip', 'Archive Extraction'],
+        ['zlib', 'zlib', 'Compressed stream handling'],
+    ];
+    ?>
+    <dl class="settings-status-list">
+        <?php foreach ($runtimeModules as [$label, $extension, $purpose]): ?>
+        <div class="settings-status-row">
+            <dt><?= escape($label) ?></dt>
+            <dd><strong class="<?= extension_loaded($extension) ? 'runtime-available' : 'runtime-unavailable' ?>"><?= extension_loaded($extension) ? 'Enabled' : 'Not loaded' ?></strong>
+                <span class="muted"> · <?= escape($purpose) ?></span></dd>
+        </div>
+        <?php endforeach; ?>
+        <div class="settings-status-row"><dt>DOM / XML / hash</dt>
+            <dd><?= extension_loaded('dom') && extension_loaded('xml') && extension_loaded('hash') ? 'Available · Built-in PHP features used for NZB parsing and native PAR2 checksums' : 'Missing a required PHP runtime feature' ?></dd></div>
+    </dl>
+    <div class="settings-help-note">The SPK requests cURL, mbstring, OpenSSL, ZIP and zlib automatically for the NZB Manager PHP profile. Native PHP PAR2 verification uses the core hash extension; it does not require ZIP or zlib. If this page reports missing extensions after an update, the older Web Station profile may still be in use.</div>
+</section>
+
+<section class="panel">
+    <div class="panel-heading">
         <div><h2>Integrations and storage</h2><p>Current status, without exposing API keys or credentials.</p></div>
     </div>
     <dl class="settings-status-list">
@@ -162,5 +190,5 @@ foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
         <div class="settings-status-row"><dt>Folder import</dt><dd><?= $appSettings['folder_import_path'] === '' ? 'Not configured' : 'Configured' ?></dd></div>
         <div class="settings-status-row"><dt>Monitored-folder output</dt><dd><?= $appSettings['push_folder_path'] === '' ? 'Not configured' : 'Configured' ?></dd></div>
     </dl>
-    <div class="settings-help-note">Download Station credentials require protected server configuration. Unfinished PAR2, extraction and file-organizer modules remain disabled.</div>
+    <div class="settings-help-note">Download Station credentials require protected server configuration. PAR2 verification, bounded ZIP extraction and basic File Organizer functions are available as separate modules; PAR2 repair and additional archive formats still have external prerequisites.</div>
 </section>

@@ -27,15 +27,19 @@ not expose the password-free test package to the public internet.
 ## Package requirements and layout
 
 - DSM 7.2+ with Web Station and Synology PHP 8.2
-- PHP extensions for cURL, DOM/XML, mbstring, JSON, session and OpenSSL
+- The installer creates an NZB Manager PHP 8.2 profile with **cURL, mbstring,
+  OpenSSL, ZIP and zlib enabled and required**. You do not need to tick their
+  checkboxes. DOM/XML, JSON, session and hash are provided by the PHP runtime
+  and do not require separate extension toggles in this package.
 - Correct permission support for package users and PHP-FPM
 - HTTPS is recommended even on the local network
 
 The Web Station service uses nginx_php and PHP profile backend ID **11** for
-PHP 8.2. The 0.4.1-0001 SPK also includes the ZIP PHP extension, module
+PHP 8.2. The 0.4.2-0001 SPK enables all five declared PHP extensions, module
 workspace access to /volume1–/volume4 and the CLI-only PAR2 worker inside
-webapp/bin. The worker requires a separate DSM scheduler and par2cmdline.
-This revision has not yet been installed/validated on a real NAS. Version 0.3.0-0001 also grants the PHP profile open_basedir access
+webapp/bin. Native PAR2 verification requires the PHP hash functionality and a
+separately scheduled CLI worker; only actual repair needs par2cmdline.
+This revision has not yet been installed/validated on a real NAS. Earlier test packages also granted the PHP profile open_basedir access
 to /volume1 through /volume4, allowing folder imports and monitored-folder
 outputs when the package execution user has the necessary share permissions.
 The version can be read from /etc.defaults/VERSION on supported DSM hosts. The earlier NZB test packages incorrectly used backend 10, and the
@@ -57,6 +61,30 @@ session files and no-auth marker live under:
 
 The legacy current/source directory is not part of the modern SPK.
 
+## Automatic PHP extension configuration
+
+The Web Station resource `packaging/dsm7/conf/resource` declares the
+extensions `curl`, `mbstring`, `openssl`, `zip` and `zlib` in its
+`webservice.services[0].php.extensions` array. Synology treats these as
+package-required extensions when it creates the package-based PHP profile:
+users do not have to enable them manually. The SPK builder and validation
+suite both fail if any is absent.
+
+`zip` enables `ZipArchive` for the archive extractor; `zlib` provides zlib
+compression streams. The native PAR2 verifier uses PHP's built-in hash
+support (MD5 and CRC-32), so no special PAR2 extension or MySQL is needed.
+The runtime status in Settings reports the **actual PHP-FPM extensions**, not
+merely the package configuration.
+
+**Existing package profiles:** Synology may preserve an already-registered
+package PHP profile during an in-place upgrade. The new SPK specifies the
+correct defaults and requires them on **new profile registration**; it
+cannot certify that an old manually modified profile has been refreshed
+without inspecting the running DSM PHP-FPM process. If a previous profile
+remains unchanged, back up package-private data before re-registering the
+Web Station package service or performing a clean reinstall. Do not delete
+package storage without a verified backup.
+
 ## Build on DEV
 
 From the repository root:
@@ -65,7 +93,7 @@ From the repository root:
 
 Output:
 
-    dist/NZB-Manager-DSM7-0.4.1-0001-noauth-test.spk
+    dist/NZB-Manager-DSM7-0.4.2-0001-noauth-test.spk
 
 The builder validates the resource configuration, PHP profile, privilege
 policy, icons, lifecycle scripts, absence of an installation wizard, and
@@ -87,10 +115,15 @@ the original 2013 icons, and the service icons under ui/.
    Package Center and install 0.2.1-0003 fresh to recreate its PHP profile.
    Uninstalling may remove private data; do not proceed without a backup.
 4. Open Package Center > Manual Install and select the test SPK.
-5. Check Web Station > Script Language Settings > PHP for a **NZB Manager PHP 8.2**
-   package profile, and verify the NZB Manager Web Service appears normal.
+5. Check Web Station > Script Language Settings > PHP for an automatically
+   generated **NZB Manager PHP 8.2** profile. The new package requires
+   cURL, mbstring, OpenSSL, ZIP and zlib; none should require manually
+   enabling. Verify NZB Manager Web Service appears normal.
 6. Open the alias URL /nzbmanager/ on your NAS.
 7. Confirm that the dashboard loads without an application login or 502 error.
+   In NZB Manager > Settings > PHP module status, all five extensions should
+   show Enabled under the *active* FPM runtime. This check does not require
+   manually changing the profile.
 8. Upload, inspect, export and delete a small known-good NZB.
 9. Try Binsearch and verify that Download Station stays unavailable if the
    service is not configured or installed.
