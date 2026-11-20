@@ -185,32 +185,44 @@ The HTML interface can change; see docs/BINSEARCH.md for limits and testing.
 | ARCHIVE-MANIFEST.json | Original package recovery manifest |
 | AUDIT.md | Detailed legacy findings and migration roadmap |
 
-## Synology DSM 7.2+ test package
+## Optional DSM SPK — from the generic web-hosting application
 
-A password-free **test SPK** can now be built from this same application source:
+**The generic web-hosting application remains primary.** The DSM 7.2+ SPK
+builder packages the same modern `public/`, `src/`, `views/` and `bin/`
+directories, adding Synology-only metadata, shell lifecycle scripts, Web
+Station configuration and icon artwork from `packaging/dsm7/`.
 
-    python packaging/dsm7/build.py
+No separate DSM PHP codebase exists. A clean checkout can build the SPK
+without `current/` or the original 2013 PHP application.
 
-Install `dist/NZB-Manager-DSM7-0.4.3-0001-noauth-test.spk` through Package
-Center > Manual Install. Web Station and PHP 8.2 must be available. The
-application registers an alias portal at `/nzbmanager/` through Web Station.
-There is **no installation wizard, application password or login prompt**.
-The package retains its library, saved indexer profiles, settings and session
-data under the package-private `var` directory. It does not contain the original 2013 PHP application.
+From the repository root (Python 3.11+, no third-party packager):
 
-**Security:** Synology Web Station does not require DSM login for arbitrary web
-sites. Anyone who can reach this portal can use NZB Manager. Keep it on a
-trusted local network using NAS firewall/reverse-proxy access controls; do not
-publish this password-free test instance to the internet.
+```powershell
+python packaging/dsm7/build.py
+# To create an upgrade with a distinct DSM version:
+python packaging/dsm7/build.py --version 0.4.5-0001
+# Verify the built SPK against the generic web source:
+python packaging/dsm7/build.py --verify dist/NZB-Manager-DSM7-0.4.4-0001-noauth-test.spk
+# Test build reproducibility and a modern clean checkout:
+python tests/spk-build.py
+```
 
-An earlier 0.4.3 test SPK was installed and its PHP profile tested on the NAS,
-but **the current source is newer than that SPK**. The live DSM website now
-includes the PHP-only Reed–Solomon repair engine, independent job monitors,
-Download Station task controls and the expanded PHP extension-status screen.
-These changes have not been packaged again, by request. Build a new SPK only
-when installer settings need testing or a release is requested. Real-world
-large PAR2 recovery and portability to other NAS models are not certified.
-The application remains early alpha; see docs/DSM7-PACKAGING.md.
+`packaging/dsm7/build-spk.ps1` is an optional Windows wrapper.
+The default version in INFO is `0.4.4-0001`. The SPK goes to Git-ignored
+`dist/` and is verified before release. Builds from identical source files
+produce identical output hashes. No files in the generic hosting app are
+changed by the builder.
+
+**Building is not installing.** The generated SPK has not been installed on
+the NAS or upgrade-certified. The last installed DSM package may be older
+than the live web source. Manual installation is through DSM Package Center,
+with Web Station and PHP 8.2.
+
+The test package has **no application login or password wizard**. DSM
+login does not protect public Web Station portals: keep the site on a
+trusted network with suitable firewall/private reverse-proxy restrictions.
+
+See `docs/DSM7-PACKAGING.md` for complete details.
 
 ## Functions still requiring work
 

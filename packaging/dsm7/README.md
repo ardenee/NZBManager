@@ -1,34 +1,68 @@
-# NZB Manager DSM 7.2+ password-free test SPK
+# Optional Synology DSM 7.2+ SPK
 
-Build from the repository root:
+**The generic web-hosting application is the source of truth.** The modern
+application resides in the repository `public/`, `src/`, `views/` and `bin/`.
+DSM adds only the packaging overlay under `packaging/dsm7/` — there is
+no separate PHP code fork.
 
-    python packaging/dsm7/build.py
+The builder reads these four generic application trees, along with the DSM
+INFO, configuration, lifecycle scripts and icon files in this directory.
+The original icon artwork is self-contained under `original-icons/`; the
+historical `current/` folder is **not** required for any build.
 
-The SPK is written to dist/ for manual installation using DSM Package Center.
-There is NO application login, NO installation wizard, NO password prompt, and
-NO hash file. The package creates a package-private no-auth marker and private
-folders for NZBs and session data.
+## Build (Python 3.11+, standard library only)
 
-IMPORTANT: Web Station does not automatically authenticate DSM users. Anyone
-who can reach this portal can use NZB Manager. Keep it within your trusted
-LAN and restrict network access through the DSM firewall or another external
-access-control layer.
+From the repository root:
 
-The original 2013 icon files (72x72 and 120x120) are retained in
-package.tgz under original-icons/. DSM 7 icons and Web Station icons are
-resized from that exact original artwork. The new package also simplifies
-PHP-FPM profile configuration after a first-install 502/missing PHP profile.
+```powershell
+python packaging/dsm7/build.py
+```
 
-For an existing 0.2.1-0001 installation without the PHP profile, back up
-any private library data and uninstall the previous test SPK before installing
-0.3.0-0001. The Web Station service registration is not directly updatable.
+Optional PowerShell wrapper on Windows:
 
-The package includes INFO, package.tgz, scripts/, conf/resource,
-conf/privilege and the required 64/256px PNG icons. The application payload
-contains the public, src and views trees, never the old 2013 PHP source.
+```powershell
+.\packaging\dsm7\build-spk.ps1
+```
 
-Web Station + PHP 8.2 and DSM 7.2+ are the target. The SPK format and file
-structure are validated, but real DSM installation and upgrades remain
-uncertified. Do not treat this as a full-featured production release.
+The default package version comes from `packaging/dsm7/INFO` (currently
+`0.4.4-0001`). Supply a **new version** when generating an upgrade; the
+override changes the SPK's INFO, not the source file:
 
-See docs/DSM7-PACKAGING.md for detailed installation and troubleshooting.
+```powershell
+python packaging/dsm7/build.py --version 0.4.5-0001
+python packaging/dsm7/build.py --version 0.4.5-0001 --output-dir D:\Temp\spk
+.\packaging\dsm7\build-spk.ps1 -Version 0.4.5-0001 -OutputDir D:\Temp\spk
+```
+
+The default output is `dist/NZB-Manager-DSM7-0.4.4-0001-noauth-test.spk`.
+The `dist/` directory is Git-ignored. The builder verifies every package
+member against the current generic application source, rejects unexpected
+files that could contain secrets, and prints a SHA-256 digest. Repeated
+builds with identical input bytes produce identical SPKs.
+
+Verify a generated package or run the clean-checkout build test:
+
+```powershell
+python packaging/dsm7/build.py --verify dist/NZB-Manager-DSM7-0.4.4-0001-noauth-test.spk
+python tests/spk-build.py
+```
+
+The clean-checkout test copies only `public/`, `src/`, `views/`, `bin/`
+and `packaging/`; it checks that no `current/` or `original-spk/` files
+are needed and tests reproducibility, version overrides and secret rejection.
+
+## SPK contents and security
+
+Outer archive: `INFO`, `package.tgz`, executable `scripts/`, DSM Web Station
+`conf/`, 64/256-pixel icons. Inner archive: the generic application,
+Web Station icons and packaged original icon artwork. **No runtime data,
+settings, NZB downloads, passwords or historical PHP endpoints** are copied.
+
+DSM requires Web Station and PHP 8.2. There is no application login or
+installation wizard. **DSM login does not automatically secure Web Station**:
+limit the portal to a trusted LAN/private reverse proxy or firewall.
+
+Building does not install or update DSM. The SPK's install/upgrade behavior
+must be validated separately in DSM Package Center.
+
+See `docs/DSM7-PACKAGING.md` for installation and troubleshooting.

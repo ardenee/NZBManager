@@ -113,25 +113,46 @@ headless Chrome on the running DSM website, including opening the modal,
 navigating /volume1/data, checking permissions, selecting a folder and
 reopening for Push To.
 
-## Build on DEV
+## Build from the generic web application on DEV
 
-From the repository root:
+The SPK is an **optional DSM overlay**. All actual application code is taken
+directly from the generic web hosting directories `public/`, `src/`,
+`views/` and `bin/`. Packaging metadata, lifecycle scripts and icons are
+kept under `packaging/dsm7/`. Historical PHP and `current/spk/` are not
+dependencies of the builder.
 
-    python packaging/dsm7/build.py
+Python 3.11+ (standard library only) is sufficient to build on Windows,
+Linux or macOS:
 
-Output:
+```powershell
+python packaging/dsm7/build.py
+python packaging/dsm7/build.py --version 0.4.5-0001
+python packaging/dsm7/build.py --version 0.4.5-0001 --output-dir D:\Temp\spk
+python packaging/dsm7/build.py --verify dist/NZB-Manager-DSM7-0.4.4-0001-noauth-test.spk
+python tests/spk-build.py
+```
 
-    dist/NZB-Manager-DSM7-0.4.3-0001-noauth-test.spk
+Windows wrapper: `.\packaging\dsm7\build-spk.ps1 -Version 0.4.5-0001`.
 
-The builder validates the resource configuration, PHP profile, privilege
-policy, icons, lifecycle scripts, absence of an installation wizard, and
-the no-login marker. The two original 2013 icons (72x72 and 120x120) are
-preserved byte-for-byte as original-icons/ files inside package.tgz.
-Their artwork also supplies DSM 7's required 64x64 and 256x256 package icons,
-as well as the Web Station service icons under ui/. The SPK outer archive is a plain tar. It contains
-INFO, package.tgz, scripts/, conf/, and the required package icons. The
-inner package.tgz contains the application public/, src/, views/ and bin/ trees,
-the original 2013 icons, and the service icons under ui/.
+The default `packaging/dsm7/INFO` package version is currently
+`0.4.4-0001`. Use an incremented DSM version for upgrades. A version
+override never modifies the generic PHP source or the INFO template.
+Output defaults to Git-ignored `dist/`.
+
+The builder checks the restricted DSM privilege, Web Station PHP extension
+profile, lifecycle scripts, no-login policy and source payload. The archive
+is deterministically generated and verified **before** publication. It
+rejects unexpected source files such as secrets. The clean-checkout test
+proves that only generic source plus `packaging/dsm7/` is required.
+
+The outer SPK contains `INFO`, `package.tgz`, `scripts/`, `conf/` and
+64/256px icons. The inner `package.tgz` contains the modern application,
+Web Station icons, and historic icon artwork copied into
+`packaging/dsm7/original-icons/` (no `current/` dependency). The SPK does
+not contain original 2013 PHP, runtime settings, stored NZBs or passwords.
+
+**Building an SPK does not deploy it to the NAS.** DSM installation and
+upgrades still require separate testing.
 
 ## Install for testing
 
@@ -177,4 +198,4 @@ Official references:
 
 ## Automation worker service (20 November 2026)
 
-The PHP-only automation worker is included at `bin/automation-worker.php`; package `start-stop-status` now starts it on package startup and stops its validated PID. The worker exits when both schedules are disabled. **No new SPK has been built or installed yet**, so DSM lifecycle changes in this script take effect only after a later package release. The live web Settings can launch the worker directly after schedules are enabled.
+The PHP-only automation worker is included at `bin/automation-worker.php`; package `start-stop-status` now starts it on package startup and stops its validated PID. The worker exits when both schedules are disabled. **The SPK can now be generated locally, but it has not been installed on DSM.** Lifecycle changes only take effect after an explicit package installation. The live web Settings can launch the worker directly after schedules are enabled.
