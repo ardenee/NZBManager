@@ -340,16 +340,46 @@ final class ManagedFolders
         }
     }
 
-    /** Delete an empty tracked directory only; never recurse into its contents. */
+    /**
+     * Delete any empty ordinary directory beneath the workspace, regardless
+     * of which module created it. Keep tracked-folder identity protection
+     * for records that exist. Never delete recursively, follow symlinks,
+     * delete Synology system directories, or remove the workspace root.
+     */
     public static function delete(WorkspaceFiles $work, string $relative): void
     {
         $relative = WorkspaceFiles::relative($relative);
+        if ($relative === '')
+        {
+            throw new RuntimeException('The downloads workspace root cannot be deleted.');
+        }
+        foreach (explode('/', $relative) as $part)
+        {
+            if (str_starts_with($part, '.') || strcasecmp($part, '@eaDir') === 0)
+            {
+                throw new RuntimeException('Hidden and Synology system directories are protected.');
+            }
+        }
         self::locked(static function (array &$entries) use ($work, $relative): void {
-            $path = self::requireManaged($work, $entries, $relative);
+            $key = self::key($work, $relative);
+            $path = isset($entries[$key])
+                ? self::requireManaged($work, $entries, $relative)
+                : $work->resolve($relative, 'dir');
+            if (is_link($path))
+            {
+                throw new RuntimeException('Symlink directories cannot be deleted.');
+            }
+            $parent = dirname($path);
+            if (!is_writable($parent))
+            {
+                throw new RuntimeException('The containing folder is not writable.');
+            }
+            // Rechecking identity under the registry lock protects tracked
+            // entries even if the user replaced the original folder.
             $handle = @opendir($path);
             if (!is_resource($handle))
             {
-                throw new RuntimeException('Cannot inspect the managed folder.');
+                throw new RuntimeException('Cannot inspect selected workspace folder.');
             }
             try
             {
@@ -357,7 +387,7 @@ final class ManagedFolders
                 {
                     if ($item !== '.' && $item !== '..')
                     {
-                        throw new RuntimeException('Only empty managed folders may be deleted. Move their files first.');
+                        throw new RuntimeException('Only empty folders can be deleted. Remove or move their contents first.');
                     }
                 }
             }
@@ -367,9 +397,10 @@ final class ManagedFolders
             }
             if (!@rmdir($path))
             {
-                throw new RuntimeException('Folder could not be removed (permissions or new contents).');
+                throw new RuntimeException('Folder could not be removed; check permissions or new contents.');
             }
-            unset($entries[self::key($work, $relative)]);
+            unset($entries[$key]);
         });
     }
+
 }

@@ -22,7 +22,15 @@ try
     $work = new WorkspaceFiles($fixtureWorkspace);
     $items = $work->list();
     check(ManagedFolders::visible($work, $items) === [], 'Pre-existing folders are not marked as managed');
-    expectFailure(static fn () => ManagedFolders::delete($work, 'existing'), 'Untracked pre-existing folders cannot be deleted');
+    file_put_contents($fixtureWorkspace . '/existing/keep.txt', 'Do not delete this folder with content');
+    expectFailure(static fn () => ManagedFolders::delete($work, 'existing'), 'Nonempty untracked folders remain protected from deletion');
+    mkdir($fixtureWorkspace . '/extracted-folder', 0700);
+    ManagedFolders::delete($work, 'extracted-folder');
+    check(!is_dir($fixtureWorkspace . '/extracted-folder'), 'Empty untracked/extraction-created workspace folder can now be deleted');
+    mkdir($fixtureWorkspace . '/@eaDir', 0700);
+    expectFailure(static fn () => ManagedFolders::delete($work, '@eaDir'), 'Synology @eaDir system folder cannot be deleted even if empty');
+    mkdir($fixtureWorkspace . '/.system-hidden', 0700);
+    expectFailure(static fn () => ManagedFolders::delete($work, '.system-hidden'), 'Hidden system directory cannot be deleted even if empty');
     expectFailure(static fn () => ManagedFolders::previewRename($work, 'existing', 'changed'), 'Untracked pre-existing folders cannot be renamed');
     expectFailure(static fn () => ManagedFolders::delete($work, ''), 'Downloads workspace root cannot be deleted');
 
@@ -69,7 +77,7 @@ try
     ManagedFolders::delete($work, 'Parent Changed');
     check(!file_exists($fixtureWorkspace . '/Parent Changed'), 'Empty managed parent folder deleted');
     check(ManagedFolders::visible($work, $work->list()) === [], 'Deleted folders are removed from the tracking registry');
-    check(is_dir($fixtureWorkspace . '/existing') && is_dir($fixtureWorkspace . '/collision'), 'Pre-existing folders remain untouched');
+    check(is_dir($fixtureWorkspace . '/existing') && is_file($fixtureWorkspace . '/existing/keep.txt') && is_dir($fixtureWorkspace . '/collision'), 'Nonempty pre-existing folders remain untouched');
 
     ManagedFolders::create($work, '', 'Identity Guard');
     rename($fixtureWorkspace . '/Identity Guard', $fixtureWorkspace . '/Moved Externally');

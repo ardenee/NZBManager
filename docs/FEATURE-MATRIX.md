@@ -32,7 +32,7 @@ has newer source than the last published SPK; no package is being built now.
 | ZIP extraction in independent PHP worker | Archive Extraction | **DEV encrypted/split tested; DSM AES verified on PHP 8.2.35** | Password prompt only when encryption is detected (split ZIP may require retry); one-use private secret, CRC verification, archive-base-name output folders without -extracted; page reloads when background extraction completes |
 | True multi-disk ZIP / RAR / 7z extraction | Archive Extraction | **Not yet implemented** | `.z01` and RAR/7z require independent pure-PHP decoders; TAR/TGZ/SPK are implemented |
 | Preview file rename/move, create folders | File Organizer | **DSM-tested** | Workspace-only, no overwrite, preview & confirmation |
-| Rename/delete created folders | File Organizer | **DSM HTTP/Chrome tested** | Tracked folders only; delete empty only; older folders protected |
+| Rename created folders / delete empty workspace folders | File Organizer | **DSM HTTP-tested** | Rename remains restricted to tracked folders; delete works for any empty ordinary workspace folder, including extracted/untracked; root, system, symlinks and nonempty folders protected |
 | Delete individual workspace files | File Organizer | **DEV-tested; DSM HTTP POST-tested** | Immediate single-click deletion without preview/confirmation; rechecks dev/inode/size/mtime/ctime; rejects hidden/symlink/system paths and recursive deletion |
 | Batch file moves / folder content merging | File Organizer | **DEV-tested; DSM UI updated** | Up to 50 selected rows / 500 files, preview, skip/rename/overwrite collision rules, rollback hard links; untracked directory itself retained |
 | Torrent uploads | Import | **Out of scope** | Deliberately excluded: this application handles NZB, not torrents |
@@ -41,7 +41,7 @@ has newer source than the last published SPK; no package is being built now.
 
 ## Tests and live checks
 
-- **413 PHP assertions on DEV**, covering metadata, parity, workspace
+- **416 PHP assertions on DEV**, covering metadata, parity, workspace
   protection, 68 MiB standard / 300 MiB stress PAR2 reconstruction, 5 GiB metadata, managed
   folders, asynchronous ZIP jobs, Download Station mock API contracts, etc.
 - DEV HTTP smoke tests for indexer/security/asset-cache routes.

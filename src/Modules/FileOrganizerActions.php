@@ -132,10 +132,10 @@ final class FileOrganizerActions
                 $source = $_POST['source'] ?? null;
                 if (!is_string($source))
                 {
-                    throw new RuntimeException('Select a managed folder to delete.');
+                    throw new RuntimeException('Select an empty workspace folder to delete.');
                 }
                 ManagedFolders::delete($work, $source);
-                \message('Deleted empty managed folder: ' . $source . '.');
+                \message('Deleted empty folder: ' . $source . '.');
             }
             else
             {

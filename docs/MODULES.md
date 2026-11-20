@@ -32,9 +32,12 @@ password-free test site directly to the Internet.
   device/inode/size/mtime/ctime again before unlinking. Hidden files,
   symlinks and Synology `@eaDir` paths are protected. This lets users empty
   managed folders without recursive deletion.
-- Delete **empty tracked folders only**; never recursively delete the contents.
-  Pre-existing, externally moved/replaced or untracked folders are protected.
-- Rename/Delete controls appear for tracked folders; earlier folders show
+- Delete **any empty ordinary workspace folder**, including older or
+  extraction-created untracked folders. Never remove contents recursively.
+  Workspace root, hidden/system directories (`@eaDir`) and symlink paths
+  remain protected. Tracked-folder identity checks still prevent deleting
+  a different directory substituted under a registered name.
+- Rename controls appear for tracked folders; earlier folders show
   disabled controls and an explanation. A folder created before tracking
   existed cannot safely be claimed as managed without an explicit adoption
   process, which is not implemented.
@@ -189,5 +192,5 @@ behavior needs testing or the user requests a release.
 - **AutomationScheduler.php** uses a private state file and lock to process scheduled scans. Both schedules start **off**; Settings supports 5, 15, 30 and 60 minutes through 24 hours. Stable NZB files are submitted to Download Station with duplicate suppression. If submission outcome is ambiguous, the record remains pending for manual review to avoid duplicate submission.
 - Download completion triggers a conservative global gate: the scheduler skips PAR2 runs while any Download Station task remains active, and requires a finished task and stable input files. Matching individual DSM tasks to individual PAR2 folders is not yet fully certified.
 - **bin/automation-worker.php** is a detached native-PHP CLI polling daemon. It starts when Settings enables a schedule and via web access after a restart; the updated package startup script takes effect with the next SPK. The live DSM application source does not yet have a refreshed SPK installed.
-- **WorkspaceBatch.php** supports preview/confirm moves of archive/PAR2 files and nested folder-content merging, with skip, numbered-rename or explicitly confirmed overwrite policies and best-effort transactional rollback. Only tracked folders can be renamed/deleted using the existing managed-folder controls; batch merges leave the source directory intact.
+- **WorkspaceBatch.php** supports preview/confirm moves of archive/PAR2 files and nested folder-content merging, with skip, numbered-rename or explicitly confirmed overwrite policies and best-effort transactional rollback. Only tracked folders can be renamed; any empty ordinary workspace folder can be deleted. Batch merges leave the source directory intact.
 - Archive Extraction can target a configured writable default folder. Default behavior creates a numbered directory; Replace preserves the entire prior output directory as a `.previous-*` backup before publishing new, fully checked contents. The user must explicitly authorize replacement.

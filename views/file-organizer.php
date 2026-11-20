@@ -1,6 +1,6 @@
 <section class="page-header">
     <div><div class="eyebrow">DOWNLOADS WORKSPACE</div><h1>File Organizer</h1>
-        <p>Browse downloaded files, rename, move or delete individual files, and rename or delete folders created with File Organizer. File deletion is immediate; folder deletion requires an empty managed folder.</p>
+        <p>Browse downloaded files, rename, move or delete individual files, rename File Organizer-created folders, and delete empty folders throughout the workspace. File deletion is immediate; folder deletion never removes contents.</p>
     </div>
     <a class="button secondary" href="index.php?module=settings">Configure workspace</a>
 </section>
@@ -30,7 +30,7 @@ catch (\Throwable $problem)
 <?php else: ?>
 <section class="panel">
     <div class="panel-heading">
-        <div><h2>Contents</h2><p>Single files are deleted immediately when you click Delete file. Folder Rename/Delete are available only for File Organizer-created folders; earlier folders remain protected.</p><p>Workspace: <?= escape(str_replace('\\', '/', $workspace->root())) ?><?= $workspaceFolder !== '' ? ' / ' . escape($workspaceFolder) : '' ?></p></div>
+        <div><h2>Contents</h2><p>Single files are deleted immediately when you click Delete file. Folder Rename is available for File Organizer-created folders. Delete removes any empty workspace folder, including older or extraction-created folders. Synology system folders remain protected.</p><p>Workspace: <?= escape(str_replace('\\', '/', $workspace->root())) ?><?= $workspaceFolder !== '' ? ' / ' . escape($workspaceFolder) : '' ?></p></div>
         <?php if ($workspaceFolder !== ''): ?>
         <a class="button subtle" href="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode(str_contains($workspaceFolder, '/') ? substr($workspaceFolder, 0, strrpos($workspaceFolder, '/')) : '')) ?>">Parent folder</a>
         <?php endif; ?>
@@ -62,16 +62,19 @@ catch (\Throwable $problem)
                                 <button type="submit" class="button secondary">Preview rename</button>
                             </form>
                         </details>
-                        <form method="post" class="inline-form" action="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Delete this EMPTY NZB Manager-created folder? Nonempty folders and their contents are protected.">
+                        <?php else: ?>
+                            <button type="button" class="button subtle" disabled title="Only File Organizer-created folders can be renamed">Rename</button>
+                            <span class="organizer-existing-note">Untracked · rename protected</span>
+                        <?php endif; ?>
+                        <?php if (strcasecmp($item['name'], '@eaDir') !== 0 && !str_starts_with($item['name'], '.')): ?>
+                        <form method="post" class="inline-form" action="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Delete this folder only if EMPTY? Its contents will never be removed recursively.">
                             <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                             <input type="hidden" name="action" value="organizer_folder_delete">
                             <input type="hidden" name="source" value="<?= escape($item['relative']) ?>">
                             <button type="submit" class="button subtle">Delete</button>
                         </form>
                         <?php else: ?>
-                            <button type="button" class="button subtle" disabled title="Only folders created using File Organizer after tracking was added may be renamed">Rename</button>
-                            <button type="button" class="button subtle" disabled title="Existing or previously created folders are protected from deletion">Delete</button>
-                            <span class="organizer-existing-note">Untracked · protected</span>
+                            <button type="button" class="button subtle" disabled title="Synology system folder is protected">Delete</button>
                         <?php endif; ?>
                     <?php else: ?>
                         <form method="post" class="inline-form" action="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>">
@@ -205,7 +208,7 @@ if (is_array($folderPending) && is_array($folderPending['plan'] ?? null) &&
 </section>
 <?php endif; ?>
 <section class="panel">
-    <div class="panel-heading"><div><h2>Create managed subfolder</h2><p>Folders created here can later be renamed or deleted when empty. Pre-existing folders are never treated as managed folders.</p></div></div>
+    <div class="panel-heading"><div><h2>Create managed subfolder</h2><p>Folders created here can later be renamed. All ordinary workspace folders, including pre-existing and extracted folders, may be deleted when empty.</p></div></div>
     <form method="post" action="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" class="configuration-help">
         <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
         <input type="hidden" name="action" value="organizer_mkdir">

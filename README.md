@@ -34,7 +34,9 @@ are not yet certified.
   preview and confirm safe same-filesystem file renames/moves, delete individual
   files with one click (rechecking identity before unlinking), create tracked folders, rename
   those folders (preserving contents) and delete them when empty.
-  Pre-existing folders cannot be renamed or deleted through this module.
+  Pre-existing folders cannot be renamed, but **any empty ordinary folder** in
+  the workspace can be deleted, including extraction-created folders. Hidden
+  and Synology system folders are protected, and no recursive deletion occurs.
 - Inspect and extract normal ZIP, raw-split `.zip.001`/`.zip.002`, TAR, TGZ and SPK files,
   including password-protected ZIPs, via independent PHP CLI workers. The
   browser prompts only when ZIP encryption is detected. Encrypted split ZIPs
@@ -216,7 +218,7 @@ The 2026 implementation includes native PHP PAR2 verification/repair with adapti
 
 Automatic NZB inbox scanning/submission to Download Station and completed-download PAR2 scheduling are now available in Settings with 5-minute to daily intervals, **off by default**. Stable input checks and a conservative Download Station active-task gate prevent premature repair; finer-grained per-task file mapping remains uncertified. The detached PHP worker starts on enabling automation, and the next SPK carries service lifecycle startup so it can resume on reboot. The installed SPK is older than the live DSM web source.
 
-Still outstanding: real-world multi-GiB PAR2 certification beyond synthetic 130-slice tests, complete multi-disk ZIP and RAR/7z decoders in PHP, untracked-folder renaming/deletion policy, authenticated live Download Station transfers, historical MySQL imports, and complete real-world automated-download certification. Torrent uploads are deliberately out of scope for this NZB-focused application.
+Still outstanding: real-world multi-GiB PAR2 certification beyond synthetic 130-slice tests, complete multi-disk ZIP and RAR/7z decoders in PHP, untracked-folder renaming policy, authenticated live Download Station transfers, historical MySQL imports, and complete real-world automated-download certification. Torrent uploads are deliberately out of scope for this NZB-focused application.
 
 ## Historical source and licensing
 
