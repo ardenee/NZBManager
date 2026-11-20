@@ -334,6 +334,16 @@ document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
         const percent = row.querySelector("[data-job-percent]");
         const state = row.querySelector("[data-job-state]");
         const message = row.querySelector("[data-job-message]");
+        // Reload a single time after a running extraction completes, so newly
+        // extracted folders appear in the file list without manual Refresh.
+        const previousJobStatus = row.dataset.jobStatus || "";
+        row.dataset.jobStatus = job.status || "";
+        if (category === "archive_extract" &&
+            (previousJobStatus === "queued" || previousJobStatus === "running") &&
+            job.status === "completed") {
+          window.location.reload();
+          return;
+        }
         if (bar) bar.value = progress;
         if (percent) percent.textContent = progress + "%";
         if (state) {

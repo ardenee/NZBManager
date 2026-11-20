@@ -202,7 +202,7 @@ final class WorkspaceFiles
     }
 
     /**
-     * Delete one previously previewed file after checking source identity.
+     * Delete a single file after rechecking its identity within the same POST.
      * No recursive deletion. The original file is not moved to a hidden
      * temporary name that could later be mistaken for a safe backup.
      */
@@ -218,7 +218,7 @@ final class WorkspaceFiles
         {
             if (!array_key_exists($key, $plan) || $now[$key] !== $plan[$key])
             {
-                throw new RuntimeException('File changed after deletion preview; refresh and review it again.');
+                throw new RuntimeException('File changed before deletion; refresh the listing and retry.');
             }
         }
         $path = $this->resolve($source, 'file');

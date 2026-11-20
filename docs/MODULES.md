@@ -27,8 +27,9 @@ password-free test site directly to the Internet.
   is recorded in the package-private managed-folder registry.
 - Rename tracked folders within their existing parent, preserving contents.
   The operation uses a short-lived preview, CSRF and collision checks.
-- Delete **individual regular workspace files** with preview, confirmation and
-  a second device/inode/size/mtime/ctime check before unlinking. Hidden files,
+- Delete **individual regular workspace files** immediately on clicking Delete file,
+  with no preview or confirmation page. The PHP handler checks the
+  device/inode/size/mtime/ctime again before unlinking. Hidden files,
   symlinks and Synology `@eaDir` paths are protected. This lets users empty
   managed folders without recursive deletion.
 - Delete **empty tracked folders only**; never recursively delete the contents.
@@ -63,7 +64,8 @@ password-free test site directly to the Internet.
   known; raw split ZIPs may request a password on retry after worker inspection.
   Secrets are private one-use `0600` worker files, deleted after reading.
   Extracted folders use the archive base name with numbered collision suffixes,
-  never `-extracted`.
+  never `-extracted`. The archive page reloads once when an active background
+  extraction completes so the newly created folder is listed automatically.
 - True multi-disk ZIP (`.z01`, `.z02`, `.zip`), RAR and 7z are
   recognized but **not** yet supported by extraction adapters; raw split ZIP
   is not the same as multi-disk ZIP. Multipart RAR and encrypted RAR/7z remain

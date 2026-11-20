@@ -32,7 +32,7 @@ are not yet certified.
   segment Article bytes are displayed as exact integer values
 - Browse a configured downloads workspace with the File Organizer module;
   preview and confirm safe same-filesystem file renames/moves, delete individual
-  files after identity-checked confirmation, create tracked folders, rename
+  files with one click (rechecking identity before unlinking), create tracked folders, rename
   those folders (preserving contents) and delete them when empty.
   Pre-existing folders cannot be renamed or deleted through this module.
 - Inspect and extract normal ZIP, raw-split `.zip.001`/`.zip.002`, TAR, TGZ and SPK files,
@@ -41,7 +41,8 @@ are not yet certified.
   may first be detected by the background worker, which then offers Retry with
   password. Secrets use one-use private sidecars, never the job JSON.
   Extraction uses 64 GiB compressed / 128 GiB expanded safeguards and 10,000
-  member limit. Output folders use the archive's base name (`release.zip` ->
+  member limit. The archive page automatically refreshes after successful
+  background extraction, showing the new folder. Output folders use the archive's base name (`release.zip` ->
   `release/`, then `release-1/` on collision), with no `-extracted` suffix.
   Finished jobs can be rerun/removed without deleting outputs. True multi-disk
   `.z01` ZIP and RAR/7z remain unsupported; native TAR/TGZ/TAR.GZ/SPK works.

@@ -104,7 +104,7 @@ catch (\Throwable $error)
     <div class="table-scroll"><table data-sortable>
         <thead><tr><th>Created (UTC)</th><th>Archive</th><th>State / progress</th><th>Details and output</th><th data-no-sort>Action</th></tr></thead><tbody>
         <?php foreach ($archiveJobs as $job): ?>
-        <tr data-job-row="<?= escape($job['id']) ?>">
+        <tr data-job-row="<?= escape($job['id']) ?>" data-job-status="<?= escape($job['status'] ?? '') ?>">
             <td><?= escape($job['created'] ?? '') ?></td>
             <td class="name"><?= escape($job['name'] ?? '') ?></td>
             <td><strong data-job-state><?= escape($job['status'] ?? '') ?></strong>
