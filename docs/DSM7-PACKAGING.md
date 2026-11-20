@@ -167,10 +167,14 @@ correctly or that the PHP profile and permissions work on the NAS.
 - Web Station service/portal and filesystem permission verification
 - Download Station real API discovery/login/task upload
 - Live PAR2 executable/worker and repair certification
-- Full RAR/7z/TAR archive extraction, batch moves and payload merging
+- Pure PHP RAR/7z and true multi-disk ZIP extraction, expanded automated workflow certification
 - Password-protected ZIP and raw-split `.zip.001` extraction workflow on the actual NAS (DEV-tested; DSM PHP-FPM AES decryption probe passed)
 
 Official references:
 - https://help.synology.com/developer-guide/synology_package/introduction.html
 - https://help.synology.com/developer-guide/resource_acquisition/web_service.html
 - https://help.synology.com/developer-guide/privilege/privilege_config.html
+
+## Automation worker service (20 November 2026)
+
+The PHP-only automation worker is included at `bin/automation-worker.php`; package `start-stop-status` now starts it on package startup and stops its validated PID. The worker exits when both schedules are disabled. **No new SPK has been built or installed yet**, so DSM lifecycle changes in this script take effect only after a later package release. The live web Settings can launch the worker directly after schedules are enabled.

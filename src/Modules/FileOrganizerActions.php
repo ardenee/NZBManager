@@ -62,6 +62,30 @@ final class FileOrganizerActions
                 $destination = $work->apply($plan);
                 \message('File safely renamed/moved to ' . $destination . '.');
             }
+            elseif ($action === 'organizer_batch_preview')
+            {
+                $selected = $_POST['items'] ?? null;
+                $destination = $_POST['destination_folder'] ?? null;
+                $policy = $_POST['collision_policy'] ?? null;
+                if (!is_array($selected) || !is_string($destination) || !is_string($policy))
+                {
+                    throw new RuntimeException('Select files/folders, a destination and collision handling.');
+                }
+                $plan = WorkspaceBatch::preview($work, $selected, $destination, $policy);
+                $_SESSION['organizer_batch_preview'] = [
+                    'at' => time(), 'plan' => $plan, 'token' => bin2hex(random_bytes(16))
+                ];
+                \message('Batch preview ready: ' . count($plan['operations']) . ' file(s), ' .
+                    $plan['overwritten'] . ' collision(s) will be replaced only after confirmation.');
+            }
+            elseif ($action === 'organizer_batch_apply')
+            {
+                $plan = self::checkedPreview('organizer_batch_preview');
+                $result = WorkspaceBatch::apply($work, $plan);
+                \message('Batch moved ' . $result['moved'] . ' file(s), skipped ' . $result['skipped'] .
+                    ', renamed ' . $result['renamed'] . ' collision(s), replaced ' .
+                    $result['overwritten'] . ' existing file(s).');
+            }
             elseif ($action === 'organizer_mkdir')
             {
                 $parent = $_POST['folder'] ?? null;

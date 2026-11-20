@@ -34,13 +34,13 @@ are not yet certified.
   preview and confirm safe same-filesystem file renames/moves, create tracked
   folders, rename those folders (preserving contents) and delete them when empty.
   Pre-existing folders cannot be renamed or deleted through this module.
-- Inspect and extract normal ZIP and raw-split `.zip.001`/`.zip.002` files,
+- Inspect and extract normal ZIP, raw-split `.zip.001`/`.zip.002`, TAR, TGZ and SPK files,
   including password-protected ZIPs, via independent PHP CLI workers. The
   browser prompts for encrypted ZIP passwords; the password is held in a
   temporary private worker sidecar, never the job JSON, and discarded after use.
   Extraction uses 64 GiB compressed / 128 GiB expanded safeguards and 10,000
   member limit. Finished jobs can be rerun or removed without deleting outputs.
-  True multi-disk `.z01` ZIP, compressed RAR/7z and TAR remain unsupported.
+  True multi-disk `.z01` ZIP and compressed RAR/7z remain unsupported. Native PHP TAR, TGZ, TAR.GZ and SPK extraction is available.
 - Verify PAR2 2.0 packet integrity and protected-file/slice checksums natively
   in PHP, with an independent worker, live job monitor, progress and cancellation
 - Repair PAR2-protected files using PHP-only GF(2^16) Reed–Solomon arithmetic.
@@ -51,7 +51,7 @@ are not yet certified.
   is published. Finished jobs may be removed from the monitor without deleting files.
   File and recovery data are streamed in 64 KiB windows with no 64 MiB data
   ceiling or 1 MiB slice restriction. PAR2 2.0 input slices are limited by
-  the format to 32,768; this PHP implementation currently solves up to 32
+  the format to 32,768; this PHP implementation currently solves up to 128
   missing/damaged slices per job. Large jobs can be CPU- and disk-intensive.
 - Search/filter document lists and file entries
 - Select individual entries and export a filtered, valid NZB
@@ -196,24 +196,13 @@ when installer settings need testing or a release is requested. Real-world
 large PAR2 recovery and portability to other NAS models are not certified.
 The application remains early alpha; see docs/DSM7-PACKAGING.md.
 
-## Functions not yet ported
+## Functions still requiring work
 
-The historical app included torrent uploads, automatic folder monitoring,
-PAR2 repair, archive unpacking and moving/merging downloaded files.
-The modern application now supports bounded ZIP background extraction, safe
-file/folder organization, native PHP PAR2 verification and bounded native PHP
-Reed–Solomon repair. Full-size PAR2 datasets, RAR/7z/TAR extraction, batch
-payload operations, torrent imports and continuous monitoring remain open.
-Download Station supports native task submission, listing, progress,
-pause/resume and removal through a mocked, tested API adapter. Its package
-is detected on DSM, but authenticated operations require a configured
-Download Station account and have not been live-certified. Third-party
-Newznab integration also requires live-provider verification.
+The 2026 implementation includes native PHP PAR2 verification/repair (up to 128 erasures per job), ZIP/AES and raw-split ZIP extraction, streaming TAR/TGZ/SPK extraction, file/folder operations, and independent progress-monitored jobs. Batch file moves and recursive folder-content merges can skip collisions, retain both names, or explicitly replace a reviewed target with rollback support. A configurable extracted-files destination can replace an output directory only with explicit user confirmation; the previous folder is saved as a .previous backup.
 
-Old MySQL databases are not automatically imported. See
-docs/FEATURE-MATRIX.md for the detailed parity matrix, docs/MODULES.md
-for background-worker and recovery safety limits, docs/DOWNLOAD-STATION.md
-for native DSM task API setup, and AUDIT.md for legacy security findings.
+Automatic NZB inbox scanning/submission to Download Station and completed-download PAR2 scheduling are now available in Settings with 5-minute to daily intervals, **off by default**. Stable input checks and a conservative Download Station active-task gate prevent premature repair; finer-grained per-task file mapping remains uncertified. The detached PHP worker starts on enabling automation, and the next SPK carries service lifecycle startup so it can resume on reboot. The installed SPK is older than the live DSM web source.
+
+Still outstanding: real-world multi-GiB PAR2 coverage, recovery over 128 missing slices, complete multi-disk ZIP and RAR/7z decoders in PHP, untracked-folder renaming/deletion policy, authenticated live Download Station transfers, historical MySQL imports, and complete real-world automated-download certification. Torrent uploads are deliberately out of scope for this NZB-focused application.
 
 ## Historical source and licensing
 

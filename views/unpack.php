@@ -34,7 +34,7 @@ catch (\Throwable $error)
 <?php else: ?>
 <section class="panel">
     <div class="panel-heading"><div><h2>Archives in <?= escape($workspaceFolder ?: 'workspace root') ?></h2>
-        <p>ZIP password protection uses PHP ZipArchive; raw-split ZIP starts at .zip.001. Multi-disk .z01 ZIP, RAR, 7z and TAR are recognized but not yet extractable by the PHP adapter.</p></div>
+        <p>Native PHP supports ZIP/AES, raw .zip.001 volumes, and streamed TAR, TGZ, TAR.GZ and SPK. True multi-disk .z01 ZIP, RAR and 7z remain unsupported.</p></div>
         <?php if ($workspaceFolder !== ''): ?><a class="button secondary" href="index.php?module=unpack&amp;folder=<?= escape(rawurlencode(str_contains($workspaceFolder, '/') ? substr($workspaceFolder, 0, strrpos($workspaceFolder, '/')) : '')) ?>">Parent</a><?php endif; ?>
     </div>
     <div class="table-scroll"><table data-sortable>
@@ -69,14 +69,23 @@ catch (\Throwable $error)
         <?php endforeach; ?>
         </tbody></table></div>
     <div class="panel-footer">
-        <span><?= !empty($archiveInfo['deferred']) ? 'Split ZIP members are validated by the background worker' : 'Total expanded size: ' . humanBytes($archiveInfo['bytes']) ?> · New output directory · Max 128 GiB expanded</span>
-        <form method="post" action="index.php?module=unpack&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Queue extraction into a new folder beside this ZIP? Existing files will be protected.">
+        <span><?= !empty($archiveInfo['deferred']) ? 'Split ZIP members are validated by the background worker' : 'Total expanded size: ' . humanBytes($archiveInfo['bytes']) ?> · Max 128 GiB expanded. Default destination: <?= escape($appSettings['extract_output_path'] ?: 'beside archive') ?></span>
+        <form method="post" action="index.php?module=unpack&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Queue PHP-only extraction with the selected destination and collision policy? Replacing an existing output folder retains its previous contents as a .previous backup.">
             <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
             <input type="hidden" name="action" value="archive_extract">
             <input type="hidden" name="archive" value="<?= escape($selectedArchive) ?>">
             <?php if (!empty($archiveInfo['encrypted']) || !empty($archiveInfo['deferred'])): ?>
             <label class="archive-password">ZIP password <input type="password" name="password" autocomplete="new-password" maxlength="1024" <?= !empty($archiveInfo['encrypted']) ? 'required' : '' ?> placeholder="<?= !empty($archiveInfo['encrypted']) ? 'Required for encrypted ZIP' : 'Only if split ZIP is encrypted' ?>"></label>
             <?php endif; ?>
+            <div class="archive-collision-choice">
+                <label>Existing output folder
+                    <select name="collision_policy">
+                        <option value="numbered">Make new numbered folder (default)</option>
+                        <option value="replace">Replace folder with verified output, preserve previous folder as .previous backup</option>
+                    </select>
+                </label>
+                <label><input type="checkbox" name="confirm_replace" value="yes"> I authorize replacing the existing extracted folder if Replace is selected</label>
+            </div>
             <button type="submit" class="button primary">Start PHP background extraction</button>
         </form>
     </div>
@@ -89,7 +98,7 @@ catch (\Throwable $error)
 <?php $archiveJobs = \NZB\Modules\BackgroundJobs::all('archive_extract'); ?>
 <section class="panel" data-background-monitor="archive_extract">
     <div class="panel-heading"><div><h2>Archive extraction jobs</h2>
-        <p>Standard ZIPs and raw-split .zip.001 volumes run in independent PHP workers. ZIP passwords are submitted only for that job; finished jobs can be rerun or removed without deleting extracted files.</p></div>
+        <p>ZIP, raw-split .zip.001, TAR, TGZ and SPK run in independent native PHP workers. Passwords are submitted only for that job. Finished jobs can be rerun or removed without deleting output files.</p></div>
         <a class="button subtle" href="index.php?module=unpack">Refresh</a>
     </div>
     <div class="table-scroll"><table data-sortable>

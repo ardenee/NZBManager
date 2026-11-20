@@ -106,7 +106,7 @@ execution of uploaded modules is deliberately prohibited.
   GF16 equations over fixed 64 KiB windows and patches private staged files.
   No fixed total-data, 1 MiB slice or 256 MiB PAR-volume limit remains.
   PAR2 2.0 provides at most 32,768 input slices; the current inverse matrix
-  supports 32 missing/damaged slices. Live web-to-independent PHP CLI repair
+  supports 128 missing/damaged slices. Live web-to-independent PHP CLI repair
   passed on DSM for 5 slices and 2 files; DEV stress tests repaired a 300 MiB file.
   Real multi-gigabyte recovery workloads remain uncertified.
 - Archives: streamed ZIP extraction in independent PHP CLI workers, including
@@ -114,7 +114,7 @@ execution of uploaded modules is deliberately prohibited.
   `.zip.001` volume assembly, with polling progress, cancellation and path
   traversal/symlink checks. Passwords are one-use private worker sidecars,
   never job JSON. True multi-disk `.z01` ZIP, solid and encrypted RAR, 7z and
-  TAR adapters remain pending.
+  Native TAR/TGZ/SPK extraction is implemented; RAR/7z and true multi-disk ZIP remain pending.
 - Settings: validated deployment configuration and integration settings,
   secret handling, storage migrations.
 - Legacy migration: read-only import of historic MySQL schema and NZB documents.
@@ -140,3 +140,7 @@ background job execution is implemented; broader transactional guarantees,
 audit logs, migrations and multiworker recovery are still outstanding.
 
 See FEATURE-MATRIX.md for exact implementation status.
+
+## Added on 20 November 2026
+
+Automation uses private PHP CLI polling, immutable source NZBs, per-content duplicate markers, Download Station API task state checks and a filesystem lock. Both schedules default to Off. An optional default extracted-files folder is validated through the existing folder picker; Replace requires confirmation and preserves the old output as `.previous-*`. A new `WorkspaceBatch` implements previewed multi-file moves and recursive content merges with collision rules. Native streaming TAR/TGZ/SPK support is handled by `TarTools` and rejects symlink members.

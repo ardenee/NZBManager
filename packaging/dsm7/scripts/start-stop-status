@@ -1,8 +1,33 @@
 #!/bin/sh
 set -eu
-case "$1" in
-    start|stop|prestart|prestop|status)
-        # The DSM WebStation webservice resource owns PHP service lifecycle.
+APP="${SYNOPKG_PKGDEST:-/var/packages/nzbmanager/target}/webapp"
+PRIVATE="/var/packages/nzbmanager/var/automation"
+PHP="/usr/local/bin/php82"
+case "${1:-}" in
+    start)
+        # The worker forks its own PHP daemon and checks disabled schedules itself.
+        if [ -x "$PHP" ] && [ -f "$APP/bin/automation-worker.php" ]; then
+            "$PHP" "$APP/bin/automation-worker.php" >/dev/null 2>&1 || true
+        fi
+        exit 0
+        ;;
+    stop)
+        # Never signal a PID without checking it still belongs to this app.
+        if [ -f "$PRIVATE/daemon.pid" ]; then
+            PID=$(cat "$PRIVATE/daemon.pid" 2>/dev/null || true)
+            case "$PID" in
+                *[!0-9]*|'') ;;
+                *)
+                    if [ -r "/proc/$PID/cmdline" ] && tr '\000' ' ' < "/proc/$PID/cmdline" | grep -q 'automation-worker.php'; then
+                        kill -TERM "$PID" 2>/dev/null || true
+                    fi
+                    ;;
+            esac
+        fi
+        exit 0
+        ;;
+    prestart|prestop|status)
+        # DSM Web Station manages the PHP-FPM portion of NZB Manager.
         exit 0
         ;;
     *)

@@ -29,7 +29,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
     </div>
     <div class="configuration-help">
         <p>Verify checksums without changing downloaded files, or select Repair to reconstruct missing or damaged slices. Verified files take their exact original names for Archive Extraction. Existing damaged files are preserved as <code>filename.ext.damaged</code>; a pre-existing <code>.damaged</code> backup blocks publication rather than being overwritten.</p>
-        <p>Large files are handled in fixed 64 KiB stream windows with no 64 MiB total-data cap. Current safeguards allow up to 32 missing/damaged slices, 32,768 input slices and 300 recovery volumes. Large repairs may take substantial CPU time and temporary disk space.</p>
+        <p>Large files are handled in fixed 64 KiB stream windows with no 64 MiB total-data cap. Current safeguards allow up to 128 missing/damaged slices, 32,768 input slices and 3000 recovery volumes. Large repairs may take substantial CPU time and temporary disk space.</p>
         <p>The job monitor updates automatically while the independent PHP CLI worker runs. Cancellation never deliberately deletes successfully published repairs or their <code>.damaged</code> backups.</p>
     </div>
 </section>

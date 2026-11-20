@@ -26,21 +26,21 @@ has newer source than the last published SPK; no package is being built now.
 | Configure Download Station credentials | Download Station | **Implemented** | Private DSM connection file; use a restricted account and HTTPS front end |
 | Submit NZB / list/pause/resume/remove DSM tasks | Download Station | **Mock-tested** | Authenticated tasks on user's NAS not yet tested |
 | Native PHP PAR2 packet & slice verification | PAR2 Repair | **DEV-tested** | MD5/CRC, checks protected files; independent PHP worker |
-| Pure PHP Reed-Solomon repair | PAR2 Repair | **DSM small-case / DEV 300 MiB tested** | Streaming 64 KiB windows, no total-data/slice-size/volume-byte cap; GF16 repair of up to 32 erasures, 32,768 input slices; originals preserved |
+| Pure PHP Reed-Solomon repair | PAR2 Repair | **DSM small-case / DEV 300 MiB tested** | Streaming 64 KiB windows, no total-data/slice-size/volume-byte cap; GF16 repair of up to 128 erasures, 32,768 input slices; originals preserved |
 | PAR2 background progress, cancellation, rerun and removal | PAR2 Repair | **DEV-tested; DSM UI updated** | Verified data takes original filename, damaged source becomes `.damaged`; rerun verifies existing repair, removal leaves files |
-| ZIP archive inspection | Archive Extraction | **DEV-tested** | Normal ZIP and raw-split `.zip.001` families, 64 GiB compressed / 128 GiB expanded, 10,000 entries |
+| Archive inspection | Archive Extraction | **DEV-tested** | ZIP and raw-split `.zip.001`, TAR/TGZ/SPK; 64 GiB ZIP compressed / 128 GiB expanded, 10,000 entries |
 | ZIP extraction in independent PHP worker | Archive Extraction | **DEV encrypted/split tested; DSM AES verified on PHP 8.2.35** | AES password prompt and one-time private secret, raw multipart joining, CRC check, output folder preserved on rerun |
-| True multi-disk ZIP / RAR / 7z / TAR extraction | Archive Extraction | **Not yet implemented** | `.z01` and compressed multipart RAR/7z need separate decoders; do not confuse with raw split ZIP |
+| True multi-disk ZIP / RAR / 7z extraction | Archive Extraction | **Not yet implemented** | `.z01` and RAR/7z require independent pure-PHP decoders; TAR/TGZ/SPK are implemented |
 | Preview file rename/move, create folders | File Organizer | **DSM-tested** | Workspace-only, no overwrite, preview & confirmation |
 | Rename/delete created folders | File Organizer | **DSM HTTP/Chrome tested** | Tracked folders only; delete empty only; older folders protected |
-| Batch file moves/payload merging | File Organizer | Not ported | Requires expanded job queue |
-| Torrent uploads | Import | Not ported | Historical feature |
+| Batch file moves / folder content merging | File Organizer | **DEV-tested; DSM UI updated** | Up to 50 selected rows / 500 files, preview, skip/rename/overwrite collision rules, rollback hard links; untracked directory itself retained |
+| Torrent uploads | Import | **Out of scope** | Deliberately excluded: this application handles NZB, not torrents |
 | Historical MySQL data migration | Migration | Not ported | MySQL not needed at modern runtime |
 | DSM 7 test SPK with original icons | Packaging | **Earlier revision built and tested** | Original 256px SPK icon now reused as web logo and favicon; no new SPK installation for this source update |
 
 ## Tests and live checks
 
-- **338 PHP assertions on DEV**, covering metadata, parity, workspace
+- **378 PHP assertions on DEV**, covering metadata, parity, workspace
   protection, 68 MiB standard / 300 MiB stress PAR2 reconstruction, 5 GiB metadata, managed
   folders, asynchronous ZIP jobs, Download Station mock API contracts, etc.
 - DEV HTTP smoke tests for indexer/security/asset-cache routes.
@@ -54,8 +54,17 @@ has newer source than the last published SPK; no package is being built now.
 
 ## Outstanding certification
 
-Real-world multi-gigabyte PAR2 repair, more than 32 missing slices, complex
+Real-world multi-gigabyte PAR2 repair, more than 128 missing slices, complex
 PAR2 metadata, external Newznab search, authenticated Download Station tasks,
-RAR/7z/TAR extraction and multi-file organization require further work.
+RAR/7z extraction, full PAR2 coverage beyond 128 missing slices and further filesystem operations require work.
 The DSM alpha intentionally has no application login: keep it off the
 public Internet and protect any submitted DSM credentials.
+
+## Scheduling and output destinations (20 November 2026)
+
+| New feature | Area | Verification | Notes |
+| --- | --- | --- | --- |
+| Automatic monitored NZB folder → Download Station | Settings / Automation | **DEV mock-tested** | Off by default; intervals 5–1440 minutes; stable NZB and duplicate guards; real authenticated DSM submission not certified |
+| Automatic PAR2 repair after downloads complete | Settings / Automation | **DEV tested for active-task deferral** | Off by default; scans stable sets and defers while DSM tasks active; per-task destination mapping needs further testing |
+| Native PHP TAR, TGZ and SPK extraction | Archive Extraction | **DEV-tested** | Streamed with header checks; rejects traversal, symlinks and special members |
+| Default extraction folder and replacement | Settings / Archive Extraction | **DEV-tested** | Fresh numbered folder by default; explicit replacement saves previous output as `.previous-*` |

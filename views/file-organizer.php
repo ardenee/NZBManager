@@ -41,7 +41,8 @@ catch (\Throwable $problem)
                 <tbody>
                 <?php foreach ($workspaceEntries as $item): ?>
                 <tr>
-                    <td><?php if (!$item['is_dir']): ?><input type="radio" form="organizer-preview-form" name="source" value="<?= escape($item['relative']) ?>" required><?php endif; ?></td>
+                    <td><?php if (!$item['is_dir']): ?><input type="radio" form="organizer-preview-form" name="source" value="<?= escape($item['relative']) ?>" required title="Single-file rename/move"><?php endif; ?>
+                        <input type="checkbox" form="organizer-batch-form" name="items[]" value="<?= escape($item['relative']) ?>" aria-label="Include <?= escape($item['name']) ?> in batch move or merge" title="Include in batch move/merge"></td>
                     <td class="name"><?= escape($item['name']) ?></td>
                     <td><?= $item['is_dir'] ? 'Folder' : strtoupper(escape($item['extension'] ?: 'file')) ?></td>
                     <td><?= $item['is_dir'] ? '—' : humanBytes($item['bytes']) ?></td>
@@ -102,7 +103,56 @@ catch (\Throwable $problem)
                 <button type="submit" class="button primary">Preview rename / move</button></div>
         </div>
     </form>
+    <form method="post" action="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" id="organizer-batch-form" class="configuration-help">
+        <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+        <input type="hidden" name="action" value="organizer_batch_preview">
+        <h2>Batch move / merge archive and PAR2 files</h2>
+        <p>Tick one or more rows above. Files move to the selected destination. Selected folders have their contents merged recursively into the destination; the original folder is retained. No extraction or PAR2 recovery is performed by this operation.</p>
+        <label>Destination folder
+            <select name="destination_folder" required>
+                <option value="<?= escape($workspaceFolder) ?>">Current folder</option>
+                <?php if ($workspaceFolder !== ''): ?><option value="">Workspace root</option><?php endif; ?>
+                <?php foreach ($workspaceEntries as $item): ?>
+                    <?php if ($item['is_dir']): ?><option value="<?= escape($item['relative']) ?>"><?= escape($item['name']) ?></option><?php endif; ?>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <label>When a destination file already exists
+            <select name="collision_policy">
+                <option value="skip">Skip existing files (default)</option>
+                <option value="rename">Keep both; rename incoming file with numbered suffix</option>
+                <option value="overwrite">Overwrite existing file, only after confirming the preview</option>
+            </select>
+        </label>
+        <div class="form-actions"><span>All selected operations are previewed before any changes. Limit 50 selected rows / 500 files.</span><button type="submit" class="button secondary">Preview batch move / merge</button></div>
+    </form>
 </section>
+<?php
+$batchPending = $_SESSION['organizer_batch_preview'] ?? null;
+if (is_array($batchPending) && is_array($batchPending['plan'] ?? null) &&
+    is_int($batchPending['at'] ?? null) && $batchPending['at'] <= time() &&
+    time() - $batchPending['at'] <= 120):
+    $batchPlan = $batchPending['plan'];
+?>
+<section class="panel">
+    <div class="panel-heading"><div><h2>Confirm batch file move / merge</h2><p>Sources are unchanged until confirmation. Overwrite only replaces destinations listed in this preview.</p></div></div>
+    <div class="configuration-help">
+        <p><?= count($batchPlan['operations']) ?> file(s) to move · <?= $batchPlan['skipped'] ?> skipped · <?= $batchPlan['renamed'] ?> renamed · <?= $batchPlan['overwritten'] ?> overwrite collision(s)</p>
+        <div class="table-scroll"><table><thead><tr><th>Current path</th><th>Destination</th><th>Overwrite?</th></tr></thead><tbody>
+        <?php foreach (array_slice($batchPlan['operations'], 0, 50) as $move): ?>
+        <tr><td><?= escape($move['source']) ?></td><td><?= escape($move['target']) ?></td><td><?= $move['existing_size'] === null ? 'No' : 'Yes — existing data will be replaced' ?></td></tr>
+        <?php endforeach; ?>
+        </tbody></table></div>
+        <?php if (count($batchPlan['operations']) > 50): ?><p>Showing the first 50 of <?= count($batchPlan['operations']) ?> planned operations.</p><?php endif; ?>
+        <form method="post" action="index.php?module=file-manager&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="<?= $batchPlan['overwritten'] ? 'OVERWRITE ' . $batchPlan['overwritten'] . ' existing file(s)? An unchanged backup is held until successful completion. Confirm only after reviewing the table.' : 'Apply these batch file moves or folder content merges? Original paths will change.' ?>">
+            <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
+            <input type="hidden" name="action" value="organizer_batch_apply">
+            <input type="hidden" name="token" value="<?= escape($batchPending['token']) ?>">
+            <button type="submit" class="button primary">Confirm <?= $batchPlan['overwritten'] ? 'overwriting batch' : 'batch move / merge' ?></button>
+        </form>
+    </div>
+</section>
+<?php endif; ?>
 <?php
 $pending = $_SESSION['organizer_preview'] ?? null;
 if (is_array($pending) && is_array($pending['plan'] ?? null) &&

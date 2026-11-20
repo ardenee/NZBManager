@@ -57,7 +57,7 @@ password-free test site directly to the Internet.
   where libzip supports it). The browser requests a password during extraction
   or a rerun. Passwords are stored only in a private `0600` one-use worker file,
   deleted after reading, never exposed in job status or persisted settings.
-- True multi-disk ZIP (`.z01`, `.z02`, `.zip`), RAR, 7z and TAR/TGZ are
+- True multi-disk ZIP (`.z01`, `.z02`, `.zip`), RAR and 7z are
   recognized but **not** yet supported by extraction adapters; raw split ZIP
   is not the same as multi-disk ZIP. Multipart RAR and encrypted RAR/7z remain
   explicit outstanding work.
@@ -98,8 +98,8 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
   in 64 KiB chunks; independent GF16 equations are solved over 64 KiB windows
   and patched into private staged files. Staged file MD5s are checked before
   atomic no-overwrite publication. Output requires free disk space.
-- **Remaining algorithmic bounds:** 32 missing/damaged slices per job, 128
-  recoverable input files, 300 discovered recovery volumes and 32,768 input
+- **Remaining algorithmic bounds:** 128 missing/damaged slices per job, 1024
+  recoverable input files, 3000 discovered recovery volumes and 32,768 input
   slices (the PAR2 2.0 format limit). Large jobs can be CPU intensive; actual
   multi-gigabyte recovery is **not yet certified**.
 - A cancelled job stops at the next callback. Published verified filenames and
@@ -133,7 +133,7 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
 
 **Remaining certification:** Real third-party recovery sets, unusual PAR2
 packets, multi-gigabyte repair performance, complex rename mappings and
-more than 32 erasures need broader validation. There is no arbitrary 64 MiB
+more than 128 erasures need broader validation. There is no arbitrary 64 MiB
 size ceiling, but completion time, disk space and supported PAR2 features
 still matter.
 
@@ -151,3 +151,11 @@ as optional install-time checkboxes.
 
 **No SPK is built for these source changes.** Build one only when installer
 behavior needs testing or the user requests a release.
+
+## Automation, batch merging and extraction destinations (20 November 2026)
+
+- **AutomationScheduler.php** uses a private state file and lock to process scheduled scans. Both schedules start **off**; Settings supports 5, 15, 30 and 60 minutes through 24 hours. Stable NZB files are submitted to Download Station with duplicate suppression. If submission outcome is ambiguous, the record remains pending for manual review to avoid duplicate submission.
+- Download completion triggers a conservative global gate: the scheduler skips PAR2 runs while any Download Station task remains active, and requires a finished task and stable input files. Matching individual DSM tasks to individual PAR2 folders is not yet fully certified.
+- **bin/automation-worker.php** is a detached native-PHP CLI polling daemon. It starts when Settings enables a schedule and via web access after a restart; the updated package startup script takes effect with the next SPK. The live DSM application source does not yet have a refreshed SPK installed.
+- **WorkspaceBatch.php** supports preview/confirm moves of archive/PAR2 files and nested folder-content merging, with skip, numbered-rename or explicitly confirmed overwrite policies and best-effort transactional rollback. Only tracked folders can be renamed/deleted using the existing managed-folder controls; batch merges leave the source directory intact.
+- Archive Extraction can target a configured writable default folder. Default behavior creates a numbered directory; Replace preserves the entire prior output directory as a `.previous-*` backup before publishing new, fully checked contents. The user must explicitly authorize replacement.

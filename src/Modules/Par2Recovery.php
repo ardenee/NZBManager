@@ -14,12 +14,12 @@ use Throwable;
 final class Par2Recovery
 {
     private const CHUNK_BYTES = 65536;
-    private const MAX_PARTS = 300;
+    private const MAX_PARTS = 3000;
     private const MAX_PACKETS = 200000;
     private const MAX_METADATA_BODY = 4194304;
-    private const MAX_FILES = 128;
+    private const MAX_FILES = 1024;
     private const MAX_SLICES = 32768;
-    private const MAX_ERASURES = 32;
+    private const MAX_ERASURES = 128;
 
     private static function uint32(string $bytes): int
     {
@@ -86,15 +86,34 @@ final class Par2Recovery
         $selected = $work->resolve($relative, 'file');
         $parent = str_contains($relative, '/') ? substr($relative, 0, strrpos($relative, '/')) : '';
         $candidates = [$relative];
-        foreach ($work->list($parent) as $entry)
+        $names = @scandir($work->resolve($parent, 'dir'));
+        if (!is_array($names))
         {
-            if (!$entry['is_dir'] && $entry['extension'] === 'par2' && $entry['relative'] !== $relative)
+            throw new RuntimeException('Cannot discover PAR2 recovery volumes.');
+        }
+        foreach ($names as $name)
+        {
+            if (!preg_match('/\.par2\z/i', $name))
             {
-                $candidates[] = $entry['relative'];
+                continue;
+            }
+            try
+            {
+                WorkspaceFiles::safeName($name);
+                $candidate = ($parent === '' ? '' : $parent . '/') . $name;
+                if ($candidate !== $relative)
+                {
+                    $work->resolve($candidate, 'file');
+                    $candidates[] = $candidate;
+                }
+            }
+            catch (RuntimeException)
+            {
+                // Skip symlinks, invalid names and unrelated filesystem entries.
             }
             if (count($candidates) > self::MAX_PARTS)
             {
-                throw new RuntimeException('Too many recovery volumes in the selected folder.');
+                throw new RuntimeException('PAR2 recovery set discovery exceeds 3000 volumes.');
             }
         }
         $selectedFp = @fopen($selected, 'rb');
@@ -522,34 +541,63 @@ final class Par2Recovery
             }
             $constants = Par2Galois::inputConstants(count($blocks));
             $selected = [];
-            $inverse = null;
+            $basis = [];
+            // Accept a recovery equation only if it increases GF16 row rank.
+            // This avoids the old failure where dependent early equations
+            // prevented later, otherwise sufficient recovery sets being used.
             foreach ($catalog['recovery'] as $exponent => $descriptor)
             {
-                $selected[(int) $exponent] = $descriptor;
-                if (count($selected) < $m)
+                $row = array_map(static fn (int $index): int =>
+                    Par2Galois::power($constants[$index], (int) $exponent), $missing);
+                foreach ($basis as $pivot => $basisRow)
+                {
+                    $factor = $row[$pivot];
+                    if ($factor === 0)
+                    {
+                        continue;
+                    }
+                    for ($column = $pivot; $column < $m; $column++)
+                    {
+                        $row[$column] ^= Par2Galois::multiply($factor, $basisRow[$column]);
+                    }
+                }
+                $pivot = null;
+                for ($column = 0; $column < $m; $column++)
+                {
+                    if ($row[$column] !== 0)
+                    {
+                        $pivot = $column;
+                        break;
+                    }
+                }
+                if ($pivot === null)
                 {
                     continue;
                 }
-                $matrix = [];
-                foreach ($selected as $power => $value)
+                $inversePivot = Par2Galois::inverse($row[$pivot]);
+                for ($column = $pivot; $column < $m; $column++)
                 {
-                    $matrix[] = array_map(static fn (int $index): int =>
-                        Par2Galois::power($constants[$index], (int) $power), $missing);
+                    $row[$column] = Par2Galois::multiply($row[$column], $inversePivot);
                 }
-                try
+                $basis[$pivot] = $row;
+                ksort($basis, SORT_NUMERIC);
+                $selected[(int) $exponent] = $descriptor;
+                if (count($selected) === $m)
                 {
-                    $inverse = Par2Galois::inverseMatrix($matrix);
                     break;
                 }
-                catch (RuntimeException)
-                {
-                    unset($selected[$exponent]);
-                }
             }
-            if ($inverse === null)
+            if (count($selected) !== $m)
             {
                 throw new RuntimeException('Not enough independent PAR2 recovery equations.');
             }
+            $matrix = [];
+            foreach ($selected as $power => $descriptor)
+            {
+                $matrix[] = array_map(static fn (int $index): int =>
+                    Par2Galois::power($constants[$index], (int) $power), $missing);
+            }
+            $inverse = Par2Galois::inverseMatrix($matrix);
 
             $changedFiles = array_values(array_unique(array_map(
                 static fn (int $index): int => $blocks[$index]['file'], $missing)));
@@ -563,6 +611,19 @@ final class Par2Recovery
             }
 
             $powers = array_keys($selected);
+            // Precompute GF16 coefficients once, in compact 16-bit packed
+            // buffers. Large slice sizes require many windows; redoing exponent
+            // arithmetic inside every window wastes considerable CPU time.
+            $knownFactors = [];
+            foreach ($known as $index)
+            {
+                $packed = '';
+                foreach ($powers as $power)
+                {
+                    $packed .= pack('v', Par2Galois::power($constants[$index], (int) $power));
+                }
+                $knownFactors[$index] = $packed;
+            }
             foreach ($selected as $descriptor)
             {
                 $volume = $work->resolve($descriptor['relative'], 'file');
@@ -610,9 +671,10 @@ final class Par2Recovery
                     }
                     $bytes = self::readExact($source, min($take, $block['length'] - $offset));
                     $bytes = str_pad($bytes, $take, "\0");
-                    foreach ($powers as $equation => $power)
+                    $packed = $knownFactors[$index];
+                    for ($equation = 0; $equation < $m; $equation++)
                     {
-                        $factor = Par2Galois::power($constants[$index], (int) $power);
+                        $factor = ord($packed[$equation * 2]) | (ord($packed[$equation * 2 + 1]) << 8);
                         if ($factor !== 0)
                         {
                             $syndromes[$equation] ^= Par2Galois::multiplySlice($bytes, $factor);

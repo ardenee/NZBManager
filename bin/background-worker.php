@@ -42,6 +42,7 @@ ini_set('memory_limit', '256M');
 require dirname(__DIR__) . '/src/AppConfig.php';
 require dirname(__DIR__) . '/src/AppSettings.php';
 require dirname(__DIR__) . '/src/Modules/WorkspaceFiles.php';
+require dirname(__DIR__) . '/src/Modules/TarTools.php';
 require dirname(__DIR__) . '/src/Modules/ArchiveTools.php';
 require dirname(__DIR__) . '/src/Modules/Par2Jobs.php';
 require dirname(__DIR__) . '/src/Modules/Par2Reader.php';

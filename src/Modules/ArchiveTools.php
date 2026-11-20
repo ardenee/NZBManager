@@ -16,12 +16,13 @@ final class ArchiveTools
 
     public static function recognized(string $name): bool
     {
-        return (bool) preg_match('/\.(?:zip(?:\.001)?|z[0-9]{2}|rar|r[0-9]{2}|7z(?:\.001)?|tar|tgz|tar\.gz)\z/i', $name);
+        return (bool) preg_match('/\.(?:zip(?:\.001)?|z[0-9]{2}|rar|r[0-9]{2}|7z(?:\.001)?|tar|tgz|tar\.gz|spk)\z/i', $name);
     }
 
     public static function supported(string $name): bool
     {
-        return (bool) preg_match('/\.zip(?:\.001)?\z/i', $name) && class_exists(ZipArchive::class);
+        return (TarTools::supported($name) ||
+            ((bool) preg_match('/\.zip(?:\.001)?\z/i', $name) && class_exists(ZipArchive::class)));
     }
 
     /**
@@ -81,6 +82,10 @@ final class ArchiveTools
     public static function inspect(WorkspaceFiles $work, string $relative): array
     {
         $path = $work->resolve($relative, 'file');
+        if (TarTools::supported($path))
+        {
+            return TarTools::inspect($work, $relative);
+        }
         if (!self::recognized($path))
         {
             throw new RuntimeException('Select a ZIP, RAR, 7z, TAR or TGZ file.');
@@ -289,12 +294,96 @@ final class ArchiveTools
         return $temp;
     }
 
+    /** Choose a bounded destination. Replacing an output requires a separate, explicit UI confirmation. */
+    public static function destination(WorkspaceFiles $work, string $source, string $base, string $policy): array
+    {
+        if (!in_array($policy, ['numbered', 'replace'], true))
+        {
+            throw new RuntimeException('Invalid extracted-folder collision policy.');
+        }
+        $settings = \NZB\AppSettings::load();
+        $configured = $settings['extract_output_path'] ?? '';
+        if (!is_string($configured))
+        {
+            throw new RuntimeException('Default extraction destination is invalid.');
+        }
+        if ($configured !== '')
+        {
+            FolderBrowser::validateSelection($configured, 'extract_output_path');
+        }
+        $parent = $configured !== '' ? $configured : dirname($source);
+        if (!is_dir($parent) || !is_writable($parent))
+        {
+            throw new RuntimeException('The extraction destination is missing or not writable.');
+        }
+        $base = WorkspaceFiles::safeName($base);
+        if ($policy === 'replace')
+        {
+            $destination = $parent . DIRECTORY_SEPARATOR . $base;
+            if (is_link($destination) || (file_exists($destination) && !is_dir($destination)))
+            {
+                throw new RuntimeException('Overwrite target is not a regular directory.');
+            }
+            return ['parent' => $parent, 'destination' => $destination];
+        }
+        for ($n = 0; $n < 100; $n++)
+        {
+            $name = $base . ($n > 0 ? '-' . $n : '');
+            $candidate = $parent . DIRECTORY_SEPARATOR . $name;
+            if (!file_exists($candidate) && !is_link($candidate))
+            {
+                return ['parent' => $parent, 'destination' => $candidate];
+            }
+        }
+        throw new RuntimeException('Too many existing extracted folders. Move or remove old outputs.');
+    }
+
+    /** Publish complete staging atomically; preserve prior folder when explicitly replacing it. */
+    public static function publish(string $stage, string $destination, string $policy): void
+    {
+        if ($policy === 'numbered')
+        {
+            if (file_exists($destination) || is_link($destination) || !@rename($stage, $destination))
+            {
+                throw new RuntimeException('Extraction destination was occupied before publication.');
+            }
+            return;
+        }
+        if ($policy !== 'replace' || is_link($destination) ||
+            (file_exists($destination) && !is_dir($destination)))
+        {
+            throw new RuntimeException('Invalid extraction replacement target.');
+        }
+        $backup = null;
+        if (is_dir($destination))
+        {
+            $backup = $destination . '.previous-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(3));
+            if (file_exists($backup) || is_link($backup) || !@rename($destination, $backup))
+            {
+                throw new RuntimeException('Could not preserve existing extraction folder before replacement.');
+            }
+        }
+        if (!@rename($stage, $destination))
+        {
+            if ($backup !== null && !@rename($backup, $destination))
+            {
+                throw new RuntimeException('Extraction publication failed and previous directory rollback failed. Recover the .previous backup manually.');
+            }
+            throw new RuntimeException('Could not publish new extraction folder; original output was restored.');
+        }
+        // The previous complete extraction remains available as .previous-*.
+    }
+
     /**
      * Extract into a fresh isolated child folder; never extract over existing data.
      * Files are streamed individually, with bounded expanded size and entry checks.
      */
-    public static function extract(WorkspaceFiles $work, string $relative, ?callable $progress = null, ?string $password = null): string
+    public static function extract(WorkspaceFiles $work, string $relative, ?callable $progress = null, ?string $password = null, string $policy = 'numbered'): string
     {
+        if (TarTools::supported($relative))
+        {
+            return TarTools::extract($work, $relative, $progress, $policy);
+        }
         $progress ??= static function (int $percent, string $step): void {};
         $progress(2, 'Checking ZIP archive and available workspace capacity');
         $archive = $work->resolve($relative, 'file');
@@ -302,27 +391,10 @@ final class ArchiveTools
         {
             throw new RuntimeException('This PHP extractor supports standard ZIP and raw-split .zip.001 volumes; RAR/7z adapters are not yet installed.');
         }
-        $parent = dirname($archive);
-        if (!is_writable($parent))
-        {
-            throw new RuntimeException('The archive folder must be writable for temporary extraction.');
-        }
         $baseName = preg_replace('/\.zip(?:\.001)?\z/i', '', basename($relative));
-        $base = $baseName . '-extracted';
-        $destination = '';
-        for ($suffix = 0; $suffix < 50; $suffix++)
-        {
-            $try = $parent . DIRECTORY_SEPARATOR . $base . ($suffix ? '-' . $suffix : '');
-            if (!file_exists($try) && !is_link($try))
-            {
-                $destination = $try;
-                break;
-            }
-        }
-        if ($destination === '')
-        {
-            throw new RuntimeException('Too many existing extracted folders.');
-        }
+        $location = self::destination($work, $archive, $baseName . '-extracted', $policy);
+        $parent = $location['parent'];
+        $destination = $location['destination'];
 
         $assembled = null;
         $stage = null;
@@ -441,10 +513,7 @@ final class ArchiveTools
                 $zip->close();
             }
             $progress(96, 'Publishing completed ZIP extraction');
-            if (file_exists($destination) || is_link($destination) || !rename($stage, $destination))
-            {
-                throw new RuntimeException('Extraction destination is occupied or could not be published.');
-            }
+            self::publish($stage, $destination, $policy);
             return basename($destination);
         }
         finally

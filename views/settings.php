@@ -1,6 +1,6 @@
 <?php
 $folderStatus = [];
-foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
+foreach (['workspace_path', 'folder_import_path', 'push_folder_path', 'extract_output_path'] as $field)
 {
     $current = $appSettings[$field] ?? '';
     if (!is_string($current) || $current === '')
@@ -67,12 +67,32 @@ foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
                 <small class="folder-permission-status <?= $folderStatus['folder_import_path']['ok'] ? '' : 'folder-permission-denied' ?>" data-permission-for="folder_import_path"><?= escape($folderStatus['folder_import_path']['text']) ?></small>
                 <small>Readable DSM shared folder. Source files remain untouched; duplicate imports are skipped.</small>
             </div>
+            <label for="setting-extract-folder">Default extracted-files destination</label>
+            <div class="settings-input-help">
+                <div class="folder-setting-row"><input id="setting-extract-folder" name="extract_output_path" maxlength="240" value="<?= escape($appSettings['extract_output_path']) ?>" placeholder="Leave blank to extract beside each archive"><button type="button" class="button secondary" data-folder-pick="extract_output_path">Browse folders</button></div>
+                <small class="folder-permission-status <?= $folderStatus['extract_output_path']['ok'] ? '' : 'folder-permission-denied' ?>" data-permission-for="extract_output_path"><?= escape($folderStatus['extract_output_path']['text']) ?></small>
+                <small>Optional existing writable folder. Collisions always require an explicit choice before files are replaced; default uses a fresh numbered folder.</small>
+            </div>
             <label for="setting-push-folder">Push To monitored folder</label>
             <div class="settings-input-help">
                 <div class="folder-setting-row"><input id="setting-push-folder" name="push_folder_path" maxlength="240" value="<?= escape($appSettings['push_folder_path']) ?>" placeholder="/volume1/downloads/watch"><button type="button" class="button secondary" data-folder-pick="push_folder_path">Browse folders</button></div>
                 <small class="folder-permission-status <?= $folderStatus['push_folder_path']['ok'] ? '' : 'folder-permission-denied' ?>" data-permission-for="push_folder_path"><?= escape($folderStatus['push_folder_path']['text']) ?></small>
                 <small>Writable folder with PHP permissions and open_basedir access.</small>
             </div>
+        </div>
+        <div class="settings-form-grid">
+            <label for="setting-auto-nzb">Automatic NZB inbox → Download Station</label>
+            <div class="settings-input-help"><select name="automatic_nzb_minutes" id="setting-auto-nzb">
+                <?php foreach ([0 => 'Off (default)', 5 => 'Every 5 minutes', 15 => 'Every 15 minutes', 30 => 'Every 30 minutes', 60 => 'Every hour', 180 => 'Every 3 hours', 360 => 'Every 6 hours', 720 => 'Every 12 hours', 1440 => 'Every 24 hours'] as $mins => $label): ?>
+                <option value="<?= $mins ?>" <?= $appSettings['automatic_nzb_minutes'] === $mins ? 'selected' : '' ?>><?= escape($label) ?></option>
+                <?php endforeach; ?>
+            </select><small>Requires a configured NZB import folder and Download Station credentials. An NZB is submitted only once and must be stable before processing; sources are preserved.</small></div>
+            <label for="setting-auto-repair">Automatic completed-download PAR2 processing</label>
+            <div class="settings-input-help"><select name="automatic_repair_minutes" id="setting-auto-repair">
+                <?php foreach ([0 => 'Off (default)', 5 => 'Every 5 minutes', 15 => 'Every 15 minutes', 30 => 'Every 30 minutes', 60 => 'Every hour', 180 => 'Every 3 hours', 360 => 'Every 6 hours', 720 => 'Every 12 hours', 1440 => 'Every 24 hours'] as $mins => $label): ?>
+                <option value="<?= $mins ?>" <?= $appSettings['automatic_repair_minutes'] === $mins ? 'selected' : '' ?>><?= escape($label) ?></option>
+                <?php endforeach; ?>
+            </select><small>Only stable PAR2 sets in the configured workspace are eligible. Active Download Station tasks block automatic repair. Native PHP worker jobs are monitored in PAR2 Repair.</small></div>
         </div>
         <div class="settings-form-footer"><button type="submit" class="button primary">Save settings</button></div>
     </form>
@@ -181,6 +201,19 @@ foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
     </form>
 </section>
 
+<?php $automationStatus = \NZB\Modules\AutomationScheduler::status(); ?>
+<section class="panel">
+    <div class="panel-heading"><div><h2>Scheduled processing status</h2><p>Jobs run independently in native PHP CLI. Disabled schedules do not scan folders.</p></div></div>
+    <dl class="settings-status-list">
+        <div class="settings-status-row"><dt>Last scheduler heartbeat</dt><dd><?= $automationStatus['last_tick'] ? escape(gmdate('Y-m-d H:i:s', $automationStatus['last_tick']) . ' UTC') : 'Not yet run' ?></dd></div>
+        <div class="settings-status-row"><dt>Last NZB scan</dt><dd><?= $automationStatus['last_nzb'] ? escape(gmdate('Y-m-d H:i:s', $automationStatus['last_nzb']) . ' UTC') : 'Not yet run' ?></dd></div>
+        <div class="settings-status-row"><dt>Last PAR2 scan</dt><dd><?= $automationStatus['last_repair'] ? escape(gmdate('Y-m-d H:i:s', $automationStatus['last_repair']) . ' UTC') : 'Not yet run' ?></dd></div>
+        <div class="settings-status-row"><dt>Processed submissions / repair sets</dt><dd><?= (int) $automationStatus['sent_count'] ?> NZB(s) / <?= (int) $automationStatus['repair_count'] ?> PAR2 set(s)</dd></div>
+        <?php foreach ($automationStatus['messages'] as $kind => $value): ?>
+        <div class="settings-status-row"><dt><?= escape($kind) ?></dt><dd><?= escape($value) ?></dd></div>
+        <?php endforeach; ?>
+    </dl>
+</section>
 <section class="panel">
     <div class="panel-heading">
         <div><h2>PHP module status</h2><p>Extensions actually loaded by this website's PHP-FPM process. The DSM installer declares the required extensions in its package PHP profile.</p></div>
@@ -233,5 +266,5 @@ foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
         <div class="settings-status-row"><dt>Folder import</dt><dd><?= $appSettings['folder_import_path'] === '' ? 'Not configured' : 'Configured' ?></dd></div>
         <div class="settings-status-row"><dt>Monitored-folder output</dt><dd><?= $appSettings['push_folder_path'] === '' ? 'Not configured' : 'Configured' ?></dd></div>
     </dl>
-    <div class="settings-help-note">Download Station credentials require protected server configuration. PAR2 verification, bounded ZIP extraction and basic File Organizer functions are available as separate modules; PAR2 repair and additional archive formats still have external prerequisites.</div>
+    <div class="settings-help-note">Download Station credentials require protected server configuration. Native PHP PAR2 repair, ZIP/TAR extraction and batch file organization are available as modules. RAR/7z and some advanced PAR2 layouts require further pure-PHP implementation; no external repair/extract executables are used.</div>
 </section>

@@ -30,7 +30,9 @@ require dirname(__DIR__) . '/Modules/SegmentActions.php';
 require dirname(__DIR__) . '/Modules/WorkspaceFiles.php';
 require dirname(__DIR__) . '/Modules/ManagedFolders.php';
 require dirname(__DIR__) . '/Modules/FolderBrowser.php';
+require dirname(__DIR__) . '/Modules/WorkspaceBatch.php';
 require dirname(__DIR__) . '/Modules/FileOrganizerActions.php';
+require dirname(__DIR__) . '/Modules/TarTools.php';
 require dirname(__DIR__) . '/Modules/ArchiveTools.php';
 require dirname(__DIR__) . '/Modules/ArchiveActions.php';
 require dirname(__DIR__) . '/Modules/Par2Jobs.php';
@@ -38,6 +40,7 @@ require dirname(__DIR__) . '/Modules/Par2Reader.php';
 require dirname(__DIR__) . '/Modules/Par2Galois.php';
 require dirname(__DIR__) . '/Modules/Par2Recovery.php';
 require dirname(__DIR__) . '/Modules/BackgroundJobs.php';
+require dirname(__DIR__) . '/Modules/AutomationScheduler.php';
 require dirname(__DIR__) . '/Modules/Par2Actions.php';
 
 
@@ -161,7 +164,7 @@ $actions = (new \NZB\Http\ActionRouter())
     ->register(['push_to'], [\NZB\Modules\PushToActions::class, 'dispatch'])
     ->register(['folder_import'], [\NZB\Modules\FolderImportActions::class, 'dispatch'])
     ->register(['segment_add', 'segment_replace', 'segment_delete'], [\NZB\Modules\SegmentActions::class, 'dispatch'])
-    ->register(['organizer_preview', 'organizer_apply', 'organizer_mkdir', 'organizer_folder_rename_preview', 'organizer_folder_rename_apply', 'organizer_folder_delete'], [\NZB\Modules\FileOrganizerActions::class, 'dispatch'])
+    ->register(['organizer_preview', 'organizer_apply', 'organizer_mkdir', 'organizer_folder_rename_preview', 'organizer_folder_rename_apply', 'organizer_folder_delete', 'organizer_batch_preview', 'organizer_batch_apply'], [\NZB\Modules\FileOrganizerActions::class, 'dispatch'])
     ->register(['archive_extract', 'archive_cancel', 'archive_rerun', 'archive_forget'], [\NZB\Modules\ArchiveActions::class, 'dispatch'])
     ->register(['par2_verify', 'par2_repair', 'par2_cancel', 'par2_rerun', 'par2_forget'], [\NZB\Modules\Par2Actions::class, 'dispatch']);
 $actions->dispatch($store, $viewId);
@@ -199,6 +202,14 @@ if ($viewId !== '')
     }
 }
 $appSettings = \NZB\AppSettings::load();
+try
+{
+    \NZB\Modules\AutomationScheduler::ensureRunning();
+}
+catch (Throwable)
+{
+    // An unavailable scheduler must not prevent normal page access.
+}
 $libraryAll = $entry ? [] : $store->all();
 $librarySort = isset($_GET['sort']) && is_string($_GET['sort']) && in_array($_GET['sort'], ['name', 'files', 'segments', 'bytes', 'created'], true) ? $_GET['sort'] : 'created';
 $libraryDir = ($_GET['dir'] ?? '') === 'asc' ? 'asc' : 'desc';

@@ -169,7 +169,8 @@ if (folderDialog) {
   const fields = {
     workspace_path: document.getElementById("setting-workspace"),
     folder_import_path: document.getElementById("setting-import-folder"),
-    push_folder_path: document.getElementById("setting-push-folder")
+    push_folder_path: document.getElementById("setting-push-folder"),
+    extract_output_path: document.getElementById("setting-extract-folder")
   };
   let target = null;
   let current = null;

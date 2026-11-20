@@ -74,7 +74,16 @@ final class ArchiveActions
                 {
                     throw new RuntimeException('Invalid ZIP password input.');
                 }
-                $id = BackgroundJobs::queue('archive_extract', $work, $relative, $password);
+                $policy = $_POST['collision_policy'] ?? 'numbered';
+                if (!is_string($policy) || !in_array($policy, ['numbered', 'replace'], true))
+                {
+                    throw new RuntimeException('Invalid extraction overwrite policy.');
+                }
+                if ($policy === 'replace' && ($_POST['confirm_replace'] ?? '') !== 'yes')
+                {
+                    throw new RuntimeException('Explicitly acknowledge that the old extracted folder will be replaced and preserved as .previous before continuing.');
+                }
+                $id = BackgroundJobs::queue('archive_extract', $work, $relative, $password, $policy);
                 try
                 {
                     BackgroundJobs::start($id);
@@ -84,7 +93,7 @@ final class ArchiveActions
                     BackgroundJobs::failLaunch($id, $launchError->getMessage());
                     throw $launchError;
                 }
-                \message('ZIP extraction started in a separate PHP process. Job: ' . $id . '.');
+                \message('Archive extraction started in a separate PHP process. Job: ' . $id . '.');
             }
             else
             {

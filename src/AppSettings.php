@@ -19,6 +19,9 @@ final class AppSettings
         'push_folder_path' => '',
         'inspector_page_size' => 50,
         'workspace_path' => '',
+        'extract_output_path' => '',
+        'automatic_nzb_minutes' => 0,
+        'automatic_repair_minutes' => 0,
     ];
 
     public static function path(): string
@@ -61,7 +64,7 @@ final class AppSettings
         foreach (self::DEFAULTS as $key => $default)
         {
             $raw = $input[$key] ?? $default;
-            if ($key === 'folder_import_path' || $key === 'push_folder_path' || $key === 'workspace_path')
+            if (in_array($key, ['folder_import_path', 'push_folder_path', 'workspace_path', 'extract_output_path'], true))
             {
                 if (!is_string($raw))
                 {
@@ -99,12 +102,13 @@ final class AppSettings
                 $clean[$key] = $path;
                 continue;
             }
-            if (!is_int($raw) && (!is_string($raw) || !preg_match('/\A[0-9]{1,3}\z/D', $raw)))
+            if (!is_int($raw) && (!is_string($raw) || !preg_match('/\A[0-9]{1,4}\z/D', $raw)))
             {
                 throw new RuntimeException('Invalid setting: ' . $key);
             }
             $value = (int) $raw;
-            $allowed = $key === 'binsearch_page_size' ? [25, 50, 100] : [10, 25, 50, 100];
+            $allowed = str_starts_with($key, 'automatic_') ? [0, 5, 15, 30, 60, 180, 360, 720, 1440] :
+                ($key === 'binsearch_page_size' ? [25, 50, 100] : [10, 25, 50, 100]);
             if (!in_array($value, $allowed, true))
             {
                 throw new RuntimeException('Unsupported value for ' . $key);

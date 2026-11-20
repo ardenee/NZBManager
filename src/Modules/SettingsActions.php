@@ -18,7 +18,7 @@ final class SettingsActions
             $action = $_POST['action'] ?? '';
             if ($action === 'settings_save')
             {
-                $keys = ['binsearch_page_size', 'library_page_size', 'inspector_page_size', 'folder_import_path', 'push_folder_path', 'workspace_path'];
+                $keys = ['binsearch_page_size', 'library_page_size', 'inspector_page_size', 'folder_import_path', 'push_folder_path', 'workspace_path', 'extract_output_path', 'automatic_nzb_minutes', 'automatic_repair_minutes'];
                 $values = [];
                 foreach ($keys as $key)
                 {
@@ -29,7 +29,7 @@ final class SettingsActions
                     }
                     $values[$key] = $value;
                 }
-                foreach (['workspace_path', 'folder_import_path', 'push_folder_path'] as $field)
+                foreach (['workspace_path', 'folder_import_path', 'push_folder_path', 'extract_output_path'] as $field)
                 {
                     if ($values[$field] !== '')
                     {
@@ -37,6 +37,10 @@ final class SettingsActions
                     }
                 }
                 AppSettings::save($values);
+                if ((int) $values['automatic_nzb_minutes'] > 0 || (int) $values['automatic_repair_minutes'] > 0)
+                {
+                    AutomationScheduler::ensureRunning();
+                }
                 unset($_SESSION['binsearch_search']);
                 \message('Settings saved.');
             }

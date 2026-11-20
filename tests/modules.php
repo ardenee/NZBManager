@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/src/AppConfig.php';
 require_once dirname(__DIR__) . '/src/AppSettings.php';
 require_once dirname(__DIR__) . '/src/Modules/WorkspaceFiles.php';
+require_once dirname(__DIR__) . '/src/Modules/TarTools.php';
 require_once dirname(__DIR__) . '/src/Modules/ArchiveTools.php';
 require_once dirname(__DIR__) . '/src/Modules/Par2Jobs.php';
 require_once dirname(__DIR__) . '/src/Modules/Par2Reader.php';

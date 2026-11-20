@@ -113,9 +113,9 @@ final class Par2Galois
     public static function inverseMatrix(array $matrix): array
     {
         $n = count($matrix);
-        if ($n < 1 || $n > 32)
+        if ($n < 1 || $n > 128)
         {
-            throw new RuntimeException('Native repair supports at most 32 missing slices per job.');
+            throw new RuntimeException('Native repair supports at most 128 missing slices per job.');
         }
         $rows = [];
         for ($i = 0; $i < $n; $i++)

@@ -117,7 +117,7 @@ final class BackgroundJobs
         return array_slice($records, 0, 40);
     }
 
-    public static function queue(string $type, WorkspaceFiles $work, string $relative, ?string $password = null): string
+    public static function queue(string $type, WorkspaceFiles $work, string $relative, ?string $password = null, string $collision = 'numbered'): string
     {
         if (!in_array($type, ['par2_verify', 'par2_repair', 'archive_extract'], true))
         {
@@ -126,10 +126,14 @@ final class BackgroundJobs
         $relative = WorkspaceFiles::relative($relative);
         if ($type === 'archive_extract')
         {
+            if (!in_array($collision, ['numbered', 'replace'], true))
+            {
+                throw new RuntimeException('Invalid archive overwrite policy.');
+            }
             $preview = ArchiveTools::inspect($work, $relative);
             if (!$preview['supported'])
             {
-                throw new RuntimeException('Background extraction currently supports ZIP archives only.');
+                throw new RuntimeException('Background extraction supports ZIP, raw split ZIP, TAR, TGZ and SPK archives.');
             }
         }
         else
@@ -156,6 +160,10 @@ final class BackgroundJobs
             'updated' => gmdate('c'), 'status' => 'queued', 'progress' => 0,
             'message' => 'Queued for a separate PHP CLI worker', 'outputs' => []
         ];
+        if ($type === 'archive_extract')
+        {
+            $record['collision'] = $collision;
+        }
         if ($password !== null && $password !== '' && $type === 'archive_extract')
         {
             if (strlen($password) > 1024)
@@ -461,9 +469,9 @@ final class BackgroundJobs
                 }
                 elseif ($record['type'] === 'archive_extract')
                 {
-                    $result = ArchiveTools::extract($work, $record['relative'], $report, self::consumePassword($id));
+                    $result = ArchiveTools::extract($work, $record['relative'], $report, self::consumePassword($id), $record['collision'] ?? 'numbered');
                     $record['outputs'] = [$result];
-                    $record['message'] = 'ZIP extracted safely into ' . $result;
+                    $record['message'] = 'Archive extracted safely into ' . $result;
                 }
                 else
                 {

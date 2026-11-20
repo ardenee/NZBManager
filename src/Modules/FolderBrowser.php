@@ -17,6 +17,7 @@ final class FolderBrowser
         'workspace_path' => 'read',
         'folder_import_path' => 'read',
         'push_folder_path' => 'write',
+        'extract_output_path' => 'write',
     ];
 
     private const BLOCKED_SHARES = ['web', 'web_packages', 'home', 'homes'];
