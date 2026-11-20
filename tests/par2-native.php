@@ -109,6 +109,16 @@ try
         $damage['files'][0]['checked_slices'] === 3 &&
         $damage['files'][0]['bad_slices'] === [1],
         'Verifier continues checking every slice and identifies the exact damaged slice even when file MD5 fails');
+    $damagedJob = Par2Jobs::submit($work, 'valid.par2', 'verify');
+    \NZB\Modules\BackgroundJobs::run($damagedJob);
+    $damagedRecords = array_values(array_filter(Par2Jobs::all(),
+        static fn (array $item): bool => $item['id'] === $damagedJob));
+    check(count($damagedRecords) === 1 && $damagedRecords[0]['status'] === 'failed' &&
+        ($damagedRecords[0]['progress'] ?? 0) === 100 &&
+        ($damagedRecords[0]['verification']['damaged_files'] ?? 0) === 1 &&
+        str_contains($damagedRecords[0]['message'], 'Repair required'),
+        'Finished PAR2 verification reports Failed and Repair required when any protected file is damaged');
+    \NZB\Modules\BackgroundJobs::forget($damagedJob, 'par2');
     file_put_contents($par2TestRoot . '/payload.dat', $contents);
 
     $queued = Par2Jobs::submit($work, 'valid.par2', 'verify');

@@ -99,7 +99,7 @@ catch (\Throwable $error)
 <section class="panel" data-background-monitor="archive_extract">
     <div class="panel-heading"><div><h2>Archive extraction jobs</h2>
         <p>ZIP, raw-split .zip.001, TAR, TGZ and SPK run in independent native PHP workers. Passwords are submitted only for that job. Finished jobs can be rerun or removed without deleting output files.</p></div>
-        <a class="button subtle" href="index.php?module=unpack">Refresh</a>
+        <a class="button subtle" href="index.php?module=unpack&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>">Refresh</a>
     </div>
     <div class="table-scroll"><table data-sortable>
         <thead><tr><th>Created (UTC)</th><th>Archive</th><th>State / progress</th><th>Details and output</th><th data-no-sort>Action</th></tr></thead><tbody>
@@ -112,7 +112,7 @@ catch (\Throwable $error)
                 <span data-job-percent><?= (int) ($job['progress'] ?? 0) ?>%</span></td>
             <td data-job-message><?= escape($job['message'] ?? '') ?></td>
             <td><?php if (in_array($job['status'] ?? '', ['queued', 'running'], true)): ?>
-                <form method="post" action="index.php?module=unpack" data-confirm="Request cancellation? Files published before cancellation are not removed.">
+                <form method="post" action="index.php?module=unpack&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Request cancellation? Files published before cancellation are not removed.">
                     <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                     <input type="hidden" name="action" value="archive_cancel">
                     <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
@@ -120,14 +120,14 @@ catch (\Throwable $error)
                 </form>
             <?php else: ?>
                 <div class="job-actions">
-                    <form method="post" action="index.php?module=unpack" data-confirm="Rerun this job using the original input? Previous results will be preserved.">
+                    <form method="post" action="index.php?module=unpack&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Rerun this job using the original input? Previous results will be preserved.">
                         <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                         <input type="hidden" name="action" value="archive_rerun">
                         <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
                         <input class="archive-job-password" type="password" name="password" autocomplete="new-password" maxlength="1024" placeholder="ZIP password (if needed)" aria-label="ZIP password for rerun">
                         <button type="submit" class="button secondary">Rerun</button>
                     </form>
-                    <form method="post" action="index.php?module=unpack" data-confirm="Remove this finished job from history? Extracted or repaired files will not be deleted.">
+                    <form method="post" action="index.php?module=unpack&amp;folder=<?= escape(rawurlencode($workspaceFolder)) ?>" data-confirm="Remove this finished job from history? Extracted or repaired files will not be deleted.">
                         <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                         <input type="hidden" name="action" value="archive_forget">
                         <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">

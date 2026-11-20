@@ -78,6 +78,16 @@ try
     Write-Output 'PASS CSRF rejects unsigned modification'
     if (!($page -match 'name="_csrf" value="([a-f0-9]+)"')) { throw 'Missing CSRF token' }
     $token = $Matches[1]
+    # A harmless invalid job ID exercises the actual POST/303 redirects without removing real jobs.
+    $repairRedirect = (& curl.exe -s -D - -o NUL -u $password -c $cookie -b $cookie -d "action=par2_forget" -d "_csrf=$token" -d "job_id=invalid" ($url + '?module=repair&folder=par2s')) -join "`n"
+    if ($repairRedirect -notmatch '(?im)^Location: index\.php\?module=repair&folder=par2s\s*$') {
+        throw 'PAR2 job action discarded the current workspace folder during redirect'
+    }
+    $archiveRedirect = (& curl.exe -s -D - -o NUL -u $password -c $cookie -b $cookie -d "action=archive_forget" -d "_csrf=$token" -d "job_id=invalid" ($url + '?module=unpack&folder=par2s')) -join "`n"
+    if ($archiveRedirect -notmatch '(?im)^Location: index\.php\?module=unpack&folder=par2s\s*$') {
+        throw 'Archive job action discarded the current workspace folder during redirect'
+    }
+    Write-Output 'PASS PAR2 and Archive job action redirects preserve nested workspace folders'
     & curl.exe -s -o NUL -u $password -c $cookie -b $cookie -F "action=upload" -F "_csrf=$token" -F "files[]=@$fixture;filename=sample.nzb" $url
     if ($LASTEXITCODE -ne 0) { throw 'Upload request failed' }
     $listing = (& curl.exe -s -u $password -c $cookie -b $cookie $url) -join "`n"

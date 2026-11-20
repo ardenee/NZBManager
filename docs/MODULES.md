@@ -79,6 +79,7 @@ https://parchive.github.io/doc/Parity%20Volume%20Set%20Specification%20v2.0.html
   A missing source is created with its original name and no `.damaged` backup.
   An existing `.damaged` backup causes repair to stop without overwriting it.
   Publication includes best-effort multi-file rollback on any failure.
+- **Verification outcomes:** Finishing a whole-set scan does not imply that the protected files passed. If any file is damaged or missing, the finished PAR2 Verify job receives status `failed`, its message says **FAILED - Repair required**, and detailed verified/missing/bad-slice counts remain available. The 100% progress bar means scanning completed, not data integrity passed. A successful verify displays **Verified — No repair needed**; a successful repair displays **Repaired**. Pre-existing jobs without whole-set results display **Old scan — Rerun to verify**, instead of claiming a clean check. PAR2/Archive job action forms, dynamically generated rerun/remove controls, and Refresh links preserve the currently browsed folder.
 - **BackgroundJobs.php:** Private, bounded JSON queue, separate PHP CLI
   worker, cancellation flag, percent+step callbacks and automatic polling
   from the browser. Finished jobs (completed, failed, cancelled) can be rerun

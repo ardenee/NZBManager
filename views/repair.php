@@ -88,7 +88,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
 <?php endif; ?>
 <section class="panel" data-background-monitor="par2">
     <div class="panel-heading"><div><h2>PAR2 background jobs</h2><p>Verify now validates the entire matching recovery set. Older job results retain their original summaries until rerun; removing a finished job clears history only.</p></div>
-        <a class="button subtle" href="index.php?module=repair">Refresh</a></div>
+        <a class="button subtle" href="index.php?module=repair&amp;folder=<?= escape(rawurlencode($par2Folder)) ?>">Refresh</a></div>
     <div class="table-scroll"><table data-sortable>
         <thead><tr><th>Created (UTC)</th><th>PAR2 set</th><th>Operation</th><th>Status / progress</th><th>Details</th><th data-no-sort>Action</th></tr></thead><tbody>
         <?php foreach ($par2Jobs as $job): ?>
@@ -96,8 +96,18 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
             <td><?= escape($job['created'] ?? '') ?></td>
             <td class="name"><?= escape($job['name'] ?? '') ?></td>
             <td><?= escape(($job['type'] ?? '') === 'par2_repair' ? 'Repair' : 'Verify') ?></td>
-            <?php $hasDamage = ($job['type'] ?? '') === 'par2_verify' && (int) ($job['verification']['damaged_files'] ?? 0) > 0; ?>
-            <td><strong data-job-state class="<?= $hasDamage ? 'par2-state-damaged' : '' ?>"><?= $hasDamage && ($job['status'] ?? '') === 'completed' ? 'Completed — damage detected' : escape($job['status'] ?? '') ?></strong>
+            <?php
+                $isVerify = ($job['type'] ?? '') === 'par2_verify';
+                $hasVerification = $isVerify && is_array($job['verification'] ?? null);
+                $hasDamage = $hasVerification && (int) ($job['verification']['damaged_files'] ?? 0) > 0;
+                $isFailed = $hasDamage || ($job['status'] ?? '') === 'failed';
+                $displayStatus = $hasDamage ? 'Failed — Repair required' :
+                    (($job['status'] ?? '') === 'completed' && $hasVerification ? 'Verified — No repair needed' :
+                    (($job['status'] ?? '') === 'completed' && $isVerify ? 'Old scan — Rerun to verify' :
+                    (($job['status'] ?? '') === 'completed' && ($job['type'] ?? '') === 'par2_repair' ? 'Repaired' :
+                    ($job['status'] ?? 'unknown'))));
+            ?>
+            <td><strong data-job-state class="<?= $isFailed ? 'par2-state-damaged' : '' ?>"><?= escape($displayStatus) ?></strong>
                 <progress data-job-progress max="100" value="<?= (int) ($job['progress'] ?? 0) ?>"></progress>
                 <span data-job-percent><?= (int) ($job['progress'] ?? 0) ?>%</span></td>
             <td data-job-message>
@@ -130,7 +140,7 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
                 <?php endif; ?>
             </td>
             <td><?php if (in_array($job['status'] ?? '', ['queued', 'running'], true)): ?>
-                <form method="post" action="index.php?module=repair" data-confirm="Request cancellation of this PHP PAR2 job?">
+                <form method="post" action="index.php?module=repair&amp;folder=<?= escape(rawurlencode($par2Folder)) ?>" data-confirm="Request cancellation of this PHP PAR2 job?">
                     <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                     <input type="hidden" name="action" value="par2_cancel">
                     <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
@@ -138,13 +148,13 @@ $par2Jobs = \NZB\Modules\BackgroundJobs::all('par2');
                 </form>
             <?php else: ?>
                 <div class="job-actions">
-                    <form method="post" action="index.php?module=repair" data-confirm="Rerun this job using the original input? Previous results will be preserved.">
+                    <form method="post" action="index.php?module=repair&amp;folder=<?= escape(rawurlencode($par2Folder)) ?>" data-confirm="Rerun this job using the original input? Previous results will be preserved.">
                         <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                         <input type="hidden" name="action" value="par2_rerun">
                         <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">
                         <button type="submit" class="button secondary">Rerun</button>
                     </form>
-                    <form method="post" action="index.php?module=repair" data-confirm="Remove this finished job from history? Extracted or repaired files will not be deleted.">
+                    <form method="post" action="index.php?module=repair&amp;folder=<?= escape(rawurlencode($par2Folder)) ?>" data-confirm="Remove this finished job from history? Extracted or repaired files will not be deleted.">
                         <input type="hidden" name="_csrf" value="<?= escape(\NZB\WebSecurity::csrf()) ?>">
                         <input type="hidden" name="action" value="par2_forget">
                         <input type="hidden" name="job_id" value="<?= escape($job['id']) ?>">

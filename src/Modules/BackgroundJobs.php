@@ -481,9 +481,15 @@ final class BackgroundJobs
                         ' recovery slice(s) checksum-validated';
                     if ($errors !== [])
                     {
-                        $record['message'] .= '; damaged or missing: ' . implode('; ', array_map(
-                            static fn (array $item): string => $item['name'] . ' (' . $item['status'] . ')',
-                            array_slice($errors, 0, 3)));
+                        $record['status'] = 'failed';
+                        $record['message'] = 'FAILED — Repair required: ' . $record['message'] .
+                            '; damaged or missing: ' . implode('; ', array_map(
+                                static fn (array $item): string => $item['name'] . ' (' . $item['status'] . ')',
+                                array_slice($errors, 0, 3)));
+                    }
+                    else
+                    {
+                        $record['message'] = 'VERIFIED — No repair required: ' . $record['message'];
                     }
                 }
                 elseif ($record['type'] === 'archive_extract')
@@ -496,7 +502,12 @@ final class BackgroundJobs
                 {
                     throw new RuntimeException('Unknown background operation type.');
                 }
-                $record['status'] = 'completed';
+                if ($record['status'] === 'running')
+                {
+                    $record['status'] = 'completed';
+                }
+                // A finished check may be 100% scanned but still fail the
+                // protected-file integrity test. Never label that completed.
                 $record['progress'] = 100;
             }
             catch (Throwable $error)

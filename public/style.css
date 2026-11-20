@@ -275,5 +275,13 @@ tr.integrity-suspect td { background: #fff8e9; }
 .archive-password { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; color: #526781; font-size: 12px; }
 .archive-password input, .archive-job-password { min-width: 175px; max-width: 240px; padding: 8px 10px; border: 1px solid #d9e1ec; border-radius: 7px; background: #fff; }
 .archive-job-password { width: 190px; }
-\n/* Per-file and per-volume details from completed native PAR2 verification. */\n.par2-verification-details { margin-top: .5rem; white-space: normal; max-width: 46rem; overflow-wrap: anywhere; }\n.par2-verification-details summary { cursor: pointer; font-weight: 600; }\n.par2-verification-details p { margin: .4rem 0; }\n.par2-verification-details ul { margin: .3rem 0 .65rem; padding-left: 1.4rem; }\n.par2-verification-details li { padding: .1rem 0; }\n
-.par2-state-damaged { color: #ac4d0c; }
+
+/* Per-file and per-volume details from completed native PAR2 verification. */
+.par2-verification-details { margin-top: .5rem; white-space: normal; max-width: 46rem; overflow-wrap: anywhere; }
+.par2-verification-details summary { cursor: pointer; font-weight: 600; }
+.par2-verification-details p { margin: .4rem 0; }
+.par2-verification-details ul { margin: .3rem 0 .65rem; padding-left: 1.4rem; }
+.par2-verification-details li { padding: .1rem 0; }
+
+.par2-state-damaged { color: #b02330; font-weight: 700; }
+tr:has(.par2-state-damaged) [data-job-progress] { accent-color: #b02330; }

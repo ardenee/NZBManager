@@ -337,10 +337,17 @@ document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
         if (bar) bar.value = progress;
         if (percent) percent.textContent = progress + "%";
         if (state) {
-          const damaged = category === "par2" && job.status === "completed" &&
-            Number(job.verification?.damaged_files || 0) > 0;
-          state.textContent = damaged ? "Completed — damage detected" : (job.status || "unknown");
-          state.classList.toggle("par2-state-damaged", damaged);
+          const isPar2 = category === "par2";
+          const hasVerification = isPar2 && job.type === "par2_verify" &&
+            job.verification && typeof job.verification === "object";
+          const damaged = hasVerification && Number(job.verification.damaged_files || 0) > 0;
+          const displayState = damaged ? "Failed — Repair required" :
+            (hasVerification && job.status === "completed" ? "Verified — No repair needed" :
+            (isPar2 && job.type === "par2_verify" && job.status === "completed" ? "Old scan — Rerun to verify" :
+            (isPar2 && job.type === "par2_repair" && job.status === "completed" ? "Repaired" :
+            (job.status || "unknown"))));
+          state.textContent = displayState;
+          state.classList.toggle("par2-state-damaged", Boolean(damaged || (isPar2 && job.status === "failed")));
         }
         if (message) {
           let summary = message.querySelector("[data-job-summary]");
@@ -367,7 +374,9 @@ document.querySelectorAll("[data-background-monitor]").forEach((monitor) => {
               const actionForm = (suffix, title, confirmText, className) => {
                 const form = document.createElement("form");
                 form.method = "post";
-                form.action = "index.php?module=" + endpoint;
+                const folder = new URLSearchParams(window.location.search).get("folder") || "";
+                form.action = "index.php?module=" + endpoint +
+                  (folder ? "&folder=" + encodeURIComponent(folder) : "");
                 form.dataset.confirm = confirmText;
                 for (const [name, value] of Object.entries({ _csrf: token, action: prefix + "_" + suffix, job_id: job.id })) {
                   const input = document.createElement("input");
