@@ -48,7 +48,7 @@ REQUIRED_APP_FILES = {
     "webapp/src/Modules/Par2Recovery.php",
     "webapp/src/Modules/Par2DiskMatrix.php",
 }
-VERSION_PATTERN = re.compile(r'^version="([0-9]+\.[0-9]+\.[0-9]+-[0-9]{4})"$',
+VERSION_PATTERN = re.compile(r'^version="([0-9]+\.[0-9]+\.[0-9]+)"$',
                              re.MULTILINE)
 
 
@@ -80,7 +80,7 @@ def icon_valid(data: bytes, size: int) -> bool:
 def metadata_version(info: str) -> str:
     match = VERSION_PATTERN.search(info)
     if match is None:
-        raise RuntimeError("INFO must contain a DSM package version such as 0.4.4-0001.")
+        raise RuntimeError("INFO must contain a DSM package version such as 0.4.4.")
     return match.group(1)
 
 
@@ -90,7 +90,7 @@ def info_for_version(version: str | None = None) -> str:
     if version is None:
         return info
     if VERSION_PATTERN.fullmatch(f'version="{version}"') is None:
-        raise RuntimeError("Invalid DSM version. Use a value such as 0.4.4-0001.")
+        raise RuntimeError("Invalid DSM version. Use a value such as 0.4.4.")
     return info.replace(f'version="{default}"', f'version="{version}"', 1)
 
 
@@ -312,7 +312,7 @@ def build(version: str | None, output_dir: Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", help="DSM package version (e.g. 0.4.4-0001); default INFO version")
+    parser.add_argument("--version", help="DSM package version (e.g. 0.4.4); default INFO version")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUT,
                         help="Where to write the .spk (default repository dist/)")
     parser.add_argument("--verify", metavar="SPK", type=Path,
