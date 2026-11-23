@@ -171,6 +171,16 @@ def application_files() -> dict[str, bytes]:
     return files
 
 
+def license_bytes() -> bytes:
+    source = ROOT / "LICENSE"
+    if not source.is_file() or source.is_symlink():
+        raise RuntimeError("The generic application MIT LICENSE file is missing or redirected.")
+    data = source.read_bytes()
+    if not data.startswith(b"MIT License\n") or b"THE SOFTWARE IS PROVIDED" not in data:
+        raise RuntimeError("The source LICENSE is not a complete MIT licence.")
+    return data
+
+
 def payload_assets() -> dict[str, bytes]:
     assets = {}
     for filename in ORIGINAL_ICONS:
@@ -185,6 +195,9 @@ def payload_assets() -> dict[str, bytes]:
             raise RuntimeError(f"Invalid DSM PNG icon dimensions: {filename}")
     assets["ui/nzb_64.png"] = (PACK / "PACKAGE_ICON.PNG").read_bytes()
     assets["ui/nzb_256.png"] = (PACK / "PACKAGE_ICON_256.PNG").read_bytes()
+    # Keep the MIT terms available in the installed package root as well as
+    # in the outer SPK itself. Both are sourced from the generic application.
+    assets["webapp/LICENSE"] = license_bytes()
     return assets
 
 
@@ -201,6 +214,7 @@ def inner_tar_bytes(app: dict[str, bytes], assets: dict[str, bytes]) -> bytes:
             for name in sorted(n for n in assets if n.startswith("ui/")):
                 add_bytes(inner, name, assets[name])
             add_dir(inner, "webapp")
+            add_bytes(inner, "webapp/LICENSE", assets["webapp/LICENSE"])
             for folder in APP_FOLDERS:
                 add_dir(inner, "webapp/" + folder)
                 base = ROOT / folder
@@ -217,6 +231,7 @@ def outer_files(info: str, payload: bytes) -> dict[str, tuple[bytes, int]]:
     files: dict[str, tuple[bytes, int]] = {
         "INFO": (info.encode("utf-8"), 0o644),
         "package.tgz": (payload, 0o644),
+        "LICENSE": (license_bytes(), 0o644),
     }
     for script in SCRIPTS:
         contents = (PACK / "scripts" / script).read_bytes().replace(b"\r\n", b"\n")
@@ -290,7 +305,7 @@ def build(version: str | None, output_dir: Path) -> Path:
     try:
         with tarfile.open(temporary, mode="w", format=tarfile.USTAR_FORMAT) as archive:
             # Follow Synology's usual SPK layout: INFO and package.tgz first.
-            for name in ("INFO", "package.tgz"):
+            for name in ("INFO", "package.tgz", "LICENSE"):
                 data, mode = outer[name]
                 add_bytes(archive, name, data, mode)
             add_dir(archive, "scripts")

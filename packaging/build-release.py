@@ -16,7 +16,7 @@ from dsm7 import build as dsm
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DIR = ROOT / "dist"
-WEB_EXTRA = ("README.md", "deploy/nginx.conf.example")
+WEB_EXTRA = ("README.md", "LICENSE", "deploy/nginx.conf.example")
 
 
 def build_web_zip(version: str, output_dir: Path) -> Path:

@@ -93,7 +93,7 @@ python packaging/dsm7/build.py
 The resulting SPK is written to `dist/`. When preparing a later upgrade, supply a new DSM package version (example):
 
 ```sh
-python packaging/dsm7/build.py --version 1.2.3-0001
+python packaging/dsm7/build.py --version 0.4.5
 ```
 
 To generate **both** the generic web ZIP and DSM package from the current
@@ -105,3 +105,8 @@ python packaging/build-release.py
 
 Generated packages do not install themselves; deploy the ZIP to your web
 server or install the SPK through DSM Package Center.
+
+## Licence
+
+NZB Manager is released under the [MIT License](LICENSE). The full licence is
+included in the web ZIP and DSM SPK, including the installed DSM application.
